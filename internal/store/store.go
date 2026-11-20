@@ -28,6 +28,7 @@ type Point struct{ Revision, Epoch int64 }
 type Record struct {
 	ID, Rev  int64
 	Evidence collect.Evidence
+	Facts    []FactProjection
 }
 
 // Store serializes writes. Senders use WithEpoch when handing a frame to a client.
@@ -155,7 +156,7 @@ func (s *Store) initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, extensions); err != nil {
+	if _, err = tx.ExecContext(ctx, extensions+factFieldsDDL); err != nil {
 		return err
 	}
 	var bad int
