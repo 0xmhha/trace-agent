@@ -1,0 +1,50 @@
+query attempts($scope: FixedScope!, $task: TaskKey, $module: EntityKey, $page: PageInput) {
+  attempts(scope: $scope, task: $task, module: $module, page: $page) { ...AttemptPageReadFields }
+}
+
+fragment AttemptPageReadFields on AttemptPageRead {
+  stamp { ...StampFields }
+  data { ...AttemptPageFields }
+}
+
+fragment AttemptPageFields on AttemptPage {
+  items { ...AttemptRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment AttemptRowFields on AttemptRow {
+  id
+  taskId
+  agentId
+  moduleId
+  outcome
+  phase
+  result
+  started
+  ended
+  previousAttemptId
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

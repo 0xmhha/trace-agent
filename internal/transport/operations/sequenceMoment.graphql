@@ -1,0 +1,65 @@
+query sequenceMoment($scope: FixedScope!, $key: TaskKey!, $eventId: ID!, $laneIds: [ID!]!) {
+  sequenceMoment(scope: $scope, key: $key, eventId: $eventId, laneIds: $laneIds) { ...SequenceMomentReadFields }
+}
+
+fragment SequenceMomentReadFields on SequenceMomentRead {
+  stamp { ...StampFields }
+  data { ...SequenceMomentFields }
+}
+
+fragment SequenceMomentFields on SequenceMoment {
+  taskId
+  eventId
+  lanes { ...SequenceLaneAtFields }
+  metrics { ...SequenceMetricsFields }
+}
+
+fragment SequenceLaneAtFields on SequenceLaneAt {
+  laneId
+  status { ...SequenceAgentStatusFields }
+}
+
+fragment SequenceAgentStatusFields on SequenceAgentStatus {
+  state
+  activity
+  outcome
+  at
+  grade
+  reason
+  attemptId
+  assignmentId
+  evidenceIds
+}
+
+fragment SequenceMetricsFields on SequenceMetrics {
+  childAgents { ...MeasurementFields }
+  runningChildAgents { ...MeasurementFields }
+  waitingAttempts { ...MeasurementFields }
+  lastEventId
+  lastEventAt
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

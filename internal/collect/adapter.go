@@ -15,7 +15,7 @@ import (
 
 const (
 	// Version identifies this metadata projection.
-	Version   = "2.0.0"
+	Version   = "2.1.0"
 	maxRecord = 4 << 20
 )
 
@@ -37,6 +37,7 @@ var (
 
 // Adapter belongs to exactly one configured source. It is safe for concurrent use.
 type Adapter struct {
+	parentSource, observerServer   string
 	bodyEnabled                    bool
 	kind                           Kind
 	source, profile, clientVersion string
@@ -82,6 +83,7 @@ type Position struct {
 
 // Evidence is safe to pass to the single writer. Metadata contains only projected fields.
 type Evidence struct {
+	legacyTag                                                               string
 	slots                                                                   []BodySlot
 	PreviousGeneration                                                      string `json:",omitempty"`
 	projectedHash                                                           [sha256.Size]byte
@@ -145,6 +147,8 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 		occurred = &ms
 	}
 	e := a.evidence(pos, m, occurred)
+	a.annotateModules(&e, r)
+	a.annotateLineage(&e, r)
 	if a.bodyEnabled && occurred != nil {
 		e.slots = bodyFields(a.kind, r)
 	}
@@ -152,6 +156,8 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 	switch a.kind {
 	case Transcript:
 		version = str(r, "version")
+	case Telemetry:
+		version = str(r, "service.version")
 	case Rollout:
 		if str(r, "type") == "session_meta" {
 			version = str(obj(r["payload"]), "cli_version")
@@ -232,3 +238,7 @@ func (a *Adapter) Kind() Kind { return a.kind }
 
 // Profile returns the opaque client-profile identity shared by this adapter's records.
 func (a *Adapter) Profile() string { return a.profile }
+
+// PreviousSemanticTag identifies the same record projected by an earlier adapter
+// that did not retain the response's child reference.
+func (e Evidence) PreviousSemanticTag() string { return e.legacyTag }

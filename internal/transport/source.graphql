@@ -1,0 +1,2 @@
+# Optional desktop field: the most recent source health transition at this fixed point.
+extend type SourceRow { asOfCheckedAt: Instant }

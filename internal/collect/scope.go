@@ -30,3 +30,20 @@ func entityKey(parts ...string) string {
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
+
+// HumanPrompt reports an external user's prompt boundary from safe transcript
+// metadata. Claude Code 2.1.329 omits isMeta on ordinary, non-sidechain input.
+func HumanPrompt(e Evidence) bool {
+	m := e.Metadata
+	if e.Kind != Transcript || str(m, "type") != "user" || str(m, "userType") != "external" || str(m, "promptId") == "" || str(m, "agentId") != "" || m["isSidechain"] == true {
+		return false
+	}
+	msg := obj(m["message"])
+	if _, ok := msg["content"].(string); !ok || str(msg, "role") != "user" {
+		return false
+	}
+	if flag, exists := m["isMeta"]; exists {
+		return flag == false
+	}
+	return e.ClientVersion == "2.1.329" && m["isSidechain"] == false
+}

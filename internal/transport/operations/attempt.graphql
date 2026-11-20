@@ -1,0 +1,110 @@
+query attempt($scope: FixedScope!, $key: EntityKey!, $page: PageInput) {
+  attempt(scope: $scope, key: $key, page: $page) { ...AttemptDetailReadFields }
+}
+
+fragment AttemptDetailReadFields on AttemptDetailRead {
+  stamp { ...StampFields }
+  data { ...AttemptDetailFields }
+}
+
+fragment AttemptDetailFields on AttemptDetail {
+  attempt { ...AttemptRowFields }
+  edges { ...EdgeFields }
+  request { ...TextFieldFields }
+  response { ...TextFieldFields }
+  conversation { ...TextFieldFields }
+  linkedNextAttemptIds
+  durations { ...DurationSampleFields }
+  evidence { ...EvidencePageFields }
+}
+
+fragment AttemptRowFields on AttemptRow {
+  id
+  taskId
+  agentId
+  moduleId
+  outcome
+  phase
+  result
+  started
+  ended
+  previousAttemptId
+}
+
+fragment DurationSampleFields on DurationSample {
+  basis
+  ms
+  evidenceIds
+}
+
+fragment EdgeFields on Edge {
+  actor
+  action
+  direction
+  grade
+  at
+  observer
+  reason
+  evidenceIds
+}
+
+fragment EvidencePageFields on EvidencePage {
+  items { ...EvidenceFields }
+  page { ...PageInfoFields }
+}
+
+fragment EvidenceFields on Evidence {
+  id
+  sourceId
+  observer
+  occurred
+  observed
+  recordKind
+  grade
+  reason
+  link
+  adapterVersion
+  actorIdentityId
+  streamScopeId
+  familyScopeId
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

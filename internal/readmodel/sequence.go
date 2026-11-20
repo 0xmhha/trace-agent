@@ -20,15 +20,17 @@ type sequenceState struct {
 	states    map[string]laneState
 	waits     map[string]waiting
 	last      map[string]FactEvent
+	missions  map[string]FactEvent
 	lastEvent FactEvent
 }
 
 func initialSequence() *sequenceState {
-	return &sequenceState{child: map[string]bool{}, states: map[string]laneState{}, waits: map[string]waiting{}, last: map[string]FactEvent{}}
+	return &sequenceState{missions: map[string]FactEvent{}, child: map[string]bool{}, states: map[string]laneState{}, waits: map[string]waiting{}, last: map[string]FactEvent{}}
 }
 func (s *sequenceState) apply(e FactEvent) {
 	if e.Kind == "assignment" {
 		s.child[e.Target] = true
+		s.missions[e.Target] = e
 	}
 	lane := e.Actor
 	if e.Kind == "assignment" {
@@ -49,7 +51,7 @@ func (s *sequenceState) apply(e FactEvent) {
 			}
 		}
 	}
-	if e.Kind == "result" {
+	if e.Kind == "result" || e.Kind == "observer_result" {
 		delete(s.waits, e.Attempt)
 	}
 	if (e.Kind == "wait" || e.Kind == "call") && e.Phase == "RUNNING" && e.ValidUntil != nil && e.Attempt != "" {
@@ -106,7 +108,7 @@ func (s *sequenceState) metrics(m *Model, at int64) row {
 }
 func sequenceRow(e FactEvent) row {
 	from, to := e.Actor, e.Target
-	if e.Kind == "result" {
+	if e.Kind == "result" || e.Kind == "observer_result" {
 		from = e.Module
 		to = e.Actor
 	}
@@ -118,7 +120,7 @@ func sequenceRow(e FactEvent) row {
 		v["stateAfter"] = row{"state": e.State, "activity": conditional(e.State == "ENDED", "ENDED", "ACTIVE"), "grade": e.Grade, "at": msTime(e.Occurred), "evidenceIds": e.Evidence}
 	}
 	if e.Attempt != "" {
-		v["attemptAfter"] = row{"attemptId": e.Attempt, "moduleId": maybe(e.Module), "phase": firstNon(e.Phase, conditional(e.Kind == "result", "ENDED", "START_OBSERVED")), "result": firstNon(e.Result, "UNKNOWN"), "outcome": firstNon(e.Result, "UNKNOWN")}
+		v["attemptAfter"] = row{"attemptId": e.Attempt, "moduleId": maybe(e.Module), "phase": firstNon(e.Phase, conditional(e.Kind == "result" || e.Kind == "observer_result", "ENDED", "START_OBSERVED")), "result": firstNon(e.Result, "UNKNOWN"), "outcome": firstNon(e.Result, "UNKNOWN")}
 	}
 	return v
 }
@@ -198,7 +200,11 @@ func (m *Model) sequence(op string, t *task, args row) (any, error) {
 		if agents[lane] {
 			status = s.status(lane, at)
 		}
-		return row{"laneId": lane, "eventId": e.ID, "status": status, "mission": field("mission"), "latestEvent": latest, "waits": page(waits, obj(args["waitsPage"]))}, nil
+		v := row{"laneId": lane, "eventId": e.ID, "status": status, "mission": field("mission"), "latestEvent": latest, "waits": page(waits, obj(args["waitsPage"]))}
+		if mission, ok := s.missions[lane]; ok {
+			m.addMission(v, mission)
+		}
+		return v, nil
 	}
 	p := obj(args["page"])
 	start, end := bounds(p, len(timeline))

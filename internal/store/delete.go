@@ -49,12 +49,12 @@ func (f Filter) selector() string {
 }
 func isBlocked(ctx context.Context, tx *sql.Tx, e collect.Evidence, session, task string) (bool, error) {
 	var blocked bool
-	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM erased_record WHERE source_id=? AND record_key=? AND semantic_tag=?) OR EXISTS(
- SELECT 1 FROM expired_undated WHERE source_id=? AND semantic_tag=? AND ? IS NULL) OR EXISTS(SELECT 1 FROM suppression WHERE source_id=? AND scope='all'
+	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM erased_record WHERE source_id=? AND record_key=? AND semantic_tag IN (?,?)) OR EXISTS(
+ SELECT 1 FROM expired_undated WHERE source_id=? AND semantic_tag IN (?,?) AND ? IS NULL) OR EXISTS(SELECT 1 FROM suppression WHERE source_id=? AND scope='all'
  AND (? IS NULL OR (? >= from_ms AND ? < until_ms)) AND (selector_key='*' OR (selector_key='@retention' AND ? IS NOT NULL)
  OR (selector_key LIKE 'session/%' AND (?='' OR selector_key='session/'||?))
  OR (selector_key LIKE 'task/%' AND (?='' OR selector_key='task/'||?))))`,
-		e.Source, e.RecordKey, e.SemanticTag, e.Source, e.SemanticTag, e.OccurredMS, e.Source, e.OccurredMS, e.OccurredMS, e.OccurredMS, e.OccurredMS, session, session, task, task).Scan(&blocked)
+		e.Source, e.RecordKey, e.SemanticTag, e.PreviousSemanticTag(), e.Source, e.SemanticTag, e.PreviousSemanticTag(), e.OccurredMS, e.Source, e.OccurredMS, e.OccurredMS, e.OccurredMS, e.OccurredMS, session, session, task, task).Scan(&blocked)
 	return blocked, err
 }
 

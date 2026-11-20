@@ -24,7 +24,7 @@ func (d *decoder) event(r store.Record, dir direction, kind string, n int) FactE
 	return FactEvent{ID: key(e.Source, e.Stream, e.Generation, e.RecordKey, e.VersionKey, strconv.Itoa(n), kind), Task: collect.TaskKey(e.Profile, dir.session, dir.turn), Session: root, Root: root, Actor: firstNon(dir.actor, root), Source: e.Source, Client: client(e.Kind), Kind: kind, Grade: "DIRECT", Side: "LOCAL", Occurred: e.OccurredMS, Observed: e.ObservedMS, Evidence: []string{recID(r)}, Stream: streamID(e), Clock: e.Source, Position: e.Position, Ordered: e.Kind == collect.Rollout || e.Kind == collect.Transcript}
 }
 func (d *decoder) emit(e FactEvent) { d.events = append(d.events, e) }
-func (d *decoder) tool(r store.Record, dir direction, index int, id, name, kind string) FactEvent {
+func (d *decoder) tool(r store.Record, dir direction, index int, id, name, server, kind string) FactEvent {
 	e := d.event(r, dir, kind, index)
 	d.m.bodyRefs[e.ID] = bodyRef{recID(r), index}
 	if id != "" {
@@ -32,6 +32,10 @@ func (d *decoder) tool(r store.Record, dir direction, index int, id, name, kind 
 	}
 	e.Tool = name
 	e.ModuleKind, e.Server = clientKind(name)
+	if server != "" {
+		e.ModuleKind = "MCP_TOOL"
+		e.Server = server
+	}
 	if e.Server != "" {
 		e.Server = key(e.Task, "server", e.Server)
 	}
@@ -85,6 +89,7 @@ func (m *Model) decode(records []store.Record) {
 	}
 	d.claude(cl)
 	d.resolveCalls()
+	d.observedEdges(records)
 	// A response alone is unlinked. Key equality cannot create a request.
 	for k, a := range m.models {
 		if len(a.request) == 0 {
@@ -130,7 +135,9 @@ func (d *decoder) resolveCalls() {
 		if e.Kind != "call" || e.Attempt == "" || len(e.Evidence) == 0 {
 			continue
 		}
-		descriptions[e.Attempt] = e
+		if old, ok := descriptions[e.Attempt]; !ok || old.Action == "" || e.Action != "" {
+			descriptions[e.Attempt] = e
+		}
 		r := d.m.records[e.Evidence[0]]
 		if r.Evidence.Kind == collect.AppServer {
 			continue
@@ -145,6 +152,9 @@ func (d *decoder) resolveCalls() {
 	}
 	accepted := make([]FactEvent, 0, len(d.events))
 	for _, e := range d.events {
+		if e.Kind == "call" && e.Action == "" && descriptions[e.Attempt].Action != "" {
+			continue
+		}
 		if conflict[e.Attempt] {
 			for _, id := range e.Evidence {
 				d.m.unlinked[id] = true
@@ -186,6 +196,30 @@ func (d *decoder) resolveCalls() {
 				}
 			}
 		}
+		if e.Kind == "result" && len(e.Evidence) > 0 {
+			call := descriptions[e.Attempt]
+			if len(call.Evidence) > 0 {
+				req := d.m.records[call.Evidence[0]].Evidence
+				res := d.m.records[e.Evidence[0]].Evidence
+				kid := collect.SessionKey(res.Profile, text(obj(res.Metadata["payload"]), "reportedChildId"))
+				child := d.m.identities[kid]
+				if req.Kind == collect.Rollout && text(obj(req.Metadata["payload"]), "coordination") == "spawn" && child != nil && !child.conflict && child.parent == e.Actor {
+					v := e
+					v.Kind = "assignment"
+					v.ID = key(e.ID, "spawn")
+					v.Action = "SPAWN"
+					v.Target = kid
+					v.Created = true
+					v.Attempt = ""
+					v.Module = ""
+					v.Evidence = append(slicesCopy(e.Evidence), call.Evidence...)
+					v.Evidence = append(v.Evidence, child.supports...)
+					d.m.bodyRefs[v.ID] = d.m.bodyRefs[call.ID]
+					accepted = append(accepted, v)
+					e.Result = "SUCCESS"
+				}
+			}
+		}
 		accepted = append(accepted, e)
 	}
 	d.events = accepted
@@ -203,6 +237,10 @@ func (d *decoder) rollout(r store.Record) {
 		id := collect.SessionKey(e.Profile, dir.session)
 		parent := collect.SessionKey(e.Profile, text(p, "parent_thread_id"))
 		d.m.addIdentity(id, parent, client(e.Kind), []string{recID(r)})
+		if i := d.m.identities[id]; i != nil && p["parent_conflict"] == true {
+			i.conflict = true
+			i.parent = ""
+		}
 	case "event_msg":
 		if text(p, "turn_id") != "" {
 			dir.turn = text(p, "turn_id")
@@ -244,7 +282,7 @@ func (d *decoder) rollout(r store.Record) {
 			kind = "result"
 		}
 		family := strings.TrimSuffix(typ, "_output")
-		v := d.tool(r, dir, 0, family+"/"+id, text(p, "name"), kind)
+		v := d.tool(r, dir, 0, family+"/"+id, text(p, "name"), text(p, "mcpServerKey"), kind)
 		v.Grade = "INFERRED"
 		d.emit(v)
 	}
@@ -269,6 +307,12 @@ func (d *decoder) app(r store.Record) {
 	status := text(m, "status")
 	switch typ {
 	case "thread":
+		if project := text(m, "projectId"); project != "" {
+			id := collect.SessionKey(e.Profile, text(m, "id"))
+			// Configuration is revisioned. Only the most recent visible binding
+			// supplies the label-independent project ID.
+			d.m.projects[id] = projectBinding{key(e.Source, project), []string{recID(r)}}
+		}
 		d.m.addIdentity(collect.SessionKey(e.Profile, text(m, "id")), collect.SessionKey(e.Profile, text(m, "parentThreadId")), client(e.Kind), []string{recID(r)})
 	case "turn":
 		v := d.event(r, dir, "task", 0)
@@ -285,11 +329,23 @@ func (d *decoder) app(r store.Record) {
 		if phase == "completed" {
 			kind = "result"
 		}
-		v := d.tool(r, dir, 0, text(m, "id"), name, kind)
+		if sender := text(m, "senderThreadId"); typ == "collabAgentToolCall" && sender != "" {
+			dir.actor = collect.SessionKey(e.Profile, sender)
+		}
+		v := d.tool(r, dir, 0, text(m, "id"), name, "", kind)
 		if typ == "mcpToolCall" {
 			v.ModuleKind = "MCP_TOOL"
-			v.Server = key(v.Task, "server", text(m, "server"))
-			v.Module = key(v.Task, v.ModuleKind, v.Server, name)
+			if server := text(m, "server"); server != "" {
+				v.Server = key(v.Task, "server", server)
+			}
+			if v.Server != "" {
+				v.Module = key(v.Task, v.ModuleKind, v.Server, name)
+			} else {
+				v.Module = key(v.Task, v.Attempt, "unresolved_server", name)
+			}
+			if kind == "call" {
+				v.Target = v.Module
+			}
 		}
 		if kind == "result" {
 			switch status {
@@ -326,11 +382,11 @@ func (d *decoder) app(r store.Record) {
 		if typ == "collabAgentToolCall" {
 			for i, id := range stringsOf(m["receiverThreadIds"]) {
 				child := collect.SessionKey(e.Profile, id)
-				if name == "spawnAgent" && phase == "completed" && status == "completed" {
+				if (name == "spawnAgent" || name == "sendInput") && phase == "completed" && status == "completed" {
 					a := d.event(r, dir, "assignment", i+1)
 					a.Target = child
-					a.Created = true
-					a.Action = "SPAWN"
+					a.Created = name == "spawnAgent"
+					a.Action = conditional(a.Created, "SPAWN", "ASSIGN")
 					d.emit(a)
 				}
 			}
@@ -356,6 +412,11 @@ func (d *decoder) app(r store.Record) {
 func (d *decoder) otel(r store.Record) {
 	e := r.Evidence
 	m := e.Metadata
+	name := text(m, "event.name")
+	if name != "api_request_body" && name != "api_response_body" {
+		d.m.unlinked[recID(r)] = true
+		return
+	}
 	id := text(m, "request_body_id")
 	if id == "" {
 		d.m.unlinked[recID(r)] = true
@@ -389,7 +450,12 @@ func (d *decoder) claude(records []store.Record) {
 		m := r.Evidence.Metadata
 		nodes[nodeKey(r, text(m, "uuid"))] = r
 		if child := text(m, "agentId"); child != "" {
-			children[key(r.Evidence.Source, text(m, "sessionId"), child)] = r
+			family := key(r.Evidence.Source, text(m, "sessionId"), child)
+			if _, ok := children[family]; !ok {
+				children[family] = r
+			}
+			session := collect.SessionKey(r.Evidence.Profile, text(m, "sessionId"))
+			d.m.addIdentity(key(session, "agent", child), "", client(r.Evidence.Kind), []string{recID(r)})
 		}
 	}
 	// Resolve parent chains once, including results delivered before their calls.
@@ -409,8 +475,7 @@ func (d *decoder) claude(records []store.Record) {
 			}
 			visited[k] = true
 			path = append(path, k)
-			_, plain := obj(m["message"])["content"].(string)
-			if text(m, "type") == "user" && text(m, "userType") == "external" && m["isMeta"] == false && m["isSidechain"] != true && text(m, "promptId") != "" && plain {
+			if collect.HumanPrompt(r.Evidence) {
 				dir = direction{session: text(m, "sessionId"), turn: text(m, "promptId")}
 				break
 			}
@@ -429,6 +494,7 @@ func (d *decoder) claude(records []store.Record) {
 		}
 		return dir
 	}
+	childDirection := claudeChildren(records, resolve)
 	type deleg struct {
 		event      FactEvent
 		family, id string
@@ -438,9 +504,12 @@ func (d *decoder) claude(records []store.Record) {
 	for _, r := range records {
 		m := r.Evidence.Metadata
 		dir := resolve(r)
+		if text(m, "agentId") != "" {
+			dir = childDirection(r)
+		}
 		msg := obj(m["message"])
 		blocks := arr(msg["content"])
-		if _, plain := msg["content"].(string); plain && dir.turn != "" && dir.turn == text(m, "promptId") {
+		if collect.HumanPrompt(r.Evidence) && dir.turn != "" {
 			v := d.event(r, dir, "task", 0)
 			v.Action = "SEND"
 			v.State = "UNKNOWN"
@@ -466,7 +535,7 @@ func (d *decoder) claude(records []store.Record) {
 				d.m.unlinked[recID(r)] = true
 				continue
 			}
-			v := d.tool(r, dir, i, id, text(b, "name"), kind)
+			v := d.tool(r, dir, i, id, text(b, "name"), text(b, "mcpServerKey"), kind)
 			if er, ok := b["is_error"].(bool); ok {
 				v.Result = "SUCCESS"
 				if er {
@@ -516,4 +585,84 @@ func jsonNumber(v any) int {
 		return int(i)
 	}
 	return 0
+}
+
+// A child's own records may have a separate UUID chain. Only an unambiguous
+// parent Agent call, result and explicit child identifier bridge the two files.
+func claudeChildren(records []store.Record, root func(store.Record) direction) func(store.Record) direction {
+	family := func(r store.Record, child string) string {
+		return key(r.Evidence.Source, text(r.Evidence.Metadata, "sessionId"), child)
+	}
+	callKey := func(r store.Record, id string) string {
+		return key(streamID(r.Evidence), text(r.Evidence.Metadata, "sessionId"), id)
+	}
+	agentCalls := map[string]store.Record{}
+	callCount := map[string]int{}
+	for _, r := range records {
+		for _, b := range arr(obj(r.Evidence.Metadata["message"])["content"]) {
+			block := obj(b)
+			id := text(block, "id")
+			if text(block, "type") == "tool_use" && id != "" {
+				k := callKey(r, id)
+				callCount[k]++
+				if text(block, "name") == "Agent" {
+					agentCalls[k] = r
+				}
+			}
+		}
+	}
+	parents := map[string][]store.Record{}
+	for _, r := range records {
+		m := r.Evidence.Metadata
+		child := text(obj(m["toolUseResult"]), "agentId")
+		if child == "" {
+			continue
+		}
+		var ids []string
+		for _, b := range arr(obj(m["message"])["content"]) {
+			if text(obj(b), "type") == "tool_result" {
+				ids = append(ids, text(obj(b), "tool_use_id"))
+			}
+		}
+		if len(ids) != 1 || ids[0] == "" {
+			continue
+		}
+		k := callKey(r, ids[0])
+		call, ok := agentCalls[k]
+		if !ok || callCount[k] != 1 {
+			continue
+		}
+		parents[family(r, child)] = append(parents[family(r, child)], call)
+	}
+	cache := map[string]direction{}
+	active := map[string]bool{}
+	var resolve func(store.Record) direction
+	resolve = func(r store.Record) direction {
+		m := r.Evidence.Metadata
+		child := text(m, "agentId")
+		if child == "" {
+			return root(r)
+		}
+		k := family(r, child)
+		if dir, ok := cache[k]; ok {
+			return dir
+		}
+		if active[k] || len(active) > 512 {
+			return direction{}
+		}
+		active[k] = true
+		var resolved direction
+		for _, parent := range parents[k] {
+			dir := resolve(parent)
+			if dir.turn == "" || resolved.turn != "" && (resolved.session != dir.session || resolved.turn != dir.turn) {
+				resolved = direction{}
+				break
+			}
+			resolved = direction{session: dir.session, turn: dir.turn, actor: key(collect.SessionKey(r.Evidence.Profile, dir.session), "agent", child)}
+		}
+		delete(active, k)
+		cache[k] = resolved
+		return resolved
+	}
+	return resolve
 }

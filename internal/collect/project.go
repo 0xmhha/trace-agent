@@ -1,6 +1,10 @@
 package collect
 
-import "encoding/json"
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"strings"
+)
 
 func (a *Adapter) rollout(r object) object {
 	p := obj(r["payload"])
@@ -97,16 +101,6 @@ func (a *Adapter) transcript(r object) object {
 	return m
 }
 
-func (a *Adapter) telemetry(r object) object {
-	name := choice(r, "event.name", "api_request_body", "api_response_body")
-	if name == "" {
-		return nil
-	}
-	m := object{"event.name": name}
-	a.ids(m, r, "request_body_id", "message.uuid", "request_id", "message.id", "model")
-	return m
-}
-
 func (a *Adapter) plan(r object) object {
 	if str(r, "method") != "turn/plan/updated" {
 		return nil
@@ -153,4 +147,93 @@ func (a *Adapter) waitReport(raw string) string {
 	}
 	out, _ := json.Marshal(safe)
 	return string(out)
+}
+
+// Preserve the grouping of unlisted MCP tools without exposing server or tool
+// names. This annotation is determined by the name already covered by the
+// semantic tag, so replay stays compatible with existing immutable records.
+func (a *Adapter) annotateModules(e *Evidence, r object) {
+	changed := false
+	add := func(dst, src object) {
+		name := str(src, "name")
+		if dst == nil {
+			return
+		}
+		parts := strings.SplitN(name, "__", 3)
+		if len(parts) == 3 && parts[0] == "mcp" && parts[1] != "" && parts[2] != "" {
+			dst["mcpServerKey"] = a.id(parts[1])
+			changed = true
+		}
+	}
+	switch e.Kind {
+	case Rollout:
+		p := obj(r["payload"])
+		switch str(p, "type") {
+		case "function_call", "custom_tool_call":
+			add(obj(e.Metadata["payload"]), p)
+		}
+	case Transcript:
+		raw, _ := obj(r["message"])["content"].([]any)
+		safe, _ := obj(e.Metadata["message"])["content"].([]object)
+		if len(raw) == len(safe) {
+			for i, b := range safe {
+				if str(b, "type") == "tool_use" {
+					add(b, obj(raw[i]))
+				}
+			}
+		}
+	}
+	if changed {
+		encoded, _ := json.Marshal(e.Metadata)
+		e.projectedHash = sha256.Sum256(encoded)
+	}
+}
+
+func (a *Adapter) annotateLineage(e *Evidence, r object) {
+	if e.Kind == Transcript && str(r, "type") == "attachment" {
+		lineage := object{"type": "attachment"}
+		a.ids(lineage, r, "sessionId", "uuid", "parentUuid")
+		if len(lineage) != 4 {
+			return
+		}
+		e.Metadata = lineage
+		a.retag(e)
+		return
+	}
+
+	if e.Kind != Rollout || str(r, "type") != "response_item" {
+		return
+	}
+	p := obj(r["payload"])
+	dst := obj(e.Metadata["payload"])
+	if dst == nil {
+		return
+	}
+	switch str(p, "type") {
+	case "function_call":
+		name := str(p, "name")
+		ns := str(p, "namespace")
+		spawnCall := (name == "spawn_agent" && (ns == "" || ns == "multi_agent_v1")) || name == "multi_agent_v1.spawn_agent"
+		if !spawnCall {
+			return
+		}
+		dst["coordination"] = "spawn"
+	case "function_call_output":
+		var v struct {
+			AgentID string `json:"agent_id"`
+		}
+		if json.Unmarshal([]byte(str(p, "output")), &v) != nil || v.AgentID == "" {
+			return
+		}
+		dst["reportedChildId"] = a.id(v.AgentID)
+	default:
+		return
+	}
+	a.retag(e)
+}
+func (a *Adapter) retag(e *Evidence) {
+	encoded, _ := json.Marshal(e.Metadata)
+	e.legacyTag = e.SemanticTag
+	e.SemanticTag = a.token("metadata", a.source, string(encoded))
+	e.projectedHash = sha256.Sum256(encoded)
 }

@@ -35,7 +35,7 @@ func field(purpose string) row {
 	return row{"purpose": purpose, "state": "DISABLED", "ordinal": 0, "grade": "UNKNOWN", "reason": "metadata_only"}
 }
 func taskRow(t *task) row {
-	return row{"id": t.id, "sessionId": t.session, "client": t.client, "title": field("title"), "state": t.state, "stateGrade": t.grade, "stateEvidenceIds": t.stateIDs, "stateValidUntil": msTime(t.stateUntil), "projectEvidenceIds": []string{}, "lastAt": msTime(t.last), "lastActivityKind": t.events[len(t.events)-1].Kind}
+	return row{"id": t.id, "sessionId": t.session, "client": t.client, "title": field("title"), "state": t.state, "stateGrade": t.grade, "stateEvidenceIds": t.stateIDs, "stateValidUntil": msTime(t.stateUntil), "projectId": maybe(t.project), "projectEvidenceIds": t.projectEvidence, "lastAt": msTime(t.last), "lastActivityKind": t.events[len(t.events)-1].Kind}
 }
 func (m *Model) agentRow(a agent) row {
 	return row{"id": a.id, "identityId": a.id, "modelId": maybe(a.model), "modelGrade": conditional(a.model != "", "DIRECT", "UNKNOWN"), "parentId": maybe(a.parent), "state": m.agentState(a), "lastEvidenceAt": msTime(a.last), "endedAt": conditional(a.state == "ENDED", msTime(a.last), nil)}
@@ -62,9 +62,20 @@ func (m *Model) activities(events []FactEvent, p row) row {
 		}
 		payload := row{"__typename": "StateChange", "code": firstNon(e.State, e.Kind)}
 		if e.Attempt != "" {
-			payload = row{"__typename": "AttemptChange", "attemptId": e.Attempt, "moduleId": maybe(e.Module), "phase": firstNon(e.Phase, conditional(e.Kind == "result", "ENDED", "START_OBSERVED")), "result": firstNon(e.Result, "UNKNOWN"), "outcome": firstNon(e.Result, "UNKNOWN")}
+			payload = row{"__typename": "AttemptChange", "attemptId": e.Attempt, "moduleId": maybe(e.Module), "phase": firstNon(e.Phase, conditional(e.Kind == "result" || e.Kind == "observer_result", "ENDED", "START_OBSERVED")), "result": firstNon(e.Result, "UNKNOWN"), "outcome": firstNon(e.Result, "UNKNOWN")}
 		}
-		items = append(items, row{"id": e.ID, "kind": e.Kind, "at": msTime(e.Occurred), "grade": e.Grade, "agentId": maybe(e.Actor), "attemptId": maybe(e.Attempt), "moduleId": maybe(e.Module), "evidenceIds": e.Evidence, "payload": payload})
+		v := row{"id": e.ID, "kind": e.Kind, "at": msTime(e.Occurred), "grade": e.Grade, "agentId": maybe(e.Actor), "attemptId": maybe(e.Attempt), "moduleId": maybe(e.Module), "evidenceIds": e.Evidence, "payload": payload}
+		if e.Kind == "assignment" {
+			v["identityId"] = e.Target
+			v["assignmentId"] = e.ID
+			payload = row{"__typename": "MissionChange", "mission": field("mission")}
+			m.addMission(payload, e)
+			v["payload"] = payload
+		}
+		if e.Model != "" {
+			v["payload"] = row{"__typename": "ModelChange", "model": e.Model, "grade": e.Grade}
+		}
+		items = append(items, v)
 	}
 	return page(items, p)
 }
@@ -329,7 +340,29 @@ func (m *Model) callData(op, tid, id string, args, p row) any {
 func (m *Model) attemptDetail(a *attempt, p row) row {
 	var edges, ds []row
 	for _, e := range a.events {
-		edges = append(edges, row{"_bodyOrdinal": m.bodyRefs[e.ID].ordinal, "actor": "AGENT", "action": conditional(e.Kind == "result", "RECEIVE", "SEND"), "direction": conditional(e.Kind == "result", "TOOL_RESULT", "TOOL_REQUEST"), "grade": e.Grade, "at": msTime(e.Occurred), "observer": "CLIENT", "evidenceIds": e.Evidence})
+		if e.Action == "" {
+			continue
+		}
+		edge := row{"actor": "AGENT", "action": conditional(e.Kind == "result", "RECEIVE", "SEND"), "direction": conditional(e.Kind == "result", "TOOL_RESULT", "TOOL_REQUEST"), "grade": e.Grade, "at": msTime(e.Occurred), "observer": "CLIENT", "evidenceIds": e.Evidence}
+		if obs, ok := m.edges[e.ID]; ok {
+			edge["actor"] = obs.actor
+			edge["action"] = obs.action
+			edge["direction"] = obs.direction
+			edge["observer"] = obs.observer
+		}
+		if ref, ok := m.bodyRefs[e.ID]; ok && len(e.Evidence) == 1 && e.Evidence[0] == ref.id {
+			edge["_bodyOrdinal"] = ref.ordinal
+		}
+		edges = append(edges, edge)
+	}
+	if a.kind == "MCP_TOOL" {
+		for _, seg := range []deliveryEdge{{"TOOL", "RECEIVE", "TOOL_REQUEST", "UNKNOWN"}, {"TOOL", "RETURN", "TOOL_RESULT", "UNKNOWN"}} {
+			if !slices.ContainsFunc(edges, func(r row) bool {
+				return r["actor"] == seg.actor && r["action"] == seg.action && r["direction"] == seg.direction
+			}) {
+				edges = append(edges, row{"actor": seg.actor, "action": seg.action, "direction": seg.direction, "observer": seg.observer, "grade": "UNKNOWN", "reason": "server_observation_missing", "evidenceIds": []string{}})
+			}
+		}
 	}
 	for _, basis := range []string{"REPORTED", "OBSERVED_INTERVAL"} {
 		if v, ok := duration(a, basis); ok {

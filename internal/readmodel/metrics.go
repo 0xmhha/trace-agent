@@ -46,20 +46,31 @@ func duration(a *attempt, basis string) (float64, bool) {
 		}
 		return 0, false
 	}
-	if a.start == nil || a.end == nil || *a.end < *a.start {
+	if a.start == nil {
 		return 0, false
 	}
 	var clock string
 	for _, e := range a.events {
-		if (e.Kind != "result" && e.Kind != "call") || e.Occurred == nil {
-			continue
+		if e.Kind == "call" && e.Occurred != nil && *e.Occurred == *a.start {
+			if e.Clock == "" || clock != "" && e.Clock != clock {
+				return 0, false
+			}
+			clock = e.Clock
 		}
-		if e.Clock == "" || clock != "" && clock != e.Clock {
-			return 0, false
-		}
-		clock = e.Clock
 	}
-	return float64(*a.end - *a.start), clock != ""
+	if clock == "" {
+		return 0, false
+	}
+	var end *int64
+	for _, e := range a.events {
+		if e.Kind == "result" && e.Clock == clock && e.Occurred != nil && *e.Occurred >= *a.start {
+			end = minTime(end, e.Occurred)
+		}
+	}
+	if end == nil {
+		return 0, false
+	}
+	return float64(*end - *a.start), true
 }
 func (m *Model) matches(a *attempt, s Sample) bool {
 	if s.TaskID != "" && s.TaskID != a.task || s.ModuleID != "" && s.ModuleID != a.module && s.ModuleID != a.server {

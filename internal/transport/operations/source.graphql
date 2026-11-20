@@ -1,0 +1,63 @@
+query source($scope: FixedScope!, $sourceId: ID!) {
+  source(scope: $scope, sourceId: $sourceId) { ...SourceDetailReadFields }
+}
+
+fragment SourceDetailReadFields on SourceDetailRead {
+  stamp { ...StampFields }
+  data { ...SourceDetailFields }
+}
+
+fragment SourceDetailFields on SourceDetail {
+  source { ...SourceRowFields }
+  capabilities { ...CapabilityFields }
+  gaps { ...GapFields }
+  unlinkedCount
+  consent
+  enabled
+  pickerRef
+  historyFrom
+  historyUntil
+  retentionDays
+}
+
+fragment CapabilityFields on Capability {
+  code
+  state
+  reason
+}
+
+fragment GapFields on Gap {
+  from
+  until
+  reason
+}
+
+fragment SourceRowFields on SourceRow {
+  id
+  client
+  kind
+  clientVersion
+  adapterVersion
+  permission
+  asOfHealth
+  asOfCheckedAt
+  lastAt
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

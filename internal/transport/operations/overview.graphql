@@ -1,0 +1,64 @@
+query overview($scope: FixedScope!) {
+  overview(scope: $scope) { ...OverviewReadFields }
+}
+
+fragment OverviewReadFields on OverviewRead {
+  stamp { ...StampFields }
+  data { ...OverviewFields }
+}
+
+fragment OverviewFields on Overview {
+  tasks { ...MeasurementFields }
+  agents { ...AgentCountsFields }
+  attempts { ...MeasurementFields }
+  waiting { ...MeasurementFields }
+  failureRate { ...MeasurementFields }
+  latencyP95Ms { ...MeasurementFields }
+  latencyByBasis { ...DurationSummaryFields }
+  bins { ...ChartBinFields }
+}
+
+fragment AgentCountsFields on AgentCounts {
+  total { ...MeasurementFields }
+  createdHere { ...MeasurementFields }
+  running { ...MeasurementFields }
+  ended { ...MeasurementFields }
+  unknown { ...MeasurementFields }
+}
+
+fragment ChartBinFields on ChartBin {
+  kind
+  from
+  until
+  measure { ...MeasurementFields }
+}
+
+fragment DurationSummaryFields on DurationSummary {
+  basis
+  p95Ms { ...MeasurementFields }
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

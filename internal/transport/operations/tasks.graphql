@@ -1,0 +1,69 @@
+query tasks($scope: FixedScope!, $activeTasksOnly: Boolean = false, $page: PageInput) {
+  tasks(scope: $scope, activeTasksOnly: $activeTasksOnly, page: $page) { ...TaskPageReadFields }
+}
+
+fragment TaskPageReadFields on TaskPageRead {
+  stamp { ...StampFields }
+  data { ...TaskPageFields }
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TaskPageFields on TaskPage {
+  items { ...TaskRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment TaskRowFields on TaskRow {
+  stateGrade
+  stateEvidenceIds
+  stateValidUntil
+  projectEvidenceIds
+  projectId
+  projectLabel { ...TextFieldFields }
+  lastActivityKind
+  id
+  sessionId
+  client
+  title { ...TextFieldFields }
+  state
+  lastAt
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

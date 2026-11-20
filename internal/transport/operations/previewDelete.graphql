@@ -1,0 +1,20 @@
+query previewDelete($input: DeleteInput!) {
+  previewDelete(input: $input) { ...DeletionPreviewFields }
+}
+
+fragment DeletionPreviewFields on DeletionPreview {
+  scope { ...EffectiveRangeFields }
+  receipt
+  evidenceCount
+  bodyCount
+  expiresAt
+}
+
+fragment EffectiveRangeFields on EffectiveRange {
+  sourceId
+  sessionId
+  taskId
+  from
+  until
+  kind
+}

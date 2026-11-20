@@ -1,0 +1,68 @@
+query plans($scope: FixedScope!, $key: TaskKey!, $page: PageInput) {
+  plans(scope: $scope, key: $key, page: $page) { ...PlanPageReadFields }
+}
+
+fragment PlanPageReadFields on PlanPageRead {
+  stamp { ...StampFields }
+  data { ...PlanPageFields }
+}
+
+fragment PlanPageFields on PlanPage {
+  versions { ...PlanVersionFields }
+  page { ...PageInfoFields }
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment PlanVersionFields on PlanVersion {
+  id
+  at
+  steps { ...StepFields }
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment StepFields on Step {
+  key
+  ordinal
+  title { ...TextFieldFields }
+  state
+  grade
+  evidenceIds
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

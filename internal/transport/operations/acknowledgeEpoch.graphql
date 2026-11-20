@@ -1,0 +1,12 @@
+mutation acknowledgeEpoch($epoch: Revision!) {
+  acknowledgeEpoch(epoch: $epoch) { ...ChangeReceiptFields }
+}
+
+fragment ChangeReceiptFields on ChangeReceipt {
+  point { ...PointFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}

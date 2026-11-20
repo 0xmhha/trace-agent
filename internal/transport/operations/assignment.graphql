@@ -1,0 +1,53 @@
+query assignment($scope: FixedScope!, $key: EntityKey!) {
+  assignment(scope: $scope, key: $key) { ...AssignmentReadFields }
+}
+
+fragment AssignmentReadFields on AssignmentRead {
+  stamp { ...StampFields }
+  data { ...AssignmentFields }
+}
+
+fragment AssignmentFields on Assignment {
+  id
+  taskId
+  agentId
+  identityId
+  at
+  mission { ...TextFieldFields }
+  grade
+  evidenceIds
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

@@ -1,0 +1,106 @@
+query sequenceInspector($scope: FixedScope!, $key: TaskKey!, $eventId: ID!, $laneId: ID!, $waitsPage: PageInput) {
+  sequenceInspector(scope: $scope, key: $key, eventId: $eventId, laneId: $laneId, waitsPage: $waitsPage) { ...SequenceInspectorReadFields }
+}
+
+fragment SequenceInspectorReadFields on SequenceInspectorRead {
+  stamp { ...StampFields }
+  data { ...SequenceInspectorFields }
+}
+
+fragment SequenceInspectorFields on SequenceInspector {
+  laneId
+  eventId
+  status { ...SequenceAgentStatusFields }
+  mission { ...TextFieldFields }
+  latestEvent { ...SequenceEventFields }
+  waits { ...SequenceWaitPageFields }
+}
+
+fragment SequenceAgentStatusFields on SequenceAgentStatus {
+  state
+  activity
+  outcome
+  at
+  grade
+  reason
+  attemptId
+  assignmentId
+  evidenceIds
+}
+
+fragment SequenceEventFields on SequenceEvent {
+  id
+  action
+  fromLaneId
+  toLaneId
+  observedSide
+  occurred
+  observed
+  grade
+  reason
+  attemptId
+  attemptAfter { ...AttemptChangeFields }
+  assignmentId
+  stateAfter { ...SequenceAgentStatusFields }
+  evidenceIds
+}
+
+fragment AttemptChangeFields on AttemptChange {
+  attemptId
+  moduleId
+  outcome
+  phase
+  result
+}
+
+fragment SequenceWaitPageFields on SequenceWaitPage {
+  items { ...SequenceWaitFields }
+  page { ...PageInfoFields }
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment SequenceWaitFields on SequenceWait {
+  laneId
+  attemptId
+  grade
+  evidenceIds
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

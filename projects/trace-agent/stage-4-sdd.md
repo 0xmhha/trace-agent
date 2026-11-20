@@ -2,6 +2,8 @@
 
 데이터 계약 v1.3, SQLite user_version 13, 요구사항 R02~R06과 R11을 적용했다. 공개 조회는 저장기가 확인한 revision과 epoch의 근거에서 시작한다. 원천 필드가 담긴 레코드에는 Codex와 Claude 해석기를 적용하고, 명시적으로 게시한 사실은 해당 revision까지의 최신 버전을 선택한다. [기준판 구현 인계](https://github.com/0xmhha/study/blob/26508908b43b312365463749588e82eda47f29c0/projects/trace-agent/07-implementation-handoff.md)
 
+어댑터 2.1.0은 Claude 첨부 레코드의 계보와 Codex의 네임스페이스가 있는 협업 도구 식별자를 보존한다. 2.0.0에서 저장한 근거와 삭제 차단값은 이전 의미 태그로도 대조한다. 기존 기록은 해당 시점에 저장한 근거를 유지한다.
+
 ## 조회와 근거
 
 - R02·R03. Codex 프로필 안의 스레드·턴, Claude 세션 안의 외부 사용자 프롬프트와 레코드 부모 관계로 작업을 식별한다. Claude 위임은 Agent 호출, 해당 결과 블록과 자식 기록의 agentId를 연결한다. 부모 스레드만 알려진 자식은 독립 identity로 남는다. Codex 계획은 버전과 단계별 상태를 유지하므로 동시에 진행 중인 단계가 모두 나타난다.
@@ -15,6 +17,8 @@
 | 시험 | 확인한 결과 |
 |---|---|
 | TestStageOneStoredEvidence | 1단계 Codex·Claude JSONL을 2단계 어댑터로 읽고 SQLite에 저장했다. 작업 2개, 도구 시도 6회, 확인된 자식 1개, 대기 0회, 성패 판정 가능 2회, 미연계 근거 5건이다. OTel 모델 시도 1회는 출처 상세에서 조회된다. |
+| TestNativeClaudeLineageAndUnlistedMCP | 2.1.329의 사용자 경계와 attachment의 UUID 계보를 복원했다. 별도 자식 파일의 미등록 MCP 시도 2회를 서로 다른 서버에 연결했다. attachment 본문·미션·도구 이름 원문은 저장하지 않았다. |
+| TestLegacyAttachmentReplayAndSuppression | 이전 어댑터가 unsupported로 기록한 위치를 다시 읽어도 revision이 증가하지 않았다. 지운 위치의 계보를 보강한 입력을 재생해도 0건을 유지했다. |
 | TestIA120 | 루트 제외 자식 4개 중 실행 1개, 종료 2개, 불명 1개다. 시도 5회 중 성공 3회, 실패 1회, 대기 1회다. 실패율 1/4, 관찰 구간 지연 표본 4개, 진행 중 계획 단계 2개를 확인했다. 대기 표본에서 MCP 서버·도구·5번째 시도를 열었고 다른 시도 ID 조회는 빈 결과였다. 기한이 지난 뒤에는 실행과 대기가 0개다. |
 | TestStoredIA120 | 빈 SQLite에 합성 작업 A를 게시했다. revision 119에서 작업은 0개, 120에서 위 집계가 나온다. 5번째 시도의 호출 근거에서 원천 ID까지 조회했다. |
 | TestErasedCorrectionCannotRevivePreviousFact | 다른 근거로 같은 사실을 고친 뒤 그 근거만 삭제했다. 새 epoch의 모든 관련 revision에서 이전 사실과 파생 합류가 다시 나타나지 않았다. |

@@ -1,0 +1,286 @@
+"설계 계약 v1.3. 시간은 UTC RFC 3339, 리비전은 0 이상인 SQLite INTEGER의 10진 문자열이다."
+scalar Instant
+scalar Revision
+scalar Cursor
+scalar CohortToken
+
+enum Client { CODEX CLAUDE MCP GATEWAY }
+enum Grade { DIRECT INFERRED UNKNOWN }
+enum AgentState { RUNNING ENDED UNKNOWN }
+enum Outcome { PROPOSED RUNNING SUCCESS TOOL_ERROR RPC_ERROR MODEL_ERROR CANCELLED UNKNOWN }
+enum ModuleKind { AGENT MODEL TOOL MCP_SERVER MCP_TOOL }
+enum ViewKind { OVERVIEW TASKS TASK AGENTS AGENT PLAN STEP_ACTIVITIES MODULE_GROUPS MODULE_GROUP MODULES MODULE ATTEMPTS ATTEMPT SOURCES SOURCE UNLINKED UNLINKED_DETAIL IDENTITIES IDENTITY SEQUENCE }
+enum Metric { ALL AGENTS AGENTS_RUNNING AGENTS_ENDED AGENTS_UNKNOWN AGENTS_CREATED_HERE ATTEMPTS FAILURES WAITING LATENCY }
+enum BodyState { AVAILABLE TRUNCATED DISABLED REVOKED DELETED FAILED MISSING }
+enum Mode { LIVE FROZEN }
+enum LiveWindow { FIXED FOLLOW_END }
+enum ResetReason { REPLAY_EXPIRED EPOCH_CHANGED FILTER_CHANGED REVISION_GONE OVERFLOW }
+enum DeletionKind { BODY ALL }
+enum ChartKind { ATTEMPT_COUNT FAILURE_RATE LATENCY_P95_MS }
+enum Direction { MODEL_REQUEST MODEL_RESPONSE TOOL_PROPOSAL TOOL_REQUEST TOOL_RESULT CONVERSATION }
+enum Actor { AGENT MODEL TOOL GATEWAY CLIENT COLLECTOR UNKNOWN }
+enum Action { PREPARE SEND RECEIVE RETURN PROPOSE }
+enum StepState { PENDING ACTIVE DONE FAILED CANCELLED UNKNOWN }
+enum LinkState { MATCHED UNLINKED CONFLICT }
+enum Health { CONNECTED DELAYED LOST UNSUPPORTED }
+enum CapabilityState { AVAILABLE PARTIAL UNAVAILABLE UNVERIFIED }
+enum AttemptPhase { PROPOSED START_OBSERVED RUNNING ENDED UNKNOWN }
+enum AttemptResult { SUCCESS TOOL_ERROR RPC_ERROR MODEL_ERROR CANCELLED UNKNOWN }
+enum DurationBasis { REPORTED OBSERVED_INTERVAL }
+enum Attribution { CONFIRMED UNASSIGNED AMBIGUOUS }
+enum LaneKind { USER CLIENT AGENT MODEL TOOL MCP_SERVER GATEWAY }
+enum SequenceAction { SPAWN ASSIGN SEND CALL RETURN WAIT TIMEOUT RESUME JOIN STATE GAP }
+enum ObservedSide { SENDER RECEIVER BOTH LOCAL UNKNOWN }
+enum SequenceRelationKind { STREAM_ORDER CAUSAL CALL_RESULT RETRY JOIN_INPUT OVERLAP }
+enum AgentActivityState { ACTIVE WAITING_MODEL WAITING_TOOL WAITING_CHILDREN ENDED UNKNOWN }
+
+input RangeInput { from: Instant!, until: Instant! }
+input FilterInput { interval: RangeInput!, clients: [Client!], sources: [ID!], tasks: [ID!] }
+input PointInput { revision: Revision!, epoch: Revision! }
+input ScopeInput { filter: FilterInput!, mode: Mode!, point: PointInput, cohort: CohortToken, liveWindow: LiveWindow = FIXED }
+input FixedScope { filter: FilterInput!, point: PointInput!, cohort: CohortToken! }
+input PageInput { first: Int! = 50, after: Cursor }
+input TaskKey { taskId: ID! }
+input EntityKey { taskId: ID!, id: ID! }
+enum SequenceWindow { FIRST LATEST }
+input Selection {
+  activeTasksOnly: Boolean = false
+  sequenceWindow: SequenceWindow = FIRST
+  kind: ViewKind!
+  task: TaskKey
+  entity: EntityKey
+  sourceId: ID
+  groupId: ID
+  evidenceId: ID
+  identityId: ID
+  focusAgentId: ID
+  relationsPage: PageInput
+  attribution: Attribution
+  assignmentsPage: PageInput
+  evidencePage: PageInput
+  durationBasis: DurationBasis
+  childrenPage: PageInput
+  attemptsPage: PageInput
+  metric: Metric
+  planId: ID
+  stepId: ID
+  moduleKind: ModuleKind
+  agentState: AgentState
+  page: PageInput
+}
+input WatchInput { scope: ScopeInput!, selection: Selection!, resume: Cursor }
+input AttachInput { client: Client!, pickerToken: ID!, history: RangeInput, retentionDays: Int! }
+input DeleteInput { sourceId: ID!, interval: RangeInput!, sessionId: ID, taskId: ID, kind: DeletionKind! }
+
+type Point { revision: Revision!, epoch: Revision! }
+type TimeRange { from: Instant!, until: Instant! }
+type Stamp { point: Point!, cohort: CohortToken!, resume: Cursor!, computedAt: Instant!, effectiveInterval: TimeRange! }
+type PageInfo { endCursor: Cursor, hasNext: Boolean!, total: Int! }
+enum Truncation { SOURCE_LIMIT DISPLAY_LIMIT SOURCE_AND_DISPLAY UNKNOWN }
+enum ConversationRole { USER ASSISTANT SYSTEM DEVELOPER TOOL UNKNOWN }
+type TextField { conversationRole: ConversationRole, evidenceId: ID, observer: Actor, actor: Actor, direction: Direction, action: Action, truncation: Truncation, reason: String, purpose: String!, state: BodyState!, text: String, ordinal: Int!, grade: Grade! }
+type Evidence { id: ID!, sourceId: ID!, observer: Actor!, occurred: Instant, observed: Instant!, recordKind: String!, grade: Grade!, reason: String, link: LinkState!, adapterVersion: String, actorIdentityId: ID, streamScopeId: ID, familyScopeId: ID }
+type MissionChange { mission: TextField! }
+type ModelChange { model: ID, label: String, grade: Grade! }
+type AttemptChange { attemptId: ID!, moduleId: ID, outcome: Outcome!, phase: AttemptPhase!, result: AttemptResult! }
+type StateChange { code: String! }
+union ActivityValue = MissionChange | ModelChange | AttemptChange | StateChange
+type Activity { payload: ActivityValue!, id: ID!, at: Instant, kind: String!, grade: Grade!, reason: String, agentId: ID, attemptId: ID, moduleId: ID, identityId: ID, assignmentId: ID, evidenceIds: [ID!]! }
+type ActivityPage { items: [Activity!]!, page: PageInfo! }
+type EvidencePage { items: [Evidence!]!, page: PageInfo! }
+type Measurement { count: Int!, eligible: Int!, value: Float, cohort: CohortToken! }
+type ChartBin { kind: ChartKind!, from: Instant!, until: Instant!, measure: Measurement! }
+type AgentCounts { total: Measurement!, createdHere: Measurement!, running: Measurement!, ended: Measurement!, unknown: Measurement! }
+type DurationSummary { basis: DurationBasis!, p95Ms: Measurement! }
+type Overview { tasks: Measurement!, agents: AgentCounts!, attempts: Measurement!, waiting: Measurement!, failureRate: Measurement!, latencyP95Ms: Measurement!, latencyByBasis: [DurationSummary!]!, bins: [ChartBin!]! }
+type TaskRow { stateGrade: Grade!, stateEvidenceIds: [ID!]!, stateValidUntil: Instant, projectEvidenceIds: [ID!]!, projectId: ID, projectLabel: TextField, lastActivityKind: String, id: ID!, sessionId: ID!, client: Client!, title: TextField!, state: String!, lastAt: Instant }
+type TaskPage { items: [TaskRow!]!, page: PageInfo! }
+type TaskDetail { rootAgentId: ID, task: TaskRow!, agents: AgentCounts!, currentSteps: [Step!]!, planAvailable: Boolean!, activities: ActivityPage! }
+type AgentRow { id: ID!, modelId: ID, modelGrade: Grade!, parentId: ID, state: AgentState!, outcome: Outcome, endedAt: Instant, lastEvidenceAt: Instant, identityId: ID }
+type AgentPage { items: [AgentRow!]!, page: PageInfo! }
+type AgentDetail { agent: AgentRow!, mission: TextField!, modelId: ID, activities: ActivityPage! }
+type IdentityRow { id: ID!, client: Client!, parentId: ID, parentGrade: Grade!, attribution: Attribution! }
+type IdentityPage { items: [IdentityRow!]!, page: PageInfo! }
+type Assignment { id: ID!, taskId: ID!, agentId: ID!, identityId: ID!, at: Instant, mission: TextField!, grade: Grade!, evidenceIds: [ID!]! }
+type AssignmentPage { items: [Assignment!]!, page: PageInfo! }
+type IdentityDetail { identity: IdentityRow!, assignments: AssignmentPage!, evidence: EvidencePage! }
+
+"참여자와 사건은 현재 화면의 작업 범위에서 식별한다."
+type SequenceAgentStatus {
+  state: AgentState!
+  activity: AgentActivityState!
+  outcome: Outcome
+  at: Instant
+  grade: Grade!
+  reason: String
+  attemptId: ID
+  assignmentId: ID
+  evidenceIds: [ID!]!
+}
+type SequenceLane {
+  parentLaneId: ID
+  parentGrade: Grade!
+  id: ID!
+  kind: LaneKind!
+  agentId: ID
+  identityId: ID
+  moduleId: ID
+  beforePage: SequenceAgentStatus
+  latest: SequenceAgentStatus
+}
+type SequenceEvent {
+  id: ID!
+  action: SequenceAction!
+  fromLaneId: ID
+  toLaneId: ID
+  observedSide: ObservedSide!
+  occurred: Instant
+  observed: Instant
+  grade: Grade!
+  reason: String
+  attemptId: ID
+  attemptAfter: AttemptChange
+  assignmentId: ID
+  stateAfter: SequenceAgentStatus
+  evidenceIds: [ID!]!
+}
+"OVERLAP만 대칭 관계다. 나머지는 fromEventId에서 toEventId로 읽는다."
+type SequenceRelation {
+  kind: SequenceRelationKind!
+  fromEventId: ID!
+  toEventId: ID!
+  fromOnPage: Boolean!
+  toOnPage: Boolean!
+  grade: Grade!
+  evidenceIds: [ID!]!
+}
+type SequenceMetrics {
+  childAgents: Measurement!
+  runningChildAgents: Measurement!
+  waitingAttempts: Measurement!
+  lastEventId: ID
+  lastEventAt: Instant
+}
+type SequenceLaneAt { laneId: ID!, status: SequenceAgentStatus! }
+type SequenceWait { laneId: ID, attemptId: ID, grade: Grade!, evidenceIds: [ID!]! }
+type SequenceWaitPage { items: [SequenceWait!]!, page: PageInfo! }
+type SequenceInspector { laneId: ID!, eventId: ID!, status: SequenceAgentStatus, mission: TextField, latestEvent: SequenceEvent, waits: SequenceWaitPage! }
+type SequenceMoment {
+  taskId: ID!
+  eventId: ID!
+  lanes: [SequenceLaneAt!]!
+  metrics: SequenceMetrics!
+}
+type SequencePage {
+  taskId: ID!
+  previousPage: Cursor
+  metricsBeforePage: SequenceMetrics!
+  latestMetrics: SequenceMetrics!
+  lanes: [SequenceLane!]!
+  events: [SequenceEvent!]!
+  relations: [SequenceRelation!]!
+  relationPage: PageInfo!
+  page: PageInfo!
+}
+type Step { key: ID!, ordinal: Int!, title: TextField!, state: StepState!, grade: Grade!, evidenceIds: [ID!]! }
+type PlanVersion { id: ID!, at: Instant, steps: [Step!]! }
+type PlanPage { versions: [PlanVersion!]!, page: PageInfo! }
+type ModuleRow { id: ID!, taskId: ID!, kind: ModuleKind!, name: String, parentId: ID, count: Measurement! }
+type ModulePage { items: [ModuleRow!]!, page: PageInfo! }
+type ModuleGroup { id: ID!, kind: ModuleKind!, name: String, identityGrade: Grade!, instances: Int!, measure: Measurement! }
+type ModuleGroupPage { items: [ModuleGroup!]!, page: PageInfo! }
+type GroupDetail { group: ModuleGroup!, instances: ModulePage! }
+type ModuleDetail { module: ModuleRow!, children: ModulePage!, attempts: AttemptPage! }
+type AttemptRow { id: ID!, taskId: ID!, agentId: ID, moduleId: ID, outcome: Outcome!, phase: AttemptPhase!, result: AttemptResult!, started: Instant, ended: Instant, previousAttemptId: ID }
+type AttemptPage { items: [AttemptRow!]!, page: PageInfo! }
+type Edge { actor: Actor!, action: Action!, direction: Direction!, grade: Grade!, at: Instant, observer: Actor, reason: String, evidenceIds: [ID!]! }
+type DurationSample { basis: DurationBasis!, ms: Float!, evidenceIds: [ID!]! }
+type AttemptDetail { attempt: AttemptRow!, edges: [Edge!]!, request: [TextField!]!, response: [TextField!]!, conversation: [TextField!]!, linkedNextAttemptIds: [ID!]!, durations: [DurationSample!]!, evidence: EvidencePage! }
+type Capability { code: String!, state: CapabilityState!, reason: String }
+type Gap { from: Instant!, until: Instant, reason: String! }
+type SourceModelAttempt { modelId: ID, modelLabel: TextField, modelGrade: Grade!, modelEvidenceIds: [ID!]!, id: ID!, sourceId: ID!, phase: AttemptPhase!, result: AttemptResult!, started: Instant, ended: Instant }
+type SourceModelAttemptPage { items: [SourceModelAttempt!]!, page: PageInfo! }
+type SourceModelAttemptDetail { attempt: SourceModelAttempt!, edges: [Edge!]!, request: [TextField!]!, response: [TextField!]!, conversation: [TextField!]!, evidence: EvidencePage! }
+type SourceModelAttemptPageRead { stamp: Stamp!, data: SourceModelAttemptPage }
+type SourceModelAttemptRead { stamp: Stamp!, data: SourceModelAttemptDetail }
+type SourceRow { id: ID!, client: Client!, kind: String!, clientVersion: String, adapterVersion: String!, permission: String!, asOfHealth: Health, lastAt: Instant }
+type SourcePage { items: [SourceRow!]!, page: PageInfo! }
+type SourceDetail { source: SourceRow!, capabilities: [Capability!]!, gaps: [Gap!]!, unlinkedCount: Int!, consent: Boolean!, enabled: Boolean!, pickerRef: ID!, historyFrom: Instant, historyUntil: Instant, retentionDays: Int! }
+type EvidenceDetail { evidence: Evidence!, fields: [TextField!]!, candidates: Int!, reason: String }
+type UnlinkedPage { evidence: EvidencePage! }
+union Screen = Overview | TaskPage | TaskDetail | AgentPage | AgentDetail | PlanPage | ActivityPage | ModuleGroupPage | GroupDetail | ModulePage | ModuleDetail | AttemptPage | AttemptDetail | SourcePage | SourceDetail | UnlinkedPage | EvidenceDetail | IdentityPage | IdentityDetail | SequencePage
+
+type Snapshot { stamp: Stamp!, screen: Screen! }
+"교체할 한 화면과 그 화면의 수치를 같은 읽기 트랜잭션에서 구성한다."
+type Replacement { base: Point!, snapshot: Snapshot! }
+type Reset { reason: ResetReason!, current: Point! }
+union Frame = Snapshot | Replacement | Reset
+type LiveSourceHealth { sourceId: ID!, health: Health!, checkedAt: Instant!, lastEventAt: Instant }
+type CurrentStatus { seq: Revision!, latest: Point!, sources: [LiveSourceHealth!]!, newData: Boolean! }
+type ChangeReceipt { point: Point! }
+type EffectiveRange { sourceId: ID!, sessionId: ID, taskId: ID, from: Instant!, until: Instant!, kind: DeletionKind! }
+type DeleteResult { point: Point!, scope: EffectiveRange!, evidenceRemoved: Int!, bodiesRemoved: Int!, factsRecomputed: Int! }
+type DeletionPreview { scope: EffectiveRange!, receipt: ID!, evidenceCount: Int!, bodyCount: Int!, expiresAt: Instant! }
+
+type ActivityPageRead { stamp: Stamp!, data: ActivityPage }
+type AgentDetailRead { stamp: Stamp!, data: AgentDetail }
+type AgentPageRead { stamp: Stamp!, data: AgentPage }
+type AttemptDetailRead { stamp: Stamp!, data: AttemptDetail }
+type AttemptPageRead { stamp: Stamp!, data: AttemptPage }
+type EvidenceDetailRead { stamp: Stamp!, data: EvidenceDetail }
+type EvidencePageRead { stamp: Stamp!, data: EvidencePage }
+type GroupDetailRead { stamp: Stamp!, data: GroupDetail }
+type ModuleDetailRead { stamp: Stamp!, data: ModuleDetail }
+type ModuleGroupPageRead { stamp: Stamp!, data: ModuleGroupPage }
+type ModulePageRead { stamp: Stamp!, data: ModulePage }
+type PlanPageRead { stamp: Stamp!, data: PlanPage }
+type SourceDetailRead { stamp: Stamp!, data: SourceDetail }
+type SourcePageRead { stamp: Stamp!, data: SourcePage }
+type TaskDetailRead { stamp: Stamp!, data: TaskDetail }
+type TaskPageRead { stamp: Stamp!, data: TaskPage }
+type OverviewRead { stamp: Stamp!, data: Overview! }
+type IdentityPageRead { stamp: Stamp!, data: IdentityPage }
+type IdentityDetailRead { stamp: Stamp!, data: IdentityDetail }
+type SequenceRead { stamp: Stamp!, data: SequencePage }
+type SequenceInspectorRead { stamp: Stamp!, data: SequenceInspector }
+type SequenceMomentRead { stamp: Stamp!, data: SequenceMoment }
+type AssignmentRead { stamp: Stamp!, data: Assignment }
+type Query {
+  overview(scope: FixedScope!): OverviewRead!
+  tasks(scope: FixedScope!, activeTasksOnly: Boolean = false, page: PageInput): TaskPageRead!
+  task(scope: FixedScope!, key: TaskKey!, page: PageInput): TaskDetailRead!
+  agents(scope: FixedScope!, key: TaskKey!, state: AgentState, page: PageInput): AgentPageRead!
+  agent(scope: FixedScope!, key: EntityKey!, page: PageInput): AgentDetailRead!
+  sequenceInspector(scope: FixedScope!, key: TaskKey!, eventId: ID!, laneId: ID!, waitsPage: PageInput): SequenceInspectorRead!
+  sequence(scope: FixedScope!, key: TaskKey!, focusAgentId: ID, window: SequenceWindow = FIRST, page: PageInput, relationsPage: PageInput): SequenceRead!
+  sequenceMoment(scope: FixedScope!, key: TaskKey!, eventId: ID!, laneIds: [ID!]!): SequenceMomentRead!
+  assignment(scope: FixedScope!, key: EntityKey!): AssignmentRead!
+  identities(scope: FixedScope!, attribution: Attribution, page: PageInput): IdentityPageRead!
+  identity(scope: FixedScope!, id: ID!, assignmentsPage: PageInput, evidencePage: PageInput): IdentityDetailRead!
+  plans(scope: FixedScope!, key: TaskKey!, page: PageInput): PlanPageRead!
+  stepActivities(scope: FixedScope!, key: TaskKey!, planId: ID!, stepId: ID!, page: PageInput): ActivityPageRead!
+  modules(scope: FixedScope!, kind: ModuleKind, page: PageInput): ModulePageRead!
+  moduleGroups(scope: FixedScope!, kind: ModuleKind, page: PageInput): ModuleGroupPageRead!
+  moduleGroup(scope: FixedScope!, groupId: ID!, page: PageInput): GroupDetailRead!
+  module(scope: FixedScope!, key: EntityKey!, childrenPage: PageInput, attemptsPage: PageInput): ModuleDetailRead!
+  attempts(scope: FixedScope!, task: TaskKey, module: EntityKey, page: PageInput): AttemptPageRead!
+  attempt(scope: FixedScope!, key: EntityKey!, page: PageInput): AttemptDetailRead!
+  sourceScope(scope: FixedScope!, sourceId: ID!): Stamp!
+  sourceModelAttempts(scope: FixedScope!, sourceId: ID!, page: PageInput): SourceModelAttemptPageRead!
+  sourceModelAttempt(scope: FixedScope!, sourceId: ID!, id: ID!, evidencePage: PageInput): SourceModelAttemptRead!
+  sources(scope: FixedScope!, page: PageInput): SourcePageRead!
+  source(scope: FixedScope!, sourceId: ID!): SourceDetailRead!
+  unlinked(scope: FixedScope!, sourceId: ID!, page: PageInput): EvidencePageRead!
+  evidence(scope: FixedScope!, evidenceId: ID!): EvidenceDetailRead!
+  previewDelete(input: DeleteInput!): DeletionPreview!
+}
+type Mutation {
+  acknowledgeEpoch(epoch: Revision!): ChangeReceipt!
+  attachSource(input: AttachInput!): ChangeReceipt!
+  setHistory(sourceId: ID!, pickerToken: ID!, interval: RangeInput!): ChangeReceipt!
+  setSourceEnabled(sourceId: ID!, enabled: Boolean!): ChangeReceipt!
+  setConsent(sourceId: ID!, enabled: Boolean!): ChangeReceipt!
+  setRetention(sourceId: ID!, days: Int!): ChangeReceipt!
+  confirmDelete(receipt: ID!): DeleteResult!
+}
+type Subscription { watch(input: WatchInput!): Frame!, currentStatus(after: Revision): CurrentStatus! }

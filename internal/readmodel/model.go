@@ -40,6 +40,7 @@ type FactEvent = store.FactProjection
 type Relation = store.FactRelation
 
 type attempt struct {
+	resultConflict                                             bool
 	id, task, actor, module, name, kind, server, result, phase string
 	start, end, until                                          *int64
 	reported                                                   *float64
@@ -61,12 +62,18 @@ type task struct {
 	state, grade                      string
 	stateUntil                        *int64
 	stateIDs                          []string
+	project                           string
+	projectEvidence                   []string
 }
 type agent struct {
 	id, parent, state, model string
 	until, last              *int64
 	created                  bool
 	evidence                 []string
+}
+type projectBinding struct {
+	id       string
+	evidence []string
 }
 type bodyRef struct {
 	id      string
@@ -84,6 +91,7 @@ type source struct {
 
 // Model owns one immutable snapshot. It is safe to query concurrently after construction.
 type Model struct {
+	edges      map[string]deliveryEdge
 	bodyRefs   map[string]bodyRef
 	opts       Options
 	tasks      map[string]*task
@@ -92,12 +100,13 @@ type Model struct {
 	identities map[string]*identity
 	sources    map[string]*source
 	models     map[string]*sourceModel
+	projects   map[string]projectBinding
 	conflict   map[string]bool
 	unlinked   map[string]bool
 }
 
 func newModel(opts Options) *Model {
-	return &Model{bodyRefs: map[string]bodyRef{}, opts: opts, tasks: map[string]*task{}, records: map[string]store.Record{}, owners: map[string]map[string]bool{}, identities: map[string]*identity{}, sources: map[string]*source{}, models: map[string]*sourceModel{}, unlinked: map[string]bool{}, conflict: map[string]bool{}}
+	return &Model{edges: map[string]deliveryEdge{}, projects: map[string]projectBinding{}, bodyRefs: map[string]bodyRef{}, opts: opts, tasks: map[string]*task{}, records: map[string]store.Record{}, owners: map[string]map[string]bool{}, identities: map[string]*identity{}, sources: map[string]*source{}, models: map[string]*sourceModel{}, unlinked: map[string]bool{}, conflict: map[string]bool{}}
 }
 
 // New builds a model from records returned by a single store.Records call.
@@ -137,15 +146,7 @@ func NewFacts(events []FactEvent, opts Options) *Model {
 	return m
 }
 
-func client(k collect.Kind) string {
-	switch k {
-	case collect.Rollout, collect.AppServer:
-		return "CODEX"
-	case collect.Telemetry, collect.Transcript:
-		return "CLAUDE"
-	}
-	return ""
-}
+func client(k collect.Kind) string         { return collect.ClientCode(k) }
 func allowed(ids []string, id string) bool { return len(ids) == 0 || slices.Contains(ids, id) }
 func key(parts ...string) string {
 	h := sha256.New()
@@ -286,6 +287,17 @@ func (m *Model) reduce(events []FactEvent) {
 		first := ordered[0]
 		t := &task{id: id, session: first.Session, root: first.Root, source: first.Source, client: first.Client, state: "UNKNOWN", grade: "UNKNOWN", agents: map[string]agent{}, attempts: map[string]*attempt{}}
 		m.tasks[id] = t
+		if pr, ok := m.projects[t.session]; ok {
+			t.project = pr.id
+			t.projectEvidence = pr.evidence
+		}
+		// A child can report its activities before the parent's callback confirms
+		// its assignment. Resolve membership before replaying the observations.
+		for _, e := range ordered {
+			if e.Kind == "assignment" && e.Target != "" && e.Target != t.root {
+				t.agents[e.Target] = agent{id: e.Target, parent: e.Actor, state: "UNKNOWN"}
+			}
+		}
 		for _, e := range ordered {
 			t.last = maxTime(t.last, e.Occurred)
 			t.events = append(t.events, e)
@@ -353,7 +365,7 @@ func (m *Model) reduce(events []FactEvent) {
 				}
 			case "plan":
 				t.plans = append(t.plans, e)
-			case "call", "result", "wait":
+			case "call", "result", "wait", "observer_bridge", "observer_edge", "observer_result":
 				if e.Attempt == "" {
 					continue
 				}
@@ -366,10 +378,24 @@ func (m *Model) reduce(events []FactEvent) {
 				for _, sid := range e.Evidence {
 					a.supports = uniq(a.supports, sid)
 				}
-				if e.Kind == "result" {
-					a.end = minTime(a.end, e.Occurred)
+				if e.Kind == "observer_edge" || e.Kind == "observer_bridge" {
+					continue
+				}
+				if e.Kind == "result" || e.Kind == "observer_result" {
+					if e.Kind == "result" {
+						a.end = minTime(a.end, e.Occurred)
+					}
 					a.phase = "ENDED"
-					a.result = firstNon(e.Result, "UNKNOWN")
+					if e.Result != "" && e.Result != "UNKNOWN" {
+						if a.result != "UNKNOWN" && a.result != e.Result {
+							a.resultConflict = true
+						}
+						if a.resultConflict {
+							a.result = "UNKNOWN"
+						} else {
+							a.result = e.Result
+						}
+					}
 				} else {
 					if e.Kind == "call" {
 						a.actor = e.Actor

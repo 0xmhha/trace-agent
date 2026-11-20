@@ -1,0 +1,45 @@
+query identities($scope: FixedScope!, $attribution: Attribution, $page: PageInput) {
+  identities(scope: $scope, attribution: $attribution, page: $page) { ...IdentityPageReadFields }
+}
+
+fragment IdentityPageReadFields on IdentityPageRead {
+  stamp { ...StampFields }
+  data { ...IdentityPageFields }
+}
+
+fragment IdentityPageFields on IdentityPage {
+  items { ...IdentityRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment IdentityRowFields on IdentityRow {
+  id
+  client
+  parentId
+  parentGrade
+  attribution
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

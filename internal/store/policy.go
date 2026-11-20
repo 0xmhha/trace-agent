@@ -51,7 +51,7 @@ func (s *Store) setting(ctx context.Context, source string, edit func(*SourceCon
 	}
 	previous := cfg
 	edit(&cfg)
-	if cfg.RetentionDays < 1 || cfg.RetentionDays > 36500 || cfg.FromMS != nil && cfg.UntilMS != nil && *cfg.FromMS >= *cfg.UntilMS {
+	if !validConfig(cfg) {
 		return Point{}, errInvalid
 	}
 	rev, err := s.revision(ctx, tx, source)
@@ -61,16 +61,12 @@ func (s *Store) setting(ctx context.Context, source string, edit func(*SourceCon
 	if privacy {
 		_, err = tx.ExecContext(ctx, "INSERT INTO consent VALUES(?,?,?,?); UPDATE store_state SET epoch=epoch+1; INSERT INTO change_scope VALUES(?,'store','privacy')", source, rev, cfg.Consent, s.now().UnixMilli(), rev)
 	} else {
-		_, err = tx.ExecContext(ctx, `INSERT INTO source_config(source_id,rev,enabled,picker_ref,history_from_ms,history_until_ms,retention_days) VALUES(?,?,?,?,?,?,?)`, source, rev, cfg.Enabled, source, cfg.FromMS, cfg.UntilMS, cfg.RetentionDays)
+		err = writeConfig(ctx, tx, source, rev, previous, cfg)
 	}
 	if err != nil {
 		return Point{}, err
 	}
-	if datesChanged(previous, cfg) {
-		if _, err = tx.ExecContext(ctx, "DELETE FROM checkpoint WHERE source_id=?", source); err != nil {
-			return Point{}, err
-		}
-	}
+
 	p, err := point(ctx, tx)
 	if err != nil {
 		return Point{}, err
@@ -98,17 +94,66 @@ func (s *Store) SetHistory(ctx context.Context, source string, fromMS, untilMS *
 	return s.setting(ctx, source, func(c *SourceConfig) { c.FromMS = fromMS; c.UntilMS = untilMS }, false)
 }
 
+func validConfig(cfg SourceConfig) bool {
+	return cfg.RetentionDays >= 1 && cfg.RetentionDays <= 36500 && (cfg.FromMS == nil || cfg.UntilMS == nil || *cfg.FromMS < *cfg.UntilMS)
+}
+
+func writeConfig(ctx context.Context, tx *sql.Tx, source string, rev int64, previous, cfg SourceConfig) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO source_config(source_id,rev,enabled,picker_ref,history_from_ms,history_until_ms,retention_days) VALUES(?,?,?,?,?,?,?)`, source, rev, cfg.Enabled, source, cfg.FromMS, cfg.UntilMS, cfg.RetentionDays)
+	if err != nil {
+		return err
+	}
+	if datesChanged(previous, cfg) {
+		_, err = tx.ExecContext(ctx, "DELETE FROM checkpoint WHERE source_id=?", source)
+	}
+	return err
+}
+
 // Register creates a visible source before the first evidence arrives.
 func (s *Store) Register(ctx context.Context, a *collect.Adapter) (Point, error) {
+	return s.Attach(ctx, a, 0, nil, nil)
+}
+
+// Registered reports whether the source has a persisted catalog entry.
+func (s *Store) Registered(ctx context.Context, id string) (bool, error) {
+	if !token(id) {
+		return false, errInvalid
+	}
+	var exists bool
+	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM source WHERE source_id=?)", id).Scan(&exists)
+	return exists, err
+}
+
+// Attach commits source registration, retention and the history interval at one
+// revision. Changing that interval clears the checkpoint so the reader can
+// revisit history. Zero days and a pair of nil bounds preserve existing settings.
+func (s *Store) Attach(ctx context.Context, a *collect.Adapter, retentionDays int, fromMS, untilMS *int64) (Point, error) {
 	if a == nil {
 		return Point{}, errInvalid
 	}
+	s.gate.Lock()
+	defer s.gate.Unlock()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Point{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	r, err := tx.ExecContext(ctx, "INSERT INTO source VALUES(?,?,?,?,?) ON CONFLICT(source_id) DO NOTHING", a.Source(), client(a.Kind()), a.Kind(), a.Profile(), a.Source())
+	id := a.Source()
+	prev, err := config(ctx, tx, id)
+	if err != nil {
+		return Point{}, err
+	}
+	cfg := prev
+	if retentionDays != 0 {
+		cfg.RetentionDays = retentionDays
+	}
+	if fromMS != nil || untilMS != nil {
+		cfg.FromMS, cfg.UntilMS = fromMS, untilMS
+	}
+	if !validConfig(cfg) {
+		return Point{}, errInvalid
+	}
+	r, err := tx.ExecContext(ctx, "INSERT INTO source VALUES(?,?,?,?,?) ON CONFLICT(source_id) DO NOTHING", id, client(a.Kind()), a.Kind(), a.Profile(), id)
 	if err != nil {
 		return Point{}, err
 	}
@@ -116,16 +161,26 @@ func (s *Store) Register(ctx context.Context, a *collect.Adapter) (Point, error)
 	if err != nil {
 		return Point{}, err
 	}
-	if n != 0 {
-		if _, err = s.revision(ctx, tx, a.Source()); err != nil {
+	changed := cfg.RetentionDays != prev.RetentionDays || datesChanged(prev, cfg)
+	if n != 0 || changed {
+		rev, err := s.revision(ctx, tx, id)
+		if err != nil {
 			return Point{}, err
+		}
+		if changed {
+			if err = writeConfig(ctx, tx, id, rev, prev, cfg); err != nil {
+				return Point{}, err
+			}
 		}
 	}
 	p, err := point(ctx, tx)
 	if err != nil {
 		return Point{}, err
 	}
-	return p, tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return Point{}, err
+	}
+	return p, nil
 }
 
 // ReplayFloor returns the oldest retained change-log base.
@@ -163,12 +218,13 @@ func datesChanged(a, b SourceConfig) bool {
 
 // SourceInfo describes an attached source at a committed point.
 type SourceInfo struct {
-	LastObservedMS, LastEventMS *int64
-	Health                      string
-	ID, Client, Kind            string
-	Enabled, Consent            bool
-	RetentionDays               int
-	FromMS, UntilMS             *int64
+	LastObservedMS, LastEventMS, CheckedMS *int64
+	Health                                 string
+	ID, Client, Kind                       string
+	ClientVersion, AdapterVersion          string
+	Enabled, Consent, HasMetadata          bool
+	RetentionDays                          int
+	FromMS, UntilMS                        *int64
 }
 
 // Sources includes attached sources that have not yet delivered their first record.
@@ -186,15 +242,20 @@ func (s *Store) Sources(ctx context.Context, p Point) ([]SourceInfo, error) {
 		return nil, ErrStale
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT s.source_id,s.client,s.kind,coalesce(c.enabled,1),
- coalesce((SELECT enabled FROM consent t WHERE t.source_id=s.source_id AND t.rev<=? ORDER BY rev DESC LIMIT 1),0),
+ coalesce((SELECT enabled FROM consent t WHERE t.source_id=s.source_id AND t.rev<=?1 ORDER BY rev DESC LIMIT 1),0),
  coalesce(c.retention_days,7),c.history_from_ms,c.history_until_ms,
- (SELECT max(observed_ms) FROM evidence e WHERE e.source_id=s.source_id AND e.rev<=?),
- (SELECT max(occurred_ms) FROM evidence e WHERE e.source_id=s.source_id AND e.rev<=?),
- coalesce((SELECT health FROM source_status st WHERE st.source_id=s.source_id AND st.rev<=? ORDER BY rev DESC LIMIT 1),'')
+ (SELECT max(observed_ms) FROM evidence e WHERE e.source_id=s.source_id AND e.rev<=?1),
+ (SELECT max(occurred_ms) FROM evidence e WHERE e.source_id=s.source_id AND e.rev<=?1),
+ coalesce((SELECT health FROM source_status st WHERE st.source_id=s.source_id AND st.rev<=?1 ORDER BY rev DESC LIMIT 1),''),
+ (SELECT at_ms FROM source_status st WHERE st.source_id=s.source_id AND st.rev<=?1 ORDER BY rev DESC LIMIT 1),
+ coalesce((SELECT a.client_version FROM adapter_record a JOIN evidence e USING(evidence_id) WHERE a.client_version<>'' AND e.source_id=s.source_id AND e.rev<=?1 ORDER BY e.evidence_id DESC LIMIT 1),''),
+ coalesce((SELECT e.adapter_version FROM evidence e WHERE e.source_id=s.source_id AND e.rev<=?1 AND e.adapter_version IS NOT NULL ORDER BY e.rev DESC,e.evidence_id DESC LIMIT 1),
+ (SELECT st.adapter_version FROM source_status st WHERE st.source_id=s.source_id AND st.rev<=?1 ORDER BY st.rev DESC LIMIT 1),''),
+ EXISTS(SELECT 1 FROM evidence e WHERE e.source_id=s.source_id AND e.rev<=?1 AND e.record_kind NOT IN ('unsupported','source_gap'))
  FROM source s LEFT JOIN source_config c ON c.source_id=s.source_id AND c.rev=(
- SELECT max(t.rev) FROM source_config t WHERE t.source_id=s.source_id AND t.rev<=?)
- WHERE EXISTS(SELECT 1 FROM change_scope WHERE scope_kind='source' AND scope_key=s.source_id AND rev<=?)
- ORDER BY s.source_id`, p.Revision, p.Revision, p.Revision, p.Revision, p.Revision, p.Revision)
+ SELECT max(t.rev) FROM source_config t WHERE t.source_id=s.source_id AND t.rev<=?1)
+ WHERE EXISTS(SELECT 1 FROM change_scope WHERE scope_kind='source' AND scope_key=s.source_id AND rev<=?1)
+ ORDER BY s.source_id`, p.Revision)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +263,7 @@ func (s *Store) Sources(ctx context.Context, p Point) ([]SourceInfo, error) {
 	var out []SourceInfo
 	for rows.Next() {
 		var v SourceInfo
-		if err := rows.Scan(&v.ID, &v.Client, &v.Kind, &v.Enabled, &v.Consent, &v.RetentionDays, &v.FromMS, &v.UntilMS, &v.LastObservedMS, &v.LastEventMS, &v.Health); err != nil {
+		if err := rows.Scan(&v.ID, &v.Client, &v.Kind, &v.Enabled, &v.Consent, &v.RetentionDays, &v.FromMS, &v.UntilMS, &v.LastObservedMS, &v.LastEventMS, &v.Health, &v.CheckedMS, &v.ClientVersion, &v.AdapterVersion, &v.HasMetadata); err != nil {
 			return nil, err
 		}
 		out = append(out, v)
@@ -272,7 +333,7 @@ func (s *Store) ReportHealth(ctx context.Context, a *collect.Adapter, health str
 		capability = "unavailable"
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO source_status(source_id,rev,at_ms,health,adapter_version,permission_code,capability_code,capability_state)
- VALUES(?,?,?,?,?,'selected','history',?)`, a.Source(), rev, s.now().UnixMilli(), health, collect.Version, capability)
+ VALUES(?,?,?,?,?,'selected','connection',?)`, a.Source(), rev, s.now().UnixMilli(), health, collect.Version, capability)
 	if err != nil {
 		return err
 	}
