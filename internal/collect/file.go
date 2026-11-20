@@ -78,6 +78,7 @@ func (a *Adapter) ReadFile(ctx context.Context, root *os.Root, name string, save
 			// gap and the new zero boundary before attempting its first line.
 			gap := a.evidence(Position{Stream: name, Generation: cursor.Generation}, object{"type": "source_gap", "reason": reason}, nil)
 			gap.Observer = "collector"
+			gap.PreviousGeneration = saved.Generation
 			gap.Generation = cursor.Generation
 			gap.RecordKey = a.token("file-gap", stream, cursor.Generation)
 			if err := commit(ctx, gap, cursor); err != nil {
