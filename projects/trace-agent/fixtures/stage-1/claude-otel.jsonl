@@ -1,0 +1,3 @@
+{"stream":"otel-synthetic","seq":2,"record":{"event.name":"api_response_body","request_body_id":"C1","message.uuid":"synthetic-final"}}
+{"stream":"otel-synthetic","seq":1,"record":{"event.name":"api_request_body","request_body_id":"C1"}}
+{"stream":"otel-synthetic","seq":3,"record":{"event.name":"api_response_body","message.uuid":"U1"}}
