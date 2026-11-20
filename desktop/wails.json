@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Trace Agent",
+  "outputfilename": "trace-agent",
+  "frontend:install": "npm ci --no-audit --no-fund",
+  "frontend:build": "npm run build",
+  "info": {
+    "companyName": "0xmhha",
+    "productName": "Trace Agent",
+    "productVersion": "0.1.0",
+    "comments": "Local session activity viewer"
+  }
+}

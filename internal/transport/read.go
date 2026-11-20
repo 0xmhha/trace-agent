@@ -119,7 +119,7 @@ func (p *peer) execute(ctx context.Context, id string, op operation, args object
 	if !p.isAck(current.Epoch) && op.name != "acknowledgeEpoch" {
 		return errAuth
 	}
-	if op.kind == "mutation" || op.name == "previewDelete" {
+	if op.kind == "mutation" || op.name == "previewDelete" || op.name == "deleteTargets" {
 		result, epoch, err := p.manageOperation(ctx, op.name, args)
 		if err != nil {
 			return err

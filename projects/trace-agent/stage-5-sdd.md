@@ -1,6 +1,6 @@
 # 5단계 SDD · GraphQL 조회와 로컬 WebSocket
 
-대상은 R06~R09다. 서버는 GraphQL 계약 v1.3, SQLite 스키마 13을 사용한다. 앱에 내장한 36개 조회·변경·구독 문서를 시작할 때 SDL로 검증한다. 고정 출처 상태의 마지막 점검 시각은 추가 nullable 필드 SourceRow.asOfCheckedAt으로 제공한다. 기본 SDL의 SHA-256은 `ca810ed5438dc121dd0cb444f53eb791531c55631e005ccd4e460bfa037dfe15`다. [스키마](../../internal/transport/schema.graphql) · [연산 문서](../../internal/transport/operations/) · [재생 시험](../../internal/transport/server_test.go)
+대상은 R06~R09다. 서버는 GraphQL 계약 v1.3, SQLite 스키마 13을 사용한다. 앱에 내장한 37개 조회·변경·구독 문서를 시작할 때 SDL로 검증한다. 고정 출처 상태의 마지막 점검 시각은 추가 nullable 필드 SourceRow.asOfCheckedAt으로 제공한다. 확장 SDL에는 근거의 안전한 수치 메타데이터와 삭제 전 선택할 수 있는 세션·작업 조회도 있다. 기본 SDL의 SHA-256은 `ca810ed5438dc121dd0cb444f53eb791531c55631e005ccd4e460bfa037dfe15`다. [스키마](../../internal/transport/schema.graphql) · [연산 문서](../../internal/transport/operations/) · [재생 시험](../../internal/transport/server_test.go)
 
 ## 동작
 
@@ -19,7 +19,7 @@
 | R08 | 관계 페이지 커서를 다른 사건 페이지·크기·리비전·정렬에 전달 | 원래 페이지에서만 오프셋 1로 복구. 네 가지 변경 모두 거부 |
 | R08 | 최초 조회 중 리비전 0→3, 재연결 전 3→5 | Snapshot 0 다음 Replacement 3의 base가 0이다. 재연결 후 base 3에서 5로 복구 |
 | R08 | 재생 바닥보다 오래된 커서, 선택 변경, FOLLOW_END | REPLAY_EXPIRED, FILTER_CHANGED 확인. 커밋 시각 22.000초에서 실제 반개구간 끝은 22.001초 |
-| R01, R07, R08 | 등록 직후 연결 성공, 실제 파일 교체, 이후 출처 단절 | 연결 성공만으로 이력을 확인 처리하지 않았다. 파일 이력 수집 뒤 실제 버전 0.169.1, 어댑터 2.0.0, 교체 및 단절 공백 2건, 현재 LOST 확인. 이전 시점은 CONNECTED·공백 0건을 유지했다. 같은 시점의 출처 상세와 currentStatus 점검 시각 일치 |
+| R01, R07, R08 | 등록 직후 연결 성공, 실제 파일 교체, 이후 출처 단절 | 연결 성공만으로 이력을 확인 처리하지 않았다. 파일 이력 수집 뒤 실제 버전 0.169.1, 어댑터 2.1.0, 교체 및 단절 공백 2건, 현재 LOST 확인. 이전 시점은 CONNECTED·공백 0건을 유지했다. 같은 시점의 출처 상세와 currentStatus 점검 시각 일치 |
 | R07, R09 | 미수집 출처 등록, 본문 동의, 실제 합성 발화 수집, 전송 직전 철회 | 등록 후 첫 근거가 없어도 출처 상세가 열렸다. 동의한 사용자 발화의 AVAILABLE과 역할 USER를 확인했다. 읽기 뒤 쓰기 직전 철회하면 본문 프레임 0개. 새 시점에서는 REVOKED와 빈 본문 |
 | R09 | 다른 Origin·Host, null Origin, 티켓 재사용, 읽기 권한으로 설정 변경, 페이지 201개, 미등록 GraphQL 문서 | 전부 거부. 같은 삭제 확인값으로 두 번째 삭제도 거부 |
 | R09 | UTF-8 5바이트 예산에 원천에서 잘린 다중 바이트 한글과 추가 본문 | 문자 경계를 보존하고 SOURCE_AND_DISPLAY와 DISPLAY_LIMIT을 각각 반환 |

@@ -45,13 +45,18 @@ func (s *replaySink) AppendBatch(ctx context.Context, es []collect.Evidence) err
 }
 func newReceiver(t *testing.T) (*Receiver, *replaySink, *collect.Adapter, string, string) {
 	t.Helper()
+	return receiverFor(t, collect.Telemetry)
+}
+
+func receiverFor(t *testing.T, kind collect.Kind) (*Receiver, *replaySink, *collect.Adapter, string, string) {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "ingress.sqlite")
 	db, err := store.Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	a, err := collect.New(collect.Telemetry, "test", "otel", "2.1.329", make([]byte, 32), nil, time.Now)
+	a, err := collect.New(kind, "test", "otel", "", make([]byte, 32), nil, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

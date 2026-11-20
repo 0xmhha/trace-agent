@@ -14,12 +14,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/0xmhha/trace-agent/internal/collect"
+	"github.com/0xmhha/trace-agent/internal/ingress"
 	"github.com/0xmhha/trace-agent/internal/readmodel"
 	"github.com/0xmhha/trace-agent/internal/store"
 )
@@ -117,9 +119,17 @@ func isolatedEnv(profile string) []string {
 	}
 }
 
-func startCLI(ctx context.Context, work, profile, endpoint, session string) (*cliRun, error) {
+type cliExporter struct {
+	endpoint, protocol, token string
+	userPrompt                bool
+}
+
+func startCLI(ctx context.Context, work, profile, endpoint, session string, otel *cliExporter) (*cliRun, error) {
 	args := []string{"exec", "--skip-git-repo-check", "--json", "--ignore-rules", "--ignore-user-config", "-s", "read-only", "-m", "gpt-5.2",
 		"-c", `model_provider="fixture"`, "-c", `model_providers.fixture.name="Fixture"`, "-c", fmt.Sprintf("model_providers.fixture.base_url=%q", endpoint+"/v1"), "-c", `model_providers.fixture.wire_api="responses"`, "-c", `model_providers.fixture.supports_websockets=false`, "-c", `model_providers.fixture.request_max_retries=0`, "-c", `model_providers.fixture.stream_max_retries=0`}
+	if otel != nil {
+		args = append(args, "-c", fmt.Sprintf("otel.exporter.otlp-http.endpoint=%q", otel.endpoint), "-c", fmt.Sprintf("otel.exporter.otlp-http.protocol=%q", otel.protocol), "-c", "otel.log_user_prompt="+strconv.FormatBool(otel.userPrompt))
+	}
 	if session != "" {
 		args = append(args, "resume", session, "Confirm the synthetic result.")
 	} else {
@@ -129,6 +139,9 @@ func startCLI(ctx context.Context, work, profile, endpoint, session string) (*cl
 	c.cmd = exec.CommandContext(ctx, "codex", args...) //nolint:gosec // The compatibility test invokes an explicitly selected installed client.
 	c.cmd.Dir = work
 	c.cmd.Env = isolatedEnv(profile)
+	if otel != nil {
+		c.cmd.Env = append(c.cmd.Env, "OTEL_SDK_DISABLED=false", "OTEL_EXPORTER_OTLP_LOGS_HEADERS=Authorization=Bearer%20"+otel.token, "OTEL_BLRP_SCHEDULE_DELAY=100")
+	}
 	c.cmd.Stdout = &c.output
 	c.cmd.Stderr = &c.output
 	if err := c.cmd.Start(); err != nil {
@@ -231,7 +244,7 @@ func TestInstalledCodexCLI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli, err := startCLI(ctx, work, profile, httpd.URL, "")
+	cli, err := startCLI(ctx, work, profile, httpd.URL, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +282,7 @@ func TestInstalledCodexCLI(t *testing.T) {
 	if rootThread == "" {
 		t.Fatal("first CLI thread identifier missing")
 	}
-	next, err := startCLI(ctx, work, profile, httpd.URL, rootThread)
+	next, err := startCLI(ctx, work, profile, httpd.URL, rootThread, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -425,4 +438,102 @@ func inspectApp(ctx context.Context, work, profile string, a *collect.Adapter, d
 	stop()
 	_ = cmd.Wait()
 	return err
+}
+
+func TestInstalledCodexOTLP(t *testing.T) {
+	if os.Getenv("TRACE_CODEX_COMPAT") != "1" {
+		t.Skip("set TRACE_CODEX_COMPAT=1 to run the installed Codex")
+	}
+	for _, protocol := range []string{"json", "binary"} {
+		t.Run(protocol, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+			defer cancel()
+			dir := t.TempDir()
+			profile := filepath.Join(dir, "profile")
+			if err := os.Mkdir(profile, 0700); err != nil {
+				t.Fatal(err)
+			}
+			model := &mockResponses{inProgress: make(chan struct{}), continueTurn: make(chan struct{})}
+			close(model.continueTurn)
+			provider := httptest.NewServer(model)
+			defer provider.Close()
+			db, err := store.Open(ctx, filepath.Join(dir, "trace.sqlite"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = db.Close() }()
+			adapter, err := collect.New(collect.CodexTelemetry, "selected", "otel", "", make([]byte, 32), nil, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = db.Register(ctx, adapter); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = db.SetConsent(ctx, adapter.Source(), true); err != nil {
+				t.Fatal(err)
+			}
+			token, err := ingress.Token()
+			if err != nil {
+				t.Fatal(err)
+			}
+			receiver, err := ingress.Listen(db, adapter, 0, token)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = receiver.Close(ctx) }()
+			exp := &cliExporter{receiver.URL(), protocol, token, protocol == "binary"}
+			cli, err := startCLI(ctx, dir, profile, provider.URL, "", exp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = <-cli.finished; err != nil {
+				t.Fatal("isolated CLI failed", err)
+			}
+			rows, point, err := evidenceAt(ctx, db)
+			if err != nil {
+				t.Fatal(err)
+			}
+			kinds := map[string]int{}
+			bodies := 0
+			apiID := ""
+			for _, record := range rows {
+				e := record.Evidence
+				if e.ClientVersion == "" || e.Kind != collect.CodexTelemetry || e.Observer != "client" || e.OccurredMS == nil {
+					t.Fatal("missing source provenance")
+				}
+				name, _ := e.Metadata["event.name"].(string)
+				kinds[name]++
+				if name == "codex.api_request" {
+					apiID = strconv.FormatInt(record.ID, 10)
+					if e.Metadata["http.response.status_code"] != float64(200) || e.Metadata["attempt"] != float64(0) || e.Metadata["duration_ms"] == nil {
+						t.Fatal("incomplete HTTP observation")
+					}
+				}
+				slots, err := db.BodyFields(ctx, point, record.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, b := range slots {
+					if !exp.userPrompt || name != "codex.user_prompt" || b.Status != "sanitized" || b.Role != "user" {
+						t.Fatalf("unexpected body slot for %s: status %s", name, b.Status)
+					}
+					bodies++
+				}
+			}
+			if kinds["codex.api_request"] < 2 || kinds["codex.tool_result"] < 1 || kinds["codex.user_prompt"] < 1 || exp.userPrompt != (bodies > 0) {
+				t.Fatalf("SDK observations=%v bodies=%d", kinds, bodies)
+			}
+			m := readmodel.New(rows, readmodel.Options{})
+			detail, err := m.Query("evidence", object{"evidenceId": apiID})
+			if err != nil || detail == nil {
+				t.Fatal("missing evidence detail", err)
+			}
+			d := detail.(object)
+			safe := d["safeMetadata"].(object)
+			if d["evidence"].(object)["link"] != "UNLINKED" || safe["httpStatus"] != float64(200) || safe["attempt"] != float64(0) || safe["durationMs"] == nil {
+				t.Fatal("unsupported API inference")
+			}
+			t.Logf("codex-cli %s protocol=%s persisted=%d observations=%v promptSlots=%d", rows[0].Evidence.ClientVersion, protocol, len(rows), kinds, bodies)
+		})
+	}
 }

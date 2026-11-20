@@ -145,6 +145,9 @@ func project(raw []byte, media string, consent bool, a *collect.Adapter) ([]coll
 	return out, rejected, nil
 }
 func entry(a *collect.Adapter, l *logs.LogRecord, resource []*common.KeyValue, scope string, consent bool) (collect.Evidence, bool) {
+	if a.Kind() == collect.CodexTelemetry {
+		return codexEntry(a, l, resource, scope, consent)
+	}
 	kvs := l.GetAttributes()
 	name := attr(kvs, "event.name")
 	if name == "" {

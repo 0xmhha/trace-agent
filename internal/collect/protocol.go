@@ -20,6 +20,10 @@ type AppOptions struct {
 	Follow    bool
 	// PollInterval sets the delay between serial history refreshes in Follow mode.
 	PollInterval time.Duration
+	// RequestTimeout limits one RPC, so a progressing multi-page history can take longer.
+	RequestTimeout time.Duration
+	// Synced runs after each successful catch-up, including an empty history.
+	Synced func()
 }
 
 type appConnection struct {
@@ -33,6 +37,7 @@ type appConnection struct {
 	touched           []map[string]bool
 	selected          map[string]bool
 	directory         string
+	timeout           time.Duration
 }
 
 // CollectApp takes ownership of a dedicated app-server JSONL connection. It sends
@@ -44,7 +49,7 @@ func (a *Adapter) CollectApp(ctx context.Context, conn io.ReadWriteCloser, opts 
 	}
 	closeConn := sync.OnceFunc(func() { _ = conn.Close() })
 	defer closeConn()
-	if a.kind != AppServer || opts.Directory == "" || sink == nil || opts.PollInterval < 0 {
+	if a.kind != AppServer || opts.Directory == "" || sink == nil || opts.PollInterval < 0 || opts.RequestTimeout < 0 {
 		return errInput
 	}
 	stop := context.AfterFunc(ctx, closeConn)
@@ -54,7 +59,7 @@ func (a *Adapter) CollectApp(ctx context.Context, conn io.ReadWriteCloser, opts 
 	done := make(chan struct{})
 	go func() { defer close(done); readFrames(pumpCtx, conn, inbox) }()
 	defer func() { cancel(); closeConn(); <-done }()
-	c := &appConnection{adapter: a, sink: sink, conn: conn, inbox: inbox, heads: make(map[string]string), generation: rand.Text(), selected: make(map[string]bool), directory: opts.Directory}
+	c := &appConnection{adapter: a, sink: sink, conn: conn, inbox: inbox, heads: make(map[string]string), generation: rand.Text(), selected: make(map[string]bool), directory: opts.Directory, timeout: opts.RequestTimeout}
 	_, err := c.call(ctx, "initialize", object{"clientInfo": object{"name": "trace_agent", "version": Version}, "capabilities": object{"experimentalApi": true}})
 	if err != nil {
 		return err
@@ -62,7 +67,16 @@ func (a *Adapter) CollectApp(ctx context.Context, conn io.ReadWriteCloser, opts 
 	if err = c.send(object{"method": "initialized"}); err != nil {
 		return err
 	}
-	if err := c.scan(ctx); err != nil || !opts.Follow {
+	scan := func() error {
+		if err := c.scan(ctx); err != nil {
+			return err
+		}
+		if opts.Synced != nil {
+			opts.Synced()
+		}
+		return nil
+	}
+	if err := scan(); err != nil || !opts.Follow {
 		return err
 	}
 	if opts.PollInterval == 0 {
@@ -82,7 +96,7 @@ func (a *Adapter) CollectApp(ctx context.Context, conn io.ReadWriteCloser, opts 
 				return err
 			}
 		case <-timer.C:
-			if err := c.scan(ctx); err != nil {
+			if err := scan(); err != nil {
 				return err
 			}
 			timer.Reset(opts.PollInterval)
@@ -167,6 +181,13 @@ func (c *appConnection) read(ctx context.Context) (rpcMessage, error) {
 }
 
 func (c *appConnection) call(ctx context.Context, method string, params object) (json.RawMessage, error) {
+	if c.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+		stop := context.AfterFunc(ctx, func() { _ = c.conn.Close() })
+		defer stop()
+	}
 	c.request++
 	if err := c.send(object{"id": c.request, "method": method, "params": params}); err != nil {
 		return nil, err

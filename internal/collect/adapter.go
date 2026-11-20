@@ -24,10 +24,11 @@ type Kind string
 
 // Supported source kinds.
 const (
-	Rollout    Kind = "codex-rollout"
-	AppServer  Kind = "codex-app-server"
-	Transcript Kind = "claude-transcript"
-	Telemetry  Kind = "claude-otel"
+	Rollout        Kind = "codex-rollout"
+	AppServer      Kind = "codex-app-server"
+	Transcript     Kind = "claude-transcript"
+	Telemetry      Kind = "claude-otel"
+	CodexTelemetry Kind = "codex-otel"
 )
 
 var (
@@ -49,13 +50,13 @@ type Adapter struct {
 // New binds an adapter to a profile and instance. The caller supplies a persistent
 // installation secret and trusted tool names from local configuration.
 func New(kind Kind, profile, instance, clientVersion string, secret []byte, allowedTools []string, now func() time.Time) (*Adapter, error) {
-	if !slices.Contains([]Kind{Rollout, AppServer, Transcript, Telemetry}, kind) ||
+	if !slices.Contains([]Kind{Rollout, AppServer, Transcript, Telemetry, CodexTelemetry}, kind) ||
 		profile == "" || instance == "" || len(secret) < 32 || now == nil {
 		return nil, errors.New("invalid adapter configuration")
 	}
 	a := &Adapter{kind: kind, secret: slices.Clone(secret), now: now, clientVersion: numericVersion(clientVersion), tools: make(map[string]bool)}
 	client := "claude"
-	if kind == Rollout || kind == AppServer {
+	if kind == Rollout || kind == AppServer || kind == CodexTelemetry {
 		client = "codex"
 	}
 	a.profile = a.token("profile", client, profile)
@@ -129,6 +130,8 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 		m = a.rollout(r)
 	case Transcript:
 		m = a.transcript(r)
+	case CodexTelemetry:
+		m = a.codexTelemetry(r)
 	case Telemetry:
 		m = a.telemetry(r)
 	case AppServer:
@@ -139,7 +142,7 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 	}
 	var occurred *int64
 	stamp := str(r, "timestamp")
-	if a.kind == Telemetry {
+	if a.kind == Telemetry || a.kind == CodexTelemetry {
 		stamp = str(r, "event.timestamp")
 	}
 	if t, err := time.Parse(time.RFC3339Nano, stamp); err == nil {
@@ -156,7 +159,7 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 	switch a.kind {
 	case Transcript:
 		version = str(r, "version")
-	case Telemetry:
+	case Telemetry, CodexTelemetry:
 		version = str(r, "service.version")
 	case Rollout:
 		if str(r, "type") == "session_meta" {

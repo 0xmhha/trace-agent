@@ -72,6 +72,9 @@ func preview(ctx context.Context, tx *sql.Tx, f Filter) (Preview, error) {
 	if !f.valid() {
 		return Preview{}, errInvalid
 	}
+	if err := validateDeleteTarget(ctx, tx, f); err != nil {
+		return Preview{}, err
+	}
 	var p Preview
 	var err error
 	p.Point, err = point(ctx, tx)

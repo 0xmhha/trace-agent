@@ -11,10 +11,20 @@ func capability(code, state, reason string) object {
 func capabilities(i store.SourceInfo) []any {
 	items := []any{capability("desktop_live", "UNVERIFIED", "별도 데스크톱 창에서 시작한 작업의 알림과 재시작을 확인하지 못했습니다.")}
 	observer := i.Kind == string(collect.ClaudeHook) || i.Kind == string(collect.MCPObserver)
-	telemetry := i.Kind == string(collect.Telemetry)
+	codexOTel := i.Kind == string(collect.CodexTelemetry)
+	telemetry := i.Kind == string(collect.Telemetry) || codexOTel
 	if telemetry {
+		reason := "Claude Code CLI 2.1.329의 OTLP/HTTP protobuf와 JSON 송신을 확인했습니다."
+		state := "AVAILABLE"
+		if codexOTel {
+			reason = "Codex CLI 0.169.1에서 OTLP/HTTP protobuf와 JSON으로 보낸 API 시도 번호, HTTP 상태, 소요 시간을 확인했습니다."
+			if i.ClientVersion != "0.169.1" {
+				state = "UNVERIFIED"
+				reason = "Codex CLI 0.169.1에서 송신을 확인했습니다. 현재 출처의 버전은 확인 범위 밖입니다."
+			}
+		}
 		items = append(items, capability("history", "UNAVAILABLE", "OTLP 수신기를 연결한 뒤 SDK가 전송한 이벤트를 수집합니다. 이전 기록을 요청하는 기능은 없습니다."),
-			capability("telemetry", "AVAILABLE", "Claude Code CLI 2.1.329의 OTLP/HTTP protobuf와 JSON 송신을 확인했습니다."),
+			capability("telemetry", state, reason),
 			capability("restart", "PARTIAL", "동일한 수신 주소와 출처 자격을 복원합니다. 송신자가 재시도한 이벤트는 같은 기록으로 처리합니다."))
 	} else if observer {
 		items = append(items, capability("history", "UNAVAILABLE", "선택한 관찰 수신기에 전달한 이벤트만 기록합니다. 원천의 이전 이력 조회는 지원하지 않습니다."))
@@ -55,8 +65,9 @@ func capabilities(i store.SourceInfo) []any {
 	if i.ClientVersion != "" && i.ClientVersion != verifiedVersion {
 		items = append(items, capability("client_version", "UNVERIFIED", "관찰한 클라이언트 버전은 설치본 호환 시험의 버전과 다릅니다."))
 	}
-	if i.Client == "codex" {
-		items = append(items, capability("telemetry", "UNAVAILABLE", "Codex OTel 내보내기 형식과 수신기 호환성을 검증하지 않았습니다."))
+
+	if i.Client == "codex" && !codexOTel {
+		items = append(items, capability("telemetry", "UNAVAILABLE", "Codex OTel 이벤트는 전용 출처를 연결하면 수집합니다."))
 	}
 	if observer {
 		items = append(items, capability("body", "UNAVAILABLE", "이 관찰 경로는 식별자와 상태만 수집합니다."))
@@ -64,6 +75,9 @@ func capabilities(i store.SourceInfo) []any {
 		reason := "사건 시각과 현재 동의가 모두 유효한 지원 필드만 정제해 표시합니다."
 		if telemetry {
 			reason = "송신자가 이 루프백 주소로 본문 옵션을 켠 뒤 보낸 지원 필드만 정제합니다."
+		}
+		if codexOTel {
+			reason = "CLI의 log_user_prompt 옵션을 켜고 출처 본문에 동의한 경우에만 사용자 입력을 정제합니다."
 		}
 		items = append(items, capability("body", "PARTIAL", reason))
 	} else {

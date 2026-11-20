@@ -61,8 +61,10 @@ func TestIA120(t *testing.T) {
 	if count(agents, "total") != 4 || count(agents, "ended") != 2 || count(agents, "running") != 1 || count(agents, "unknown") != 1 {
 		t.Fatal(agents)
 	}
-	if count(v, "latencyP95Ms") != 4 {
-		t.Fatal(v["latencyP95Ms"])
+	bases := v["latencyByBasis"].([]row)
+	if count(v, "latencyP95Ms") != 4 || obj(v["latencyP95Ms"])["value"] != float64(1000) ||
+		len(bases) != 2 || bases[1]["basis"] != "REPORTED" || obj(bases[1]["p95Ms"])["value"] != float64(79) {
+		t.Fatal("latency sample or measurement basis changed", bases)
 	}
 	task := q(t, m, "task", row{"key": row{"taskId": "A"}})
 	if len(task["currentSteps"].([]row)) != 2 {

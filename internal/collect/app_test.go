@@ -220,6 +220,18 @@ func TestLocalCodex(t *testing.T) {
 	t.Log("verified local history", strings.TrimSpace(fmt.Sprint(counts)))
 }
 
+// An idle peer must release the read-only collector so the desktop can reconnect.
+func TestAppRPCDeadline(t *testing.T) {
+	client, server := net.Pipe()
+	defer func() { _ = server.Close() }()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	err := adapter(t, AppServer).CollectApp(ctx, client, AppOptions{Directory: "/selected", RequestTimeout: 20 * time.Millisecond}, new(memorySink))
+	if err == nil || ctx.Err() != nil {
+		t.Fatalf("RPC did not terminate within its own deadline: %v", err)
+	}
+}
+
 func TestFollowPollsMissedTurns(t *testing.T) {
 	a := adapter(t, AppServer)
 	sink := new(memorySink)
@@ -232,8 +244,9 @@ func TestFollowPollsMissedTurns(t *testing.T) {
 	ctx, cancel := context.WithDeadline(t.Context(), deadline)
 	defer cancel()
 	done := make(chan error, 1)
+	synced := make(chan struct{}, 2)
 	go func() {
-		done <- a.CollectApp(ctx, client, AppOptions{Directory: "/selected", Follow: true, PollInterval: time.Millisecond}, sink)
+		done <- a.CollectApp(ctx, client, AppOptions{Directory: "/selected", Follow: true, PollInterval: time.Millisecond, Synced: func() { synced <- struct{}{} }}, sink)
 	}()
 	dec := json.NewDecoder(server)
 	enc := json.NewEncoder(server)
@@ -265,6 +278,9 @@ func TestFollowPollsMissedTurns(t *testing.T) {
 				cancel()
 				if err := <-done; !errors.Is(err, context.Canceled) {
 					t.Fatalf("stop: %v", err)
+				}
+				if len(synced) != 1 {
+					t.Fatalf("expected one completed initial scan, got %d", len(synced))
 				}
 				if len(sink.output) != 4 {
 					t.Fatalf("want thread and three distinct turns, got %d", len(sink.output))

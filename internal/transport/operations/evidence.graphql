@@ -8,6 +8,7 @@ fragment EvidenceDetailReadFields on EvidenceDetailRead {
 }
 
 fragment EvidenceDetailFields on EvidenceDetail {
+  safeMetadata { attempt httpStatus durationMs toolSuccess }
   evidence { ...EvidenceFields }
   fields { ...TextFieldFields }
   candidates

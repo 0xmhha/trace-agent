@@ -23,7 +23,7 @@
 | Codex CLI 0.169.1 | 격리 프로젝트의 rollout과 읽기 전용 app-server | 같은 세션 새 턴 및 수집기 재시작 | 실제 명령과 자식 생성, 부모 2턴·자식 1턴 | 확인. [실행 결과와 명령](codex-compat.md) |
 | Claude Code CLI 2.1.329 | 임시 프로젝트 폴더의 루트·자식 JSONL, 첫 턴 실행 중 파일 재개 | CLI 재시작 후 같은 세션의 새 턴, SQLite 재개 | Read·Agent·TaskCreate 3회, 자식 1개 | 확인. [실행 결과와 명령](claude-compat.md) |
 | Claude Code CLI 2.1.329 / 로컬 OTel | 새로 설정한 루프백 수신기에 SDK 이벤트를 전달. 서버에서 과거 SDK 이력 조회는 지원하지 않음 | 같은 자격과 포트로 수신기 복원, 커밋 후 재전송 중복 제거 | HTTP/protobuf·JSON에서 API 본문 요청·응답 6쌍, 도구 결과 3개 | 확인. [SDK 송신 시험](otlp-compat.md) |
-| Codex OTel | 수신·이력 조회 경로 미구현 | 실제 exporter 형식·재연결 미검증 | 도구·본문 검증 없음 | 미지원. 검증된 Codex 자료원은 rollout과 읽기 전용 app-server다. |
+| Codex CLI 0.169.1 / 로컬 OTel | 설정을 적용한 프로세스가 보낸 이벤트부터 수집 | HTTP/protobuf와 JSON 실송신 확인. 같은 묶음 재전송 시 중복 0건 | API 시도 번호·HTTP 상태·소요 시간, 도구 결과, 선택한 사용자 입력 정제 | 확인. 작업·모델 왕복을 연결할 키는 미제공. [실행 결과](codex-compat.md#로컬-otel-수신) |
 | Codex 데스크톱 | 별도 GUI에서 생성된 스레드인지 판별하지 못함 | GUI가 발행한 새 턴·재시작 미확인 | GUI의 기본 알림·도구·계획 미확인 | 제한. 선택 범위의 호환 이력만 읽음 |
 | Claude Code 데스크톱 | 별도 GUI의 Code 세션 미확인 | GUI의 새 턴·재시작 미확인 | GUI의 도구·자식 미확인 | 제한. 사용자가 선택한 호환 JSONL만 읽음 |
 

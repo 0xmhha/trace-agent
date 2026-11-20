@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/0xmhha/trace-agent/internal/collect"
 )
 
 func pageInfo(end, total int) row {
@@ -429,7 +431,11 @@ func (m *Model) sourceData(op string, args, p row) any {
 				return nil
 			}
 		}
-		return row{"evidence": v, "fields": []row{field("body")}, "candidates": 0}
+		detail := row{"evidence": v, "fields": []row{field("body")}, "candidates": 0}
+		if e := m.records[eid].Evidence; e.Kind == collect.CodexTelemetry {
+			detail["safeMetadata"] = codexSafeMetadata(e.Metadata)
+		}
+		return detail
 	}
 	if op == "identities" || op == "identity" {
 		var items []row

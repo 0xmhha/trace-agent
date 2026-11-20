@@ -83,6 +83,8 @@ func (m *Model) decode(records []store.Record) {
 			d.rollout(r)
 		case collect.AppServer:
 			d.app(r)
+		case collect.CodexTelemetry:
+			d.m.unlinked[recID(r)] = true
 		case collect.Telemetry:
 			d.otel(r)
 		}

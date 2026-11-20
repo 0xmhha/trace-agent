@@ -97,6 +97,10 @@ func bodyFields(kind Kind, r object) []BodySlot {
 				add("step."+strconv.Itoa(i), "assistant", obj(v)["step"])
 			}
 		}
+	case CodexTelemetry:
+		if str(r, "event.name") == "codex.user_prompt" && str(r, "prompt") != "[REDACTED]" {
+			add("message", "user", r["prompt"])
+		}
 	case Telemetry:
 		var payload object
 		if json.Unmarshal([]byte(str(r, "body")), &payload) == nil {

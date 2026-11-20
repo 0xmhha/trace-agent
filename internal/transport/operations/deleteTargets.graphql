@@ -1,0 +1,3 @@
+query deleteTargets($sourceId: ID!, $interval: RangeInput!, $target: DeleteTargetKind!, $after: ID) {
+  deleteTargets(sourceId: $sourceId, interval: $interval, target: $target, after: $after) { ids hasNext }
+}

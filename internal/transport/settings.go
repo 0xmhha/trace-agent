@@ -80,8 +80,33 @@ func (p *peer) manageOperation(ctx context.Context, op string, args object) (any
 			return nil, 0, errVariables
 		}
 		pt, err = m.SetRetention(ctx, source, days)
+	case "deleteTargets":
+		reader, ok := p.s.db.(interface {
+			DeleteTargets(context.Context, store.Filter, string, string) ([]string, bool, store.Point, error)
+		})
+		if !ok {
+			return nil, 0, errScope
+		}
+		window, err := readFilter(args)
+		if err != nil {
+			return nil, 0, err
+		}
+		ids, more, at, err := reader.DeleteTargets(ctx, store.Filter{Source: source, Kind: "all", FromMS: window.From.UnixMilli(), UntilMS: window.Until.UnixMilli()}, str(args, "target"), str(args, "after"))
+		if err != nil {
+			return nil, 0, err
+		}
+		result := make([]any, len(ids))
+		for i, id := range ids {
+			result[i] = id
+		}
+		return object{"ids": result, "hasNext": more}, at.Epoch, nil
 	case "previewDelete":
 		input := obj(args, "input")
+		for _, k := range []string{"sessionId", "taskId"} {
+			if _, supplied := input[k]; supplied && str(input, k) == "" {
+				return nil, 0, errVariables
+			}
+		}
 		f, e := readFilter(input)
 		if e != nil {
 			return nil, 0, e

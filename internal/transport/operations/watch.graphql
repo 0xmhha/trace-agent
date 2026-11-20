@@ -160,6 +160,7 @@ fragment EdgeFields on Edge {
 }
 
 fragment EvidenceDetailFields on EvidenceDetail {
+  safeMetadata { attempt httpStatus durationMs toolSuccess }
   evidence { ...EvidenceFields }
   fields { ...TextFieldFields }
   candidates

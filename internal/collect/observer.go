@@ -151,7 +151,7 @@ func (a *Adapter) ProjectObservation(raw []byte) (Evidence, error) {
 // ClientCode returns the public source client.
 func ClientCode(kind Kind) string {
 	switch kind {
-	case Rollout, AppServer:
+	case Rollout, AppServer, CodexTelemetry:
 		return "CODEX"
 	case Transcript, Telemetry, ClaudeHook:
 		return "CLAUDE"

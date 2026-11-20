@@ -32,6 +32,9 @@ func scopes(e collect.Evidence) (string, string) {
 	if session == "" {
 		session = get(m, "sessionId")
 	}
+	if e.Kind == collect.CodexTelemetry {
+		session = get(m, "conversation.id")
+	}
 	if get(m, "type") == "thread" {
 		session = get(m, "id")
 	}
