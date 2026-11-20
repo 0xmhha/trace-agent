@@ -1,0 +1,31 @@
+{
+  "codex": {
+    "tasks": ["cx-root/cx-turn"],
+    "attempts": [
+      {"key":"roll-root/cx-root/cx-turn/function/cx-1","tool":"mcp__north__lookup","task":"cx-root/cx-turn","call":"roll-root:3","results":["roll-root:4"],"outcome":"unknown"},
+      {"key":"roll-root/cx-root/cx-turn/function/cx-2","tool":"mcp__south__lookup","task":"cx-root/cx-turn","call":"roll-root:5","results":["roll-root:6"],"outcome":"unknown"},
+      {"key":"roll-root/cx-root/cx-turn/function/cx-wait","tool":"wait_agent","task":"cx-root/cx-turn","call":"roll-root:9","results":["roll-root:10"],"outcome":"unknown"}
+    ],
+    "children": [{"id":"cx-child","parent":"cx-root","task":null,"at":"roll-child:1","state":"unknown"}],
+    "unlinked":["roll-root:7","roll-root:8"],
+    "waitTimeouts":["roll-root:10"],
+    "plans":[{"task":"cx-root/cx-turn","at":"app-plan:1","steps":["inProgress","inProgress"]}]
+  },
+  "claude": {
+    "tasks":["cl-session/p1"],
+    "attempts":[
+      {"key":"cl-session/cl-root/cl-1","tool":"Read","task":"cl-session/p1","call":"cl-root:2#0","results":["cl-root:3#1"],"outcome":"success"},
+      {"key":"cl-session/cl-root/cl-2","tool":"Read","task":"cl-session/p1","call":"cl-root:2#1","results":["cl-root:3#0"],"outcome":"failure"},
+      {"key":"cl-session/cl-root/cl-agent","tool":"Agent","task":"cl-session/p1","call":"cl-root:4#0","results":["cl-root:5#0"],"outcome":"unknown"}
+    ],
+    "children":[{"id":"cl-child","parent":"cl-root","task":"cl-session/p1","at":"cl-root:5#0","childAt":"cl-side:1","state":"unknown"}],
+    "unlinked":["cl-root:6#0","cl-side:1#0"],
+    "waitTimeouts":[],
+    "plans":[]
+  },
+  "claude-otel": {
+    "tasks": [], "attempts": [], "children": [],
+    "unlinked": ["otel-synthetic:3"], "waitTimeouts": [], "plans": [],
+    "sourceModelAttempts": [{"key":"otel-synthetic/C1","request":"otel-synthetic:1","responses":["otel-synthetic:2"]}]
+  }
+}

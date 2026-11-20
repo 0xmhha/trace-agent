@@ -1,0 +1,13 @@
+{"stream":"roll-root","seq":1,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"session_meta","payload":{"id":"cx-root"}}}
+{"stream":"roll-root","seq":2,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"event_msg","payload":{"type":"task_started","turn_id":"cx-turn"}}}
+{"stream":"roll-root","seq":3,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call","call_id":"cx-1","name":"mcp__north__lookup","arguments":"{}"}}}
+{"stream":"roll-root","seq":4,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"cx-1","output":"{}"}}}
+{"stream":"roll-root","seq":6,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"cx-2","output":"{}"}}}
+{"stream":"roll-root","seq":5,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call","call_id":"cx-2","name":"mcp__south__lookup","arguments":"{}"}}}
+{"stream":"roll-root","seq":4,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"cx-1","output":"{}"}}}
+{"stream":"roll-root","seq":7,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"cx-missing","output":"{}"}}}
+{"stream":"roll-root","seq":8,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call_output","id":"cx-output","output":"{}"}}}
+{"stream":"roll-root","seq":9,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call","call_id":"cx-wait","name":"wait_agent","arguments":"{}"}}}
+{"stream":"roll-root","seq":10,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"response_item","payload":{"type":"function_call_output","call_id":"cx-wait","output":"{\"timed_out\":true}"}}}
+{"stream":"roll-child","seq":1,"record":{"timestamp":"2030-01-01T00:00:00Z","type":"session_meta","payload":{"id":"cx-child","parent_thread_id":"cx-root"}}}
+{"stream":"app-plan","seq":1,"record":{"method":"turn/plan/updated","params":{"threadId":"cx-root","turnId":"cx-turn","plan":[{"step":"fixture-a","status":"inProgress"},{"step":"fixture-b","status":"inProgress"}]}}}
