@@ -37,6 +37,7 @@ var (
 
 // Adapter belongs to exactly one configured source. It is safe for concurrent use.
 type Adapter struct {
+	bodyEnabled                    bool
 	kind                           Kind
 	source, profile, clientVersion string
 	secret                         []byte
@@ -81,6 +82,9 @@ type Position struct {
 
 // Evidence is safe to pass to the single writer. Metadata contains only projected fields.
 type Evidence struct {
+	slots                                                                   []BodySlot
+	PreviousGeneration                                                      string `json:",omitempty"`
+	projectedHash                                                           [sha256.Size]byte
 	Source, Profile, Stream, Generation, RecordKey, VersionKey, SemanticTag string
 	Kind                                                                    Kind
 	Observer, AdapterVersion, ClientVersion, Redaction                      string
@@ -94,7 +98,7 @@ func (a *Adapter) evidence(pos Position, meta object, occurred *int64) Evidence 
 	encoded, _ := json.Marshal(meta) // The projector builds JSON exclusively from JSON scalar/container types.
 	stream := a.token("stream", a.source, pos.Stream)
 	generation := a.token("generation", stream, pos.Generation)
-	return Evidence{Source: a.source, Profile: a.profile, Stream: stream, Generation: generation, Position: pos.Offset,
+	return Evidence{projectedHash: sha256.Sum256(encoded), Source: a.source, Profile: a.profile, Stream: stream, Generation: generation, Position: pos.Offset,
 		RecordKey: a.token("position", generation, strconv.FormatInt(pos.Offset, 10)), VersionKey: "1",
 		SemanticTag: a.token("metadata", a.source, string(encoded)), Kind: a.kind, Observer: "client",
 		AdapterVersion: Version, ClientVersion: a.clientVersion, Redaction: "metadata_only",
@@ -141,6 +145,9 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 		occurred = &ms
 	}
 	e := a.evidence(pos, m, occurred)
+	if a.bodyEnabled && occurred != nil {
+		e.slots = bodyFields(a.kind, r)
+	}
 	var version string
 	switch a.kind {
 	case Transcript:
@@ -204,3 +211,24 @@ func numericVersion(v string) string {
 	}
 	return v
 }
+
+// Source returns the configured source identity.
+func (a *Adapter) Source() string { return a.source }
+
+// StreamKey returns the key used for file checkpoint lookup.
+func (a *Adapter) StreamKey(name string) string { return a.token("stream", a.source, name) }
+
+// StorageMetadata verifies that the projection has not been replaced after redaction.
+func (e Evidence) StorageMetadata() ([]byte, error) {
+	data, err := json.Marshal(e.Metadata)
+	if err != nil || len(data) > maxRecord || sha256.Sum256(data) != e.projectedHash {
+		return nil, errors.New("unverified evidence projection")
+	}
+	return data, nil
+}
+
+// Kind identifies the source protocol of this adapter.
+func (a *Adapter) Kind() Kind { return a.kind }
+
+// Profile returns the opaque client-profile identity shared by this adapter's records.
+func (a *Adapter) Profile() string { return a.profile }
