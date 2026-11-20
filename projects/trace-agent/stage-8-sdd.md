@@ -57,4 +57,28 @@ TRACE_VERIFY=live go test -count=1 -v -timeout 15m -run '^TestDesktopRelease$' .
 TRACE_IA_BROWSER=1 go test -race -count=1 -v -run '^TestDesktopIA$' .
 ```
 
-두 CLI에서 설치한 바이너리와 격리 프로젝트로 새 턴, 도구, 재시작 범위를 확인했다. 클라이언트 버전, CLI와 데스크톱 차이, 조건부 자료원과 지원 한계는 [출처별 지원표](source-support.md)에 있다. Claude·Codex 데스크톱 GUI에서 직접 시작한 세션과 재시작은 미확인이다.
+두 CLI에서 설치한 바이너리와 격리 프로젝트로 새 턴, 도구, 재시작 범위를 확인했다. 클라이언트 버전, CLI와 데스크톱 차이, 조건부 자료원과 지원 한계는 [출처별 지원표](source-support.md)에 있다. 이후 데스크톱 세션에서 확보한 원천 기록과 재시작 검사는 아래에 기록했다.
+
+## 데스크톱 클라이언트의 신규 세션
+
+2026-11-20 KST, R01·R03·R08. 기준 main은 `ea6afa4`, 수집 어댑터는 2.1.0, SQLite는 13이다. 이 커밋에서 `make -C desktop package`로 만든 배포 앱의 서명과 실행 중인 프로세스를 확인했다. 기존 화면 인수 시험과 별개로 이번 검증에서는 원천 기록과 읽기 모델을 대조했다. 개인 세션 경로, 원문, 식별자는 커밋에서 제외했다.
+
+**Codex 데스크톱 26.1111.71704.** 데스크톱의 새 로컬 채팅에서 합성 문구를 출력하는 명령을 한 번 실행했다. 앱은 턴과 commandExecution을 완료 처리했고 출력 문구도 일치했다. 해당 rollout의 session_meta에 originator가 `Codex Desktop`, cli_version이 `0.169.1`로 기록됐다. custom_tool_call과 custom_tool_call_output의 call_id가 일치했다. 앱에 포함된 app-server의 새 프로세스에서 `thread/turns/list`로 이 턴을 조회하고 프로세스를 종료한 뒤 다시 조회했다. 두 조회의 턴·항목 ID와 완료 상태가 일치했다.
+
+| Codex 단일 세션 | 원천 근거 | 작업 | 종료된 시도 | revision / epoch | 마지막 완결 바이트 |
+|---|---:|---:|---:|---|---:|
+| 첫 수집 | 30 | 1 | 1 | 30 / 1 | 228984 |
+| 수집기 프로세스 재시작 후 같은 파일 조회 | 30 | 1 | 1 | 30 / 1 | 228984 |
+
+독립된 두 프로세스에서 배포 앱의 파일 수집 함수, SQLite와 읽기 모델을 사용했다. 두 번째 프로세스가 같은 작업·시도 ID와 파일 체크포인트를 읽었는지 대조했다. 검증 대상은 이 세션의 완료 이력이다. Codex 앱 자체의 종료·재실행, 진행 중 알림, 계획과 하위 에이전트는 이번 결과에 포함하지 않았다.
+
+단일 도구 호출을 끝낸 전용 시험 세션 파일 하나를 절대 경로로 지정한다. DB와 수집용 키는 시험마다 새로 만든다. 같은 시험 안의 두 프로세스만 DB와 키를 공유한다. 본문 수집은 꺼져 있다. [재시작 시험](../../desktop/client_history_test.go)
+
+```sh
+cd desktop
+TRACE_DESKTOP_SESSION_KIND=codex-rollout \
+TRACE_DESKTOP_SESSION_FILE='/absolute/path/to/selected-rollout.jsonl' \
+go test -race -count=1 -run '^TestDesktopClientHistory$' -v .
+```
+
+**Claude 데스크톱 6.6395.1.** 새 임시 Git 프로젝트에 한 줄짜리 `probe.txt`를 준비했다. 설치 CLI 2.1.329에서 `claude --desktop`은 프로젝트를 Claude Desktop으로 열었다고 보고하고 정상 종료했다. 같은 옵션에 첫 메시지를 함께 주면 앱에서 입력하라는 안내와 종료 코드 1이 반환됐다. 이 단계에서 시험 프로젝트의 Read 호출·결과를 담은 JSONL은 확보하지 못했다. 데스크톱 도구 실행과 재시작 이력은 미확인으로 둔다. 완료된 시험 세션을 확보하면 위 명령에서 종류를 `claude-transcript`로 바꾸고 그 파일 하나를 지정한다.
