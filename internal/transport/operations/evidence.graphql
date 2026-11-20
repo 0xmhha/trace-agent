@@ -1,0 +1,66 @@
+query evidence($scope: FixedScope!, $evidenceId: ID!) {
+  evidence(scope: $scope, evidenceId: $evidenceId) { ...EvidenceDetailReadFields }
+}
+
+fragment EvidenceDetailReadFields on EvidenceDetailRead {
+  stamp { ...StampFields }
+  data { ...EvidenceDetailFields }
+}
+
+fragment EvidenceDetailFields on EvidenceDetail {
+  safeMetadata { attempt httpStatus durationMs toolSuccess }
+  evidence { ...EvidenceFields }
+  fields { ...TextFieldFields }
+  candidates
+  reason
+}
+
+fragment EvidenceFields on Evidence {
+  id
+  sourceId
+  observer
+  occurred
+  observed
+  recordKind
+  grade
+  reason
+  link
+  adapterVersion
+  actorIdentityId
+  streamScopeId
+  familyScopeId
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

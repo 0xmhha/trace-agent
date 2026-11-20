@@ -1,0 +1,49 @@
+query sources($scope: FixedScope!, $page: PageInput) {
+  sources(scope: $scope, page: $page) { ...SourcePageReadFields }
+}
+
+fragment SourcePageReadFields on SourcePageRead {
+  stamp { ...StampFields }
+  data { ...SourcePageFields }
+}
+
+fragment SourcePageFields on SourcePage {
+  items { ...SourceRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment SourceRowFields on SourceRow {
+  id
+  client
+  kind
+  clientVersion
+  adapterVersion
+  permission
+  asOfHealth
+  asOfCheckedAt
+  lastAt
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

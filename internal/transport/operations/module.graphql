@@ -1,0 +1,77 @@
+query module($scope: FixedScope!, $key: EntityKey!, $childrenPage: PageInput, $attemptsPage: PageInput) {
+  module(scope: $scope, key: $key, childrenPage: $childrenPage, attemptsPage: $attemptsPage) { ...ModuleDetailReadFields }
+}
+
+fragment ModuleDetailReadFields on ModuleDetailRead {
+  stamp { ...StampFields }
+  data { ...ModuleDetailFields }
+}
+
+fragment ModuleDetailFields on ModuleDetail {
+  module { ...ModuleRowFields }
+  children { ...ModulePageFields }
+  attempts { ...AttemptPageFields }
+}
+
+fragment AttemptPageFields on AttemptPage {
+  items { ...AttemptRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment AttemptRowFields on AttemptRow {
+  id
+  taskId
+  agentId
+  moduleId
+  outcome
+  phase
+  result
+  started
+  ended
+  previousAttemptId
+}
+
+fragment ModulePageFields on ModulePage {
+  items { ...ModuleRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment ModuleRowFields on ModuleRow {
+  id
+  taskId
+  kind
+  name
+  parentId
+  count { ...MeasurementFields }
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

@@ -1,0 +1,99 @@
+query identity($scope: FixedScope!, $id: ID!, $assignmentsPage: PageInput, $evidencePage: PageInput) {
+  identity(scope: $scope, id: $id, assignmentsPage: $assignmentsPage, evidencePage: $evidencePage) { ...IdentityDetailReadFields }
+}
+
+fragment IdentityDetailReadFields on IdentityDetailRead {
+  stamp { ...StampFields }
+  data { ...IdentityDetailFields }
+}
+
+fragment IdentityDetailFields on IdentityDetail {
+  identity { ...IdentityRowFields }
+  assignments { ...AssignmentPageFields }
+  evidence { ...EvidencePageFields }
+}
+
+fragment AssignmentPageFields on AssignmentPage {
+  items { ...AssignmentFields }
+  page { ...PageInfoFields }
+}
+
+fragment AssignmentFields on Assignment {
+  id
+  taskId
+  agentId
+  identityId
+  at
+  mission { ...TextFieldFields }
+  grade
+  evidenceIds
+}
+
+fragment EvidencePageFields on EvidencePage {
+  items { ...EvidenceFields }
+  page { ...PageInfoFields }
+}
+
+fragment EvidenceFields on Evidence {
+  id
+  sourceId
+  observer
+  occurred
+  observed
+  recordKind
+  grade
+  reason
+  link
+  adapterVersion
+  actorIdentityId
+  streamScopeId
+  familyScopeId
+}
+
+fragment IdentityRowFields on IdentityRow {
+  id
+  client
+  parentId
+  parentGrade
+  attribution
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

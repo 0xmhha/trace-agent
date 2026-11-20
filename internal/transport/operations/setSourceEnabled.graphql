@@ -1,0 +1,12 @@
+mutation setSourceEnabled($sourceId: ID!, $enabled: Boolean!) {
+  setSourceEnabled(sourceId: $sourceId, enabled: $enabled) { ...ChangeReceiptFields }
+}
+
+fragment ChangeReceiptFields on ChangeReceipt {
+  point { ...PointFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}

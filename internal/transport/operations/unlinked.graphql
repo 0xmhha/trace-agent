@@ -1,0 +1,53 @@
+query unlinked($scope: FixedScope!, $sourceId: ID!, $page: PageInput) {
+  unlinked(scope: $scope, sourceId: $sourceId, page: $page) { ...EvidencePageReadFields }
+}
+
+fragment EvidencePageReadFields on EvidencePageRead {
+  stamp { ...StampFields }
+  data { ...EvidencePageFields }
+}
+
+fragment EvidencePageFields on EvidencePage {
+  items { ...EvidenceFields }
+  page { ...PageInfoFields }
+}
+
+fragment EvidenceFields on Evidence {
+  id
+  sourceId
+  observer
+  occurred
+  observed
+  recordKind
+  grade
+  reason
+  link
+  adapterVersion
+  actorIdentityId
+  streamScopeId
+  familyScopeId
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

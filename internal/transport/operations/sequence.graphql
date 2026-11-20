@@ -1,0 +1,118 @@
+query sequence($scope: FixedScope!, $key: TaskKey!, $focusAgentId: ID, $window: SequenceWindow = FIRST, $page: PageInput, $relationsPage: PageInput) {
+  sequence(scope: $scope, key: $key, focusAgentId: $focusAgentId, window: $window, page: $page, relationsPage: $relationsPage) { ...SequenceReadFields }
+}
+
+fragment SequenceReadFields on SequenceRead {
+  stamp { ...StampFields }
+  data { ...SequencePageFields }
+}
+
+fragment SequencePageFields on SequencePage {
+  taskId
+  previousPage
+  metricsBeforePage { ...SequenceMetricsFields }
+  latestMetrics { ...SequenceMetricsFields }
+  lanes { ...SequenceLaneFields }
+  events { ...SequenceEventFields }
+  relations { ...SequenceRelationFields }
+  relationPage { ...PageInfoFields }
+  page { ...PageInfoFields }
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment SequenceEventFields on SequenceEvent {
+  id
+  action
+  fromLaneId
+  toLaneId
+  observedSide
+  occurred
+  observed
+  grade
+  reason
+  attemptId
+  attemptAfter { ...AttemptChangeFields }
+  assignmentId
+  stateAfter { ...SequenceAgentStatusFields }
+  evidenceIds
+}
+
+fragment AttemptChangeFields on AttemptChange {
+  attemptId
+  moduleId
+  outcome
+  phase
+  result
+}
+
+fragment SequenceAgentStatusFields on SequenceAgentStatus {
+  state
+  activity
+  outcome
+  at
+  grade
+  reason
+  attemptId
+  assignmentId
+  evidenceIds
+}
+
+fragment SequenceLaneFields on SequenceLane {
+  parentLaneId
+  parentGrade
+  id
+  kind
+  agentId
+  identityId
+  moduleId
+  beforePage { ...SequenceAgentStatusFields }
+  latest { ...SequenceAgentStatusFields }
+}
+
+fragment SequenceMetricsFields on SequenceMetrics {
+  childAgents { ...MeasurementFields }
+  runningChildAgents { ...MeasurementFields }
+  waitingAttempts { ...MeasurementFields }
+  lastEventId
+  lastEventAt
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment SequenceRelationFields on SequenceRelation {
+  kind
+  fromEventId
+  toEventId
+  fromOnPage
+  toOnPage
+  grade
+  evidenceIds
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

@@ -1,0 +1,22 @@
+subscription currentStatus($after: Revision) {
+  currentStatus(after: $after) { ...CurrentStatusFields }
+}
+
+fragment CurrentStatusFields on CurrentStatus {
+  seq
+  latest { ...PointFields }
+  sources { ...LiveSourceHealthFields }
+  newData
+}
+
+fragment LiveSourceHealthFields on LiveSourceHealth {
+  sourceId
+  health
+  checkedAt
+  lastEventAt
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}

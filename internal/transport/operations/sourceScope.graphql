@@ -1,0 +1,21 @@
+query sourceScope($scope: FixedScope!, $sourceId: ID!) {
+  sourceScope(scope: $scope, sourceId: $sourceId) { ...StampFields }
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

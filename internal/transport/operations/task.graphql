@@ -1,0 +1,147 @@
+query task($scope: FixedScope!, $key: TaskKey!, $page: PageInput) {
+  task(scope: $scope, key: $key, page: $page) { ...TaskDetailReadFields }
+}
+
+fragment TaskDetailReadFields on TaskDetailRead {
+  stamp { ...StampFields }
+  data { ...TaskDetailFields }
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TaskDetailFields on TaskDetail {
+  rootAgentId
+  task { ...TaskRowFields }
+  agents { ...AgentCountsFields }
+  currentSteps { ...StepFields }
+  planAvailable
+  activities { ...ActivityPageFields }
+}
+
+fragment ActivityPageFields on ActivityPage {
+  items { ...ActivityFields }
+  page { ...PageInfoFields }
+}
+
+fragment ActivityFields on Activity {
+  payload { ...ActivityValueFields }
+  id
+  at
+  kind
+  grade
+  reason
+  agentId
+  attemptId
+  moduleId
+  identityId
+  assignmentId
+  evidenceIds
+}
+
+fragment ActivityValueFields on ActivityValue {
+  __typename
+  ... on MissionChange { ...MissionChangeFields }
+  ... on ModelChange { ...ModelChangeFields }
+  ... on AttemptChange { ...AttemptChangeFields }
+  ... on StateChange { ...StateChangeFields }
+}
+
+fragment AgentCountsFields on AgentCounts {
+  total { ...MeasurementFields }
+  createdHere { ...MeasurementFields }
+  running { ...MeasurementFields }
+  ended { ...MeasurementFields }
+  unknown { ...MeasurementFields }
+}
+
+fragment AttemptChangeFields on AttemptChange {
+  attemptId
+  moduleId
+  outcome
+  phase
+  result
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment MissionChangeFields on MissionChange {
+  mission { ...TextFieldFields }
+}
+
+fragment ModelChangeFields on ModelChange {
+  model
+  label
+  grade
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StateChangeFields on StateChange {
+  code
+}
+
+fragment StepFields on Step {
+  key
+  ordinal
+  title { ...TextFieldFields }
+  state
+  grade
+  evidenceIds
+}
+
+fragment TaskRowFields on TaskRow {
+  stateGrade
+  stateEvidenceIds
+  stateValidUntil
+  projectEvidenceIds
+  projectId
+  projectLabel { ...TextFieldFields }
+  lastActivityKind
+  id
+  sessionId
+  client
+  title { ...TextFieldFields }
+  state
+  lastAt
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

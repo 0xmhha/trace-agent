@@ -1,0 +1,66 @@
+query sourceModelAttempts($scope: FixedScope!, $sourceId: ID!, $page: PageInput) {
+  sourceModelAttempts(scope: $scope, sourceId: $sourceId, page: $page) { ...SourceModelAttemptPageReadFields }
+}
+
+fragment SourceModelAttemptPageReadFields on SourceModelAttemptPageRead {
+  stamp { ...StampFields }
+  data { ...SourceModelAttemptPageFields }
+}
+
+fragment SourceModelAttemptPageFields on SourceModelAttemptPage {
+  items { ...SourceModelAttemptFields }
+  page { ...PageInfoFields }
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment SourceModelAttemptFields on SourceModelAttempt {
+  modelId
+  modelLabel { ...TextFieldFields }
+  modelGrade
+  modelEvidenceIds
+  id
+  sourceId
+  phase
+  result
+  started
+  ended
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

@@ -1,0 +1,53 @@
+query modules($scope: FixedScope!, $kind: ModuleKind, $page: PageInput) {
+  modules(scope: $scope, kind: $kind, page: $page) { ...ModulePageReadFields }
+}
+
+fragment ModulePageReadFields on ModulePageRead {
+  stamp { ...StampFields }
+  data { ...ModulePageFields }
+}
+
+fragment ModulePageFields on ModulePage {
+  items { ...ModuleRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment ModuleRowFields on ModuleRow {
+  id
+  taskId
+  kind
+  name
+  parentId
+  count { ...MeasurementFields }
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

@@ -32,13 +32,17 @@ func scopes(e collect.Evidence) (string, string) {
 	if session == "" {
 		session = get(m, "sessionId")
 	}
+	if e.Kind == collect.CodexTelemetry {
+		session = get(m, "conversation.id")
+	}
 	if get(m, "type") == "thread" {
 		session = get(m, "id")
 	}
-	if e.Kind == collect.Transcript && get(m, "type") == "user" && get(m, "userType") == "external" && m["isMeta"] == false && m["isSidechain"] != true {
-		if _, ok := nested(m, "message")["content"].(string); ok {
-			task = get(m, "promptId")
-		}
+	if collect.HumanPrompt(e) {
+		task = get(m, "promptId")
+	}
+	if e.Kind == collect.MCPObserver || e.Kind == collect.ClaudeHook {
+		task = ""
 	}
 	return collect.SessionKey(e.Profile, session), collect.TaskKey(e.Profile, session, task)
 }
@@ -85,15 +89,7 @@ func (s *Store) Append(ctx context.Context, e collect.Evidence) error {
 	return s.write(ctx, e, nil, nil)
 }
 
-func client(kind collect.Kind) string {
-	switch kind {
-	case collect.Rollout, collect.AppServer:
-		return "codex"
-	case collect.Transcript, collect.Telemetry:
-		return "claude"
-	}
-	return ""
-}
+func client(kind collect.Kind) string { return strings.ToLower(collect.ClientCode(kind)) }
 
 // AppendBatch atomically ingests up to 100 immutable records at one public revision.
 func (s *Store) AppendBatch(ctx context.Context, es []collect.Evidence) error {
@@ -169,7 +165,7 @@ func (s *Store) insert(ctx context.Context, tx *sql.Tx, batchRev *int64, e colle
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
-	if id != 0 && tag != e.SemanticTag {
+	if id != 0 && tag != e.SemanticTag && tag != e.PreviousSemanticTag() {
 		return errors.New("conflicting evidence at immutable position")
 	}
 	session, task := scopes(e)
@@ -300,7 +296,7 @@ func observe(ctx context.Context, tx *sql.Tx, id, rev int64, e collect.Evidence,
 			}
 		}
 	}
-	if e.Kind == collect.Telemetry && get(e.Metadata, "request_body_id") != "" {
+	if e.Kind == collect.Telemetry && (kind == "api_request_body" || kind == "api_response_body") && get(e.Metadata, "request_body_id") != "" {
 		role, phase, result := "request", "start_observed", "unknown"
 		if kind == "api_response_body" {
 			role, phase, result = "response", "ended", "success"

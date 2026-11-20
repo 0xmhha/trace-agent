@@ -1,0 +1,53 @@
+query moduleGroups($scope: FixedScope!, $kind: ModuleKind, $page: PageInput) {
+  moduleGroups(scope: $scope, kind: $kind, page: $page) { ...ModuleGroupPageReadFields }
+}
+
+fragment ModuleGroupPageReadFields on ModuleGroupPageRead {
+  stamp { ...StampFields }
+  data { ...ModuleGroupPageFields }
+}
+
+fragment ModuleGroupPageFields on ModuleGroupPage {
+  items { ...ModuleGroupFields }
+  page { ...PageInfoFields }
+}
+
+fragment ModuleGroupFields on ModuleGroup {
+  id
+  kind
+  name
+  identityGrade
+  instances
+  measure { ...MeasurementFields }
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

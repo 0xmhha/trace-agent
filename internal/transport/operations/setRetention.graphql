@@ -1,0 +1,12 @@
+mutation setRetention($sourceId: ID!, $days: Int!) {
+  setRetention(sourceId: $sourceId, days: $days) { ...ChangeReceiptFields }
+}
+
+fragment ChangeReceiptFields on ChangeReceipt {
+  point { ...PointFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}

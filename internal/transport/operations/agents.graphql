@@ -1,0 +1,49 @@
+query agents($scope: FixedScope!, $key: TaskKey!, $state: AgentState, $page: PageInput) {
+  agents(scope: $scope, key: $key, state: $state, page: $page) { ...AgentPageReadFields }
+}
+
+fragment AgentPageReadFields on AgentPageRead {
+  stamp { ...StampFields }
+  data { ...AgentPageFields }
+}
+
+fragment AgentPageFields on AgentPage {
+  items { ...AgentRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment AgentRowFields on AgentRow {
+  id
+  modelId
+  modelGrade
+  parentId
+  state
+  outcome
+  endedAt
+  lastEvidenceAt
+  identityId
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

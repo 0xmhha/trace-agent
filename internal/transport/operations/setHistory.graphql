@@ -1,0 +1,12 @@
+mutation setHistory($sourceId: ID!, $pickerToken: ID!, $interval: RangeInput!) {
+  setHistory(sourceId: $sourceId, pickerToken: $pickerToken, interval: $interval) { ...ChangeReceiptFields }
+}
+
+fragment ChangeReceiptFields on ChangeReceipt {
+  point { ...PointFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}

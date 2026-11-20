@@ -1,0 +1,12 @@
+# Optional desktop field: the most recent source health transition at this fixed point.
+extend type SourceRow { asOfCheckedAt: Instant }
+
+# Source-reported fields on a single local observation (Codex OTLP).
+type SafeMetadata { attempt: Int, httpStatus: Int, durationMs: Float, toolSuccess: Boolean }
+extend type EvidenceDetail { safeMetadata: SafeMetadata }
+
+enum DeleteTargetKind { SESSION TASK }
+type DeleteTargetPage { ids: [ID!]!, hasNext: Boolean! }
+extend type Query {
+  deleteTargets(sourceId: ID!, interval: RangeInput!, target: DeleteTargetKind!, after: ID): DeleteTargetPage!
+}

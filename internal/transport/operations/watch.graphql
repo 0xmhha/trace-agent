@@ -1,0 +1,517 @@
+subscription watch($input: WatchInput!) {
+  watch(input: $input) { ...FrameFields }
+}
+
+fragment FrameFields on Frame {
+  __typename
+  ... on Snapshot { ...SnapshotFields }
+  ... on Replacement { ...ReplacementFields }
+  ... on Reset { ...ResetFields }
+}
+
+fragment ReplacementFields on Replacement {
+  base { ...PointFields }
+  snapshot { ...SnapshotFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment ResetFields on Reset {
+  reason
+  current { ...PointFields }
+}
+
+fragment SnapshotFields on Snapshot {
+  stamp { ...StampFields }
+  screen { ...ScreenFields }
+}
+
+fragment ScreenFields on Screen {
+  __typename
+  ... on Overview { ...OverviewFields }
+  ... on TaskPage { ...TaskPageFields }
+  ... on TaskDetail { ...TaskDetailFields }
+  ... on AgentPage { ...AgentPageFields }
+  ... on AgentDetail { ...AgentDetailFields }
+  ... on PlanPage { ...PlanPageFields }
+  ... on ActivityPage { ...ActivityPageFields }
+  ... on ModuleGroupPage { ...ModuleGroupPageFields }
+  ... on GroupDetail { ...GroupDetailFields }
+  ... on ModulePage { ...ModulePageFields }
+  ... on ModuleDetail { ...ModuleDetailFields }
+  ... on AttemptPage { ...AttemptPageFields }
+  ... on AttemptDetail { ...AttemptDetailFields }
+  ... on SourcePage { ...SourcePageFields }
+  ... on SourceDetail { ...SourceDetailFields }
+  ... on UnlinkedPage { ...UnlinkedPageFields }
+  ... on EvidenceDetail { ...EvidenceDetailFields }
+  ... on IdentityPage { ...IdentityPageFields }
+  ... on IdentityDetail { ...IdentityDetailFields }
+  ... on SequencePage { ...SequencePageFields }
+}
+
+fragment ActivityPageFields on ActivityPage {
+  ActivityPageItems: items { ...ActivityFields }
+  page { ...PageInfoFields }
+}
+
+fragment ActivityFields on Activity {
+  payload { ...ActivityValueFields }
+  id
+  at
+  kind
+  grade
+  reason
+  agentId
+  attemptId
+  moduleId
+  identityId
+  assignmentId
+  evidenceIds
+}
+
+fragment ActivityValueFields on ActivityValue {
+  __typename
+  ... on MissionChange { ...MissionChangeFields }
+  ... on ModelChange { ...ModelChangeFields }
+  ... on AttemptChange { ...AttemptChangeFields }
+  ... on StateChange { ...StateChangeFields }
+}
+
+fragment AgentDetailFields on AgentDetail {
+  agent { ...AgentRowFields }
+  mission { ...TextFieldFields }
+  modelId
+  activities { ...ActivityPageFields }
+}
+
+fragment AgentPageFields on AgentPage {
+  AgentPageItems: items { ...AgentRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment AgentRowFields on AgentRow {
+  id
+  modelId
+  modelGrade
+  parentId
+  state
+  outcome
+  endedAt
+  lastEvidenceAt
+  identityId
+}
+
+fragment AttemptChangeFields on AttemptChange {
+  attemptId
+  moduleId
+  outcome
+  phase
+  result
+}
+
+fragment AttemptDetailFields on AttemptDetail {
+  attempt { ...AttemptRowFields }
+  edges { ...EdgeFields }
+  request { ...TextFieldFields }
+  response { ...TextFieldFields }
+  conversation { ...TextFieldFields }
+  linkedNextAttemptIds
+  durations { ...DurationSampleFields }
+  evidence { ...EvidencePageFields }
+}
+
+fragment AttemptPageFields on AttemptPage {
+  AttemptPageItems: items { ...AttemptRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment AttemptRowFields on AttemptRow {
+  id
+  taskId
+  agentId
+  moduleId
+  outcome
+  phase
+  result
+  started
+  ended
+  previousAttemptId
+}
+
+fragment DurationSampleFields on DurationSample {
+  basis
+  ms
+  evidenceIds
+}
+
+fragment EdgeFields on Edge {
+  actor
+  action
+  direction
+  grade
+  at
+  observer
+  reason
+  evidenceIds
+}
+
+fragment EvidenceDetailFields on EvidenceDetail {
+  safeMetadata { attempt httpStatus durationMs toolSuccess }
+  evidence { ...EvidenceFields }
+  fields { ...TextFieldFields }
+  candidates
+  reason
+}
+
+fragment EvidenceFields on Evidence {
+  id
+  sourceId
+  observer
+  occurred
+  observed
+  recordKind
+  grade
+  reason
+  link
+  adapterVersion
+  actorIdentityId
+  streamScopeId
+  familyScopeId
+}
+
+fragment EvidencePageFields on EvidencePage {
+  items { ...EvidenceFields }
+  page { ...PageInfoFields }
+}
+
+fragment GroupDetailFields on GroupDetail {
+  group { ...ModuleGroupFields }
+  instances { ...ModulePageFields }
+}
+
+fragment IdentityDetailFields on IdentityDetail {
+  identity { ...IdentityRowFields }
+  assignments { ...AssignmentPageFields }
+  evidence { ...EvidencePageFields }
+}
+
+fragment AssignmentPageFields on AssignmentPage {
+  items { ...AssignmentFields }
+  page { ...PageInfoFields }
+}
+
+fragment AssignmentFields on Assignment {
+  id
+  taskId
+  agentId
+  identityId
+  at
+  mission { ...TextFieldFields }
+  grade
+  evidenceIds
+}
+
+fragment IdentityPageFields on IdentityPage {
+  IdentityPageItems: items { ...IdentityRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment IdentityRowFields on IdentityRow {
+  id
+  client
+  parentId
+  parentGrade
+  attribution
+}
+
+fragment MissionChangeFields on MissionChange {
+  mission { ...TextFieldFields }
+}
+
+fragment ModelChangeFields on ModelChange {
+  model
+  label
+  grade
+}
+
+fragment ModuleDetailFields on ModuleDetail {
+  module { ...ModuleRowFields }
+  children { ...ModulePageFields }
+  attempts { ...AttemptPageFields }
+}
+
+fragment ModuleGroupFields on ModuleGroup {
+  id
+  kind
+  name
+  identityGrade
+  instances
+  measure { ...MeasurementFields }
+}
+
+fragment MeasurementFields on Measurement {
+  count
+  eligible
+  value
+  cohort
+}
+
+fragment ModuleGroupPageFields on ModuleGroupPage {
+  ModuleGroupPageItems: items { ...ModuleGroupFields }
+  page { ...PageInfoFields }
+}
+
+fragment ModulePageFields on ModulePage {
+  ModulePageItems: items { ...ModuleRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment ModuleRowFields on ModuleRow {
+  id
+  taskId
+  kind
+  name
+  parentId
+  count { ...MeasurementFields }
+}
+
+fragment OverviewFields on Overview {
+  tasks { ...MeasurementFields }
+  agents { ...AgentCountsFields }
+  attempts { ...MeasurementFields }
+  waiting { ...MeasurementFields }
+  failureRate { ...MeasurementFields }
+  latencyP95Ms { ...MeasurementFields }
+  latencyByBasis { ...DurationSummaryFields }
+  bins { ...ChartBinFields }
+}
+
+fragment AgentCountsFields on AgentCounts {
+  total { ...MeasurementFields }
+  createdHere { ...MeasurementFields }
+  running { ...MeasurementFields }
+  ended { ...MeasurementFields }
+  unknown { ...MeasurementFields }
+}
+
+fragment ChartBinFields on ChartBin {
+  kind
+  from
+  until
+  measure { ...MeasurementFields }
+}
+
+fragment DurationSummaryFields on DurationSummary {
+  basis
+  p95Ms { ...MeasurementFields }
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment PlanPageFields on PlanPage {
+  versions { ...PlanVersionFields }
+  page { ...PageInfoFields }
+}
+
+fragment PlanVersionFields on PlanVersion {
+  id
+  at
+  steps { ...StepFields }
+}
+
+fragment SequencePageFields on SequencePage {
+  taskId
+  previousPage
+  metricsBeforePage { ...SequenceMetricsFields }
+  latestMetrics { ...SequenceMetricsFields }
+  lanes { ...SequenceLaneFields }
+  events { ...SequenceEventFields }
+  relations { ...SequenceRelationFields }
+  relationPage { ...PageInfoFields }
+  page { ...PageInfoFields }
+}
+
+fragment SequenceEventFields on SequenceEvent {
+  id
+  action
+  fromLaneId
+  toLaneId
+  observedSide
+  occurred
+  observed
+  grade
+  reason
+  attemptId
+  attemptAfter { ...AttemptChangeFields }
+  assignmentId
+  stateAfter { ...SequenceAgentStatusFields }
+  evidenceIds
+}
+
+fragment SequenceAgentStatusFields on SequenceAgentStatus {
+  state
+  activity
+  outcome
+  at
+  grade
+  reason
+  attemptId
+  assignmentId
+  evidenceIds
+}
+
+fragment SequenceLaneFields on SequenceLane {
+  parentLaneId
+  parentGrade
+  id
+  kind
+  agentId
+  identityId
+  moduleId
+  beforePage { ...SequenceAgentStatusFields }
+  latest { ...SequenceAgentStatusFields }
+}
+
+fragment SequenceMetricsFields on SequenceMetrics {
+  childAgents { ...MeasurementFields }
+  runningChildAgents { ...MeasurementFields }
+  waitingAttempts { ...MeasurementFields }
+  lastEventId
+  lastEventAt
+}
+
+fragment SequenceRelationFields on SequenceRelation {
+  kind
+  fromEventId
+  toEventId
+  fromOnPage
+  toOnPage
+  grade
+  evidenceIds
+}
+
+fragment SourceDetailFields on SourceDetail {
+  source { ...SourceRowFields }
+  capabilities { ...CapabilityFields }
+  gaps { ...GapFields }
+  unlinkedCount
+  consent
+  enabled
+  pickerRef
+  historyFrom
+  historyUntil
+  retentionDays
+}
+
+fragment CapabilityFields on Capability {
+  code
+  state
+  reason
+}
+
+fragment GapFields on Gap {
+  from
+  until
+  reason
+}
+
+fragment SourcePageFields on SourcePage {
+  SourcePageItems: items { ...SourceRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment SourceRowFields on SourceRow {
+  id
+  client
+  kind
+  clientVersion
+  adapterVersion
+  permission
+  asOfHealth
+  asOfCheckedAt
+  lastAt
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment StateChangeFields on StateChange {
+  code
+}
+
+fragment StepFields on Step {
+  key
+  ordinal
+  title { ...TextFieldFields }
+  state
+  grade
+  evidenceIds
+}
+
+fragment TaskDetailFields on TaskDetail {
+  rootAgentId
+  task { ...TaskRowFields }
+  agents { ...AgentCountsFields }
+  currentSteps { ...StepFields }
+  planAvailable
+  activities { ...ActivityPageFields }
+}
+
+fragment TaskPageFields on TaskPage {
+  TaskPageItems: items { ...TaskRowFields }
+  page { ...PageInfoFields }
+}
+
+fragment TaskRowFields on TaskRow {
+  stateGrade
+  stateEvidenceIds
+  stateValidUntil
+  projectEvidenceIds
+  projectId
+  projectLabel { ...TextFieldFields }
+  lastActivityKind
+  id
+  sessionId
+  client
+  title { ...TextFieldFields }
+  state
+  lastAt
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}
+
+fragment UnlinkedPageFields on UnlinkedPage {
+  evidence { ...EvidencePageFields }
+}

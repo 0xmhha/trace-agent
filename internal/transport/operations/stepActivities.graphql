@@ -1,0 +1,98 @@
+query stepActivities($scope: FixedScope!, $key: TaskKey!, $planId: ID!, $stepId: ID!, $page: PageInput) {
+  stepActivities(scope: $scope, key: $key, planId: $planId, stepId: $stepId, page: $page) { ...ActivityPageReadFields }
+}
+
+fragment ActivityPageReadFields on ActivityPageRead {
+  stamp { ...StampFields }
+  data { ...ActivityPageFields }
+}
+
+fragment ActivityPageFields on ActivityPage {
+  items { ...ActivityFields }
+  page { ...PageInfoFields }
+}
+
+fragment ActivityFields on Activity {
+  payload { ...ActivityValueFields }
+  id
+  at
+  kind
+  grade
+  reason
+  agentId
+  attemptId
+  moduleId
+  identityId
+  assignmentId
+  evidenceIds
+}
+
+fragment ActivityValueFields on ActivityValue {
+  __typename
+  ... on MissionChange { ...MissionChangeFields }
+  ... on ModelChange { ...ModelChangeFields }
+  ... on AttemptChange { ...AttemptChangeFields }
+  ... on StateChange { ...StateChangeFields }
+}
+
+fragment AttemptChangeFields on AttemptChange {
+  attemptId
+  moduleId
+  outcome
+  phase
+  result
+}
+
+fragment MissionChangeFields on MissionChange {
+  mission { ...TextFieldFields }
+}
+
+fragment ModelChangeFields on ModelChange {
+  model
+  label
+  grade
+}
+
+fragment PageInfoFields on PageInfo {
+  endCursor
+  hasNext
+  total
+}
+
+fragment StampFields on Stamp {
+  point { ...PointFields }
+  cohort
+  resume
+  computedAt
+  effectiveInterval { ...TimeRangeFields }
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}
+
+fragment StateChangeFields on StateChange {
+  code
+}
+
+fragment TextFieldFields on TextField {
+  conversationRole
+  evidenceId
+  observer
+  actor
+  direction
+  action
+  truncation
+  reason
+  purpose
+  state
+  text
+  ordinal
+  grade
+}
+
+fragment TimeRangeFields on TimeRange {
+  from
+  until
+}

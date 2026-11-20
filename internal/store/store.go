@@ -28,6 +28,7 @@ type Point struct{ Revision, Epoch int64 }
 type Record struct {
 	ID, Rev  int64
 	Evidence collect.Evidence
+	Facts    []FactProjection
 }
 
 // Store serializes writes. Senders use WithEpoch when handing a frame to a client.
@@ -90,6 +91,8 @@ CREATE TABLE IF NOT EXISTS adapter_record(
  position INTEGER NOT NULL,client_version TEXT NOT NULL, metadata TEXT NOT NULL CHECK(json_valid(metadata)),
  session_key TEXT NOT NULL,task_key TEXT NOT NULL
 ) STRICT;
+CREATE INDEX IF NOT EXISTS evidence_by_source_revision ON evidence(source_id,rev DESC,evidence_id DESC);
+CREATE INDEX IF NOT EXISTS adapter_versions ON adapter_record(evidence_id DESC,client_version) WHERE client_version<>'';
 CREATE TABLE IF NOT EXISTS adapter_item(
  record_key TEXT PRIMARY KEY, source_id TEXT NOT NULL REFERENCES source, state TEXT NOT NULL
 ) STRICT;
@@ -155,7 +158,7 @@ func (s *Store) initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, extensions); err != nil {
+	if _, err = tx.ExecContext(ctx, extensions+factFieldsDDL); err != nil {
 		return err
 	}
 	var bad int

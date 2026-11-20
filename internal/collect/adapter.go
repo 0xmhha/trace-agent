@@ -15,7 +15,7 @@ import (
 
 const (
 	// Version identifies this metadata projection.
-	Version   = "2.0.0"
+	Version   = "2.1.0"
 	maxRecord = 4 << 20
 )
 
@@ -24,10 +24,11 @@ type Kind string
 
 // Supported source kinds.
 const (
-	Rollout    Kind = "codex-rollout"
-	AppServer  Kind = "codex-app-server"
-	Transcript Kind = "claude-transcript"
-	Telemetry  Kind = "claude-otel"
+	Rollout        Kind = "codex-rollout"
+	AppServer      Kind = "codex-app-server"
+	Transcript     Kind = "claude-transcript"
+	Telemetry      Kind = "claude-otel"
+	CodexTelemetry Kind = "codex-otel"
 )
 
 var (
@@ -37,6 +38,7 @@ var (
 
 // Adapter belongs to exactly one configured source. It is safe for concurrent use.
 type Adapter struct {
+	parentSource, observerServer   string
 	bodyEnabled                    bool
 	kind                           Kind
 	source, profile, clientVersion string
@@ -48,13 +50,13 @@ type Adapter struct {
 // New binds an adapter to a profile and instance. The caller supplies a persistent
 // installation secret and trusted tool names from local configuration.
 func New(kind Kind, profile, instance, clientVersion string, secret []byte, allowedTools []string, now func() time.Time) (*Adapter, error) {
-	if !slices.Contains([]Kind{Rollout, AppServer, Transcript, Telemetry}, kind) ||
+	if !slices.Contains([]Kind{Rollout, AppServer, Transcript, Telemetry, CodexTelemetry}, kind) ||
 		profile == "" || instance == "" || len(secret) < 32 || now == nil {
 		return nil, errors.New("invalid adapter configuration")
 	}
 	a := &Adapter{kind: kind, secret: slices.Clone(secret), now: now, clientVersion: numericVersion(clientVersion), tools: make(map[string]bool)}
 	client := "claude"
-	if kind == Rollout || kind == AppServer {
+	if kind == Rollout || kind == AppServer || kind == CodexTelemetry {
 		client = "codex"
 	}
 	a.profile = a.token("profile", client, profile)
@@ -82,6 +84,7 @@ type Position struct {
 
 // Evidence is safe to pass to the single writer. Metadata contains only projected fields.
 type Evidence struct {
+	legacyTag                                                               string
 	slots                                                                   []BodySlot
 	PreviousGeneration                                                      string `json:",omitempty"`
 	projectedHash                                                           [sha256.Size]byte
@@ -127,6 +130,8 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 		m = a.rollout(r)
 	case Transcript:
 		m = a.transcript(r)
+	case CodexTelemetry:
+		m = a.codexTelemetry(r)
 	case Telemetry:
 		m = a.telemetry(r)
 	case AppServer:
@@ -137,7 +142,7 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 	}
 	var occurred *int64
 	stamp := str(r, "timestamp")
-	if a.kind == Telemetry {
+	if a.kind == Telemetry || a.kind == CodexTelemetry {
 		stamp = str(r, "event.timestamp")
 	}
 	if t, err := time.Parse(time.RFC3339Nano, stamp); err == nil {
@@ -145,6 +150,8 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 		occurred = &ms
 	}
 	e := a.evidence(pos, m, occurred)
+	a.annotateModules(&e, r)
+	a.annotateLineage(&e, r)
 	if a.bodyEnabled && occurred != nil {
 		e.slots = bodyFields(a.kind, r)
 	}
@@ -152,6 +159,8 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 	switch a.kind {
 	case Transcript:
 		version = str(r, "version")
+	case Telemetry, CodexTelemetry:
+		version = str(r, "service.version")
 	case Rollout:
 		if str(r, "type") == "session_meta" {
 			version = str(obj(r["payload"]), "cli_version")
@@ -232,3 +241,7 @@ func (a *Adapter) Kind() Kind { return a.kind }
 
 // Profile returns the opaque client-profile identity shared by this adapter's records.
 func (a *Adapter) Profile() string { return a.profile }
+
+// PreviousSemanticTag identifies the same record projected by an earlier adapter
+// that did not retain the response's child reference.
+func (e Evidence) PreviousSemanticTag() string { return e.legacyTag }

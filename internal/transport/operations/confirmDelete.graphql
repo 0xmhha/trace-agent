@@ -1,0 +1,25 @@
+mutation confirmDelete($receipt: ID!) {
+  confirmDelete(receipt: $receipt) { ...DeleteResultFields }
+}
+
+fragment DeleteResultFields on DeleteResult {
+  point { ...PointFields }
+  scope { ...EffectiveRangeFields }
+  evidenceRemoved
+  bodiesRemoved
+  factsRecomputed
+}
+
+fragment EffectiveRangeFields on EffectiveRange {
+  sourceId
+  sessionId
+  taskId
+  from
+  until
+  kind
+}
+
+fragment PointFields on Point {
+  revision
+  epoch
+}

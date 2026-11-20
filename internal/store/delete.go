@@ -49,12 +49,12 @@ func (f Filter) selector() string {
 }
 func isBlocked(ctx context.Context, tx *sql.Tx, e collect.Evidence, session, task string) (bool, error) {
 	var blocked bool
-	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM erased_record WHERE source_id=? AND record_key=? AND semantic_tag=?) OR EXISTS(
- SELECT 1 FROM expired_undated WHERE source_id=? AND semantic_tag=? AND ? IS NULL) OR EXISTS(SELECT 1 FROM suppression WHERE source_id=? AND scope='all'
+	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM erased_record WHERE source_id=? AND record_key=? AND semantic_tag IN (?,?)) OR EXISTS(
+ SELECT 1 FROM expired_undated WHERE source_id=? AND semantic_tag IN (?,?) AND ? IS NULL) OR EXISTS(SELECT 1 FROM suppression WHERE source_id=? AND scope='all'
  AND (? IS NULL OR (? >= from_ms AND ? < until_ms)) AND (selector_key='*' OR (selector_key='@retention' AND ? IS NOT NULL)
  OR (selector_key LIKE 'session/%' AND (?='' OR selector_key='session/'||?))
  OR (selector_key LIKE 'task/%' AND (?='' OR selector_key='task/'||?))))`,
-		e.Source, e.RecordKey, e.SemanticTag, e.Source, e.SemanticTag, e.OccurredMS, e.Source, e.OccurredMS, e.OccurredMS, e.OccurredMS, e.OccurredMS, session, session, task, task).Scan(&blocked)
+		e.Source, e.RecordKey, e.SemanticTag, e.PreviousSemanticTag(), e.Source, e.SemanticTag, e.PreviousSemanticTag(), e.OccurredMS, e.Source, e.OccurredMS, e.OccurredMS, e.OccurredMS, e.OccurredMS, session, session, task, task).Scan(&blocked)
 	return blocked, err
 }
 
@@ -71,6 +71,9 @@ func (f Filter) args() []any {
 func preview(ctx context.Context, tx *sql.Tx, f Filter) (Preview, error) {
 	if !f.valid() {
 		return Preview{}, errInvalid
+	}
+	if err := validateDeleteTarget(ctx, tx, f); err != nil {
+		return Preview{}, err
 	}
 	var p Preview
 	var err error
@@ -168,6 +171,7 @@ func eraseAll(ctx context.Context, tx *sql.Tx, rev int64) (int64, error) {
 	_, err := tx.ExecContext(ctx, `CREATE TEMP TABLE erased_facts AS
  WITH RECURSIVE tree(task_id,fact_id,rev) AS (
  SELECT task_id,fact_id,fact_rev FROM support WHERE evidence_id IN erase_ids
+ UNION SELECT v.task_id,v.fact_id,v.rev FROM fact_version v JOIN tree t ON v.task_id=t.task_id AND v.fact_id=t.fact_id AND v.rev<t.rev
  UNION SELECT d.task_id,d.fact_id,d.fact_rev FROM fact_dependency d JOIN tree t
  ON d.task_id=t.task_id AND d.input_id=t.fact_id AND d.input_rev=t.rev)
  SELECT * FROM tree;
@@ -206,8 +210,8 @@ func (s *Store) Records(ctx context.Context, p Point) ([]Record, error) {
 		return nil, ErrStale
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT e.evidence_id,e.rev,e.source_id,s.profile_key,e.stream_key,e.generation,e.record_key,e.version_key,e.semantic_tag,s.kind,
- coalesce(e.observer_code,'unknown'),coalesce(e.adapter_version,''),a.client_version,a.position,e.observed_ms,e.occurred_ms,a.metadata
- FROM evidence e JOIN source s USING(source_id) JOIN adapter_record a USING(evidence_id) WHERE e.rev<=? ORDER BY e.rev,e.evidence_id`, p.Revision)
+ coalesce(e.observer_code,'unknown'),coalesce(e.adapter_version,''),coalesce(a.client_version,''),coalesce(a.position,0),e.observed_ms,e.occurred_ms,coalesce(a.metadata,json_object('type',e.record_kind))
+ FROM evidence e JOIN source s USING(source_id) LEFT JOIN adapter_record a USING(evidence_id) WHERE e.rev<=? ORDER BY e.rev,e.evidence_id`, p.Revision)
 	if err != nil {
 		return nil, err
 	}
@@ -226,5 +230,14 @@ func (s *Store) Records(ctx context.Context, p Point) ([]Record, error) {
 		}
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := attachFacts(ctx, tx, p.Revision, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
