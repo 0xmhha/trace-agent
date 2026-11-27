@@ -1,3 +1,4 @@
+import { t, type MessageKey } from '../../../i18n'
 import type { InsightReport, Severity } from '../../types'
 import { Card, Empty, ErrorNote, Pill, type Loaded, type Tone } from '../../ui'
 import { UNIT, withUnit } from './format'
@@ -6,10 +7,10 @@ import { UNIT, withUnit } from './format'
 const TEASER_COUNT = 3
 
 /** Severities from most to least severe, with the label and tone of their pill. */
-const SEVERITIES: readonly { id: Severity; label: string; tone: Tone }[] = [
-  { id: 'critical', label: '심각', tone: 'bad' },
-  { id: 'warn', label: '주의', tone: 'warn' },
-  { id: 'info', label: '참고', tone: 'muted' },
+const SEVERITIES: readonly { id: Severity; label: MessageKey; tone: Tone }[] = [
+  { id: 'critical', label: 'dashboard.severityCritical', tone: 'bad' },
+  { id: 'warn', label: 'dashboard.severityWarn', tone: 'warn' },
+  { id: 'info', label: 'dashboard.severityInfo', tone: 'muted' },
 ]
 
 function rank(severity: Severity): number {
@@ -19,16 +20,16 @@ function rank(severity: Severity): number {
 
 function Body({ report }: { report: InsightReport }) {
   const judged = report.rulesFired + report.rulesPassed
+  const counts = {
+    checked: withUnit(judged, UNIT.items),
+    fired: withUnit(report.rulesFired, UNIT.items),
+    skipped: withUnit(report.rulesSkipped, UNIT.items),
+  }
   if (!report.items.length) {
     // Before the scan finished, "nothing fired" would be a false all-clear.
     const state = report.coverage.state
     if (state === 'scanning' || state === 'disabled') return <Empty coverage={report.coverage} />
-    return (
-      <p className="u-dash-clear">
-        눈에 띄는 문제가 없습니다. 규칙 {withUnit(judged, UNIT.items)}를 확인했고, 표본이 모자란{' '}
-        {withUnit(report.rulesSkipped, UNIT.items)}는 건너뛰었습니다.
-      </p>
-    )
+    return <p className="u-dash-clear">{t('dashboard.insightsClear', counts)}</p>
   }
   // sort is stable, so insights of one severity keep the order of the report.
   const top = [...report.items]
@@ -41,16 +42,15 @@ function Body({ report }: { report: InsightReport }) {
           const severity = SEVERITIES[rank(item.severity)]
           return (
             <li key={item.id}>
-              <Pill tone={severity?.tone ?? 'muted'}>{severity?.label ?? item.severity}</Pill>
+              <Pill tone={severity?.tone ?? 'muted'}>
+                {severity ? t(severity.label) : item.severity}
+              </Pill>
               <span>{item.title}</span>
             </li>
           )
         })}
       </ul>
-      <p className="u-hint">
-        규칙 {withUnit(judged, UNIT.items)}를 확인해 {withUnit(report.rulesFired, UNIT.items)}가
-        해당했습니다. 표본이 모자란 {withUnit(report.rulesSkipped, UNIT.items)}는 건너뛰었습니다.
-      </p>
+      <p className="u-hint">{t('dashboard.insightsSummary', counts)}</p>
     </>
   )
 }
@@ -64,12 +64,12 @@ export function InsightTeaser(p: {
   const { data, error, loading, reload } = p.insights
   return (
     <Card
-      title="인사이트"
-      hint={`심각한 순서로 ${TEASER_COUNT}건`}
+      title={t('dashboard.insightsTitle')}
+      hint={t('dashboard.insightsHint', { count: TEASER_COUNT })}
       className={p.className}
       action={
         <button type="button" className="u-dash-link" onClick={p.onOpen}>
-          전체 보기
+          {t('dashboard.viewAll')}
         </button>
       }
     >
@@ -79,7 +79,7 @@ export function InsightTeaser(p: {
       ) : (
         loading && (
           <p className="u-empty" role="status">
-            인사이트를 불러오는 중입니다.
+            {t('dashboard.insightsLoading')}
           </p>
         )
       )}

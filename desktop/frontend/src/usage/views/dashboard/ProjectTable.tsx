@@ -1,3 +1,4 @@
+import { t } from '../../../i18n'
 import type { Coverage, ProjectUsage } from '../../types'
 import {
   DataTable,
@@ -29,7 +30,7 @@ export function ProjectTable(p: {
   const columns: Column<ProjectUsage>[] = [
     {
       key: 'project',
-      label: '프로젝트',
+      label: t('dashboard.colProject'),
       render: (row) => (
         <span className="u-dash-project">
           <button
@@ -44,21 +45,21 @@ export function ProjectTable(p: {
           >
             {baseName(row.path || row.key)}
           </button>
-          {row.excluded && <Pill tone="muted">제외됨</Pill>}
+          {row.excluded && <Pill tone="muted">{t('dashboard.excluded')}</Pill>}
         </span>
       ),
     },
-    { key: 'sessions', label: '세션', align: 'right', render: (row) => fmtInt(row.sessions) },
-    { key: 'prompts', label: '프롬프트', align: 'right', render: (row) => fmtInt(row.prompts) },
+    { key: 'sessions', label: t('dashboard.colSessions'), align: 'right', render: (row) => fmtInt(row.sessions) },
+    { key: 'prompts', label: t('dashboard.colPrompts'), align: 'right', render: (row) => fmtInt(row.prompts) },
     {
       key: 'tokens',
-      label: '토큰',
+      label: t('dashboard.colTokens'),
       align: 'right',
       render: (row) => fmtCompact(sumTokens(row.tokens)),
     },
     {
       key: 'last',
-      label: '마지막 활동',
+      label: t('dashboard.colLastActive'),
       align: 'right',
       render: (row) => fmtDateTime(row.lastAt),
     },
