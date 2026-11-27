@@ -20,9 +20,9 @@ func TestLowCacheHit(t *testing.T) {
 				id:       "low-cache-hit",
 				severity: usage.SeverityInfo,
 				evidence: []usage.Evidence{
-					ev("캐시 적중률", 40, unitPercent),
-					evOf("캐시에서 읽은 입력 토큰", 400, 1000, unitItems),
-					ev("모델 호출", 50, unitTimes),
+					ev("캐시 적중률", 40, koPercent),
+					evOf("캐시에서 읽은 입력 토큰", 400, 1000, koItems),
+					ev("모델 호출", 50, koTimes),
 				},
 				recKind: usage.RecommendHabit,
 			}},
@@ -34,7 +34,7 @@ func TestLowCacheHit(t *testing.T) {
 			items: []wantInsight{{
 				id:       "low-cache-hit",
 				severity: usage.SeverityInfo,
-				evidence: []usage.Evidence{ev("캐시 적중률", 12.3, unitPercent), ev("모델 호출", 80, unitTimes)},
+				evidence: []usage.Evidence{ev("캐시 적중률", 12.3, koPercent), ev("모델 호출", 80, koTimes)},
 				recKind:  usage.RecommendHabit,
 			}},
 		},
@@ -64,9 +64,9 @@ func TestTokenConcentration(t *testing.T) {
 				id:       "token-concentration",
 				severity: usage.SeverityInfo,
 				evidence: []usage.Evidence{
-					evOf("가장 큰 세션의 토큰", 300, 1000, unitItems),
-					ev("가장 큰 세션의 비율", 30, unitPercent),
-					evOf("토큰이 몰린 세션", 2, 5, unitItems),
+					evOf("가장 큰 세션의 토큰", 300, 1000, koItems),
+					ev("가장 큰 세션의 비율", 30, koPercent),
+					evOf("토큰이 몰린 세션", 2, 5, koItems),
 				},
 				recKind:    usage.RecommendHabit,
 				sessionIDs: []string{"s-b", "s-a"},
@@ -80,9 +80,9 @@ func TestTokenConcentration(t *testing.T) {
 				id:       "token-concentration",
 				severity: usage.SeverityInfo,
 				evidence: []usage.Evidence{
-					evOf("가장 큰 세션의 토큰", 1200, 1200, unitItems),
-					ev("가장 큰 세션의 비율", 100, unitPercent),
-					evOf("토큰이 몰린 세션", 1, 9, unitItems),
+					evOf("가장 큰 세션의 토큰", 1200, 1200, koItems),
+					ev("가장 큰 세션의 비율", 100, koPercent),
+					evOf("토큰이 몰린 세션", 1, 9, koItems),
 				},
 				recKind:    usage.RecommendHabit,
 				sessionIDs: []string{"s-a"},
@@ -128,7 +128,7 @@ func TestSingleModel(t *testing.T) {
 		return []wantInsight{{
 			id:        "single-model",
 			severity:  usage.SeverityInfo,
-			evidence:  []usage.Evidence{evOf(modelLarge+" 호출", calls, calls, unitTimes), ev("사용한 모델", 1, unitItems)},
+			evidence:  []usage.Evidence{evOf(modelLarge+" 호출", calls, calls, koTimes), ev("사용한 모델", 1, koItems)},
 			recKind:   usage.RecommendSetting,
 			recTarget: settingModel,
 		}}

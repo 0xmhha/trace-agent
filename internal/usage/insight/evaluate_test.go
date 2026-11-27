@@ -107,7 +107,7 @@ func TestEvaluateOrdersBySeverityThenRuleThenID(t *testing.T) {
 			report.RulesFired, report.RulesPassed, report.RulesSkipped, ruleCount)
 	}
 	for i, item := range report.Items {
-		checkInsightShape(t, item)
+		checkInsightShape(t, item, usage.LocaleDefault)
 		if i > 0 && severityRank(report.Items[i-1].Severity) > severityRank(item.Severity) {
 			t.Errorf("item %d (%s) is more severe than the one before it", i, item.ID)
 		}

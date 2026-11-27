@@ -132,7 +132,7 @@ func (s *Server) sourceData(ctx context.Context, c sourceCatalog, v view, op str
 			}
 			detail["gaps"] = view
 			if more {
-				caps = append(caps, capability("gap_history", "PARTIAL", "선택한 기간에서 최근 공백 200건을 표시합니다."))
+				caps = append(caps, capability("gap_history", "PARTIAL", "The latest 200 gaps in the selected period are shown."))
 			}
 		}
 		detail["capabilities"] = caps

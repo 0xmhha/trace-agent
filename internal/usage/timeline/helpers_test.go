@@ -142,6 +142,14 @@ type row struct {
 	IsError  bool
 	Duration string
 	Hook     string
+	// System is "kind|durationMs|trigger" for a system item and empty
+	// otherwise; an absent duration is noValue.
+	System string
+}
+
+// systemRow writes a TimelineSystem the way rowOf does.
+func systemRow(kind usage.SystemKind, durationMs string, trigger string) string {
+	return strings.Join([]string{string(kind), durationMs, trigger}, "|")
 }
 
 const noValue = "-"
@@ -164,6 +172,13 @@ func rowOf(it usage.TimelineItem) row {
 		r.Hook = strings.Join([]string{
 			it.Hook.Event, it.Hook.Name, string(it.Hook.Status), itoa(int64(it.Hook.ExitCode)), itoa(it.Hook.DurationMs),
 		}, "|")
+	}
+	if it.System != nil {
+		duration := noValue
+		if it.System.DurationMs != nil {
+			duration = itoa(*it.System.DurationMs)
+		}
+		r.System = systemRow(it.System.Kind, duration, it.System.Trigger)
 	}
 	return r
 }

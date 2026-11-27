@@ -68,6 +68,7 @@ func TestRateSeverity(t *testing.T) {
 }
 
 func TestFormatting(t *testing.T) {
+	ko, en := newWriter(usage.LocaleKorean), newWriter(usage.LocaleEnglish)
 	for _, tc := range []struct {
 		name, got, want string
 	}{
@@ -79,10 +80,12 @@ func TestFormatting(t *testing.T) {
 		{"whole percent", formatPercent(14), "14"},
 		{"percent with a decimal", formatPercent(23.3), "23.3"},
 		{"share", formatShare(126, 900), "14"},
-		{"seconds", formatSeconds(1240), "1.2초"},
-		{"whole seconds keep a decimal", formatSeconds(2000), "2.0초"},
-		{"named row", displayName("Bash"), "Bash"},
-		{"unnamed row", displayName(""), unnamedLabel},
+		{"seconds", ko.seconds(1240), "1.2초"},
+		{"whole seconds keep a decimal", ko.seconds(2000), "2.0초"},
+		{"English seconds", en.seconds(1240), "1.2 s"},
+		{"named row", ko.name("Bash"), "Bash"},
+		{"unnamed row", ko.name(""), "(이름 없음)"},
+		{"English unnamed row", en.name(""), "(unnamed)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.got != tc.want {
@@ -92,20 +95,66 @@ func TestFormatting(t *testing.T) {
 	}
 }
 
+func TestWriterLocale(t *testing.T) {
+	sample := text{usage.LocaleEnglish: "%s calls", usage.LocaleKorean: "%s 호출"}
+	englishOnly := text{usage.LocaleEnglish: "only English"}
+	for _, tc := range []struct {
+		name   string
+		locale usage.Locale
+		msg    text
+		args   []any
+		want   string
+	}{
+		{"English", usage.LocaleEnglish, sample, []any{"Bash"}, "Bash calls"},
+		{"Korean", usage.LocaleKorean, sample, []any{"Bash"}, "Bash 호출"},
+		{"empty locale is English", "", sample, []any{"Bash"}, "Bash calls"},
+		{"unsupported locale is English", "fr", sample, []any{"Bash"}, "Bash calls"},
+		{"missing entry falls back to English", usage.LocaleKorean, englishOnly, nil, "only English"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := newWriter(tc.locale).say(tc.msg, tc.args...); got != tc.want {
+				t.Fatalf("say = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestUnitTableCoversEveryUnitAndLocale(t *testing.T) {
+	units := []unit{
+		unitCalls, unitRuns, unitCompactions, unitSessions, unitTokens,
+		unitModels, unitEvents, unitInputs, unitPercent, unitMillis,
+	}
+	table := unitTable()
+	if len(table) != len(units) {
+		t.Fatalf("unit table holds %d units, want %d", len(table), len(units))
+	}
+	for _, u := range units {
+		for _, l := range usage.Locales() {
+			if table[u][l] == "" {
+				t.Errorf("unit %q has no %s word", u, l)
+			}
+		}
+	}
+}
+
 func TestEvidenceBuilders(t *testing.T) {
-	plain := count("label", 3, unitTimes)
-	if plain.Value != 3 || plain.Unit != unitTimes || plain.Of != nil {
+	w := newWriter(usage.LocaleKorean)
+	plain := w.count("label", 3, unitCalls)
+	if plain.Value != 3 || plain.Unit != koTimes || plain.Of != nil {
 		t.Errorf("count = %+v", plain)
 	}
-	outOf := countOf("label", 3, 20, unitTimes)
-	if outOf.Value != 3 || outOf.Of == nil || *outOf.Of != 20 {
+	outOf := w.countOf("label", 3, 20, unitSessions)
+	if outOf.Value != 3 || outOf.Unit != koItems || outOf.Of == nil || *outOf.Of != 20 {
 		t.Errorf("countOf = %+v", outOf)
 	}
-	if got := share("label", 3, 20); got.Value != 15 || got.Unit != unitPercent || got.Of != nil {
+	if got := w.share("label", 3, 20); got.Value != 15 || got.Unit != koPercent || got.Of != nil {
 		t.Errorf("share = %+v", got)
 	}
-	if got := millis("label", 1240.4); got.Value != 1240 || got.Unit != unitMillis {
+	if got := w.millis("label", 1240.4); got.Value != 1240 || got.Unit != koMillis {
 		t.Errorf("millis = %+v", got)
+	}
+	if got := newWriter(usage.LocaleEnglish).count("label", 3, unitCalls); got.Unit != "calls" {
+		t.Errorf("English count unit = %q, want calls", got.Unit)
 	}
 	if got := totalTokens(usage.TokenTotals{Input: 1, Output: 2, CacheRead: 3, CacheCreate: 4}); got != 10 {
 		t.Errorf("totalTokens = %d, want 10", got)
