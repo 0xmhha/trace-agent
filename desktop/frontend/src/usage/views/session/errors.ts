@@ -2,10 +2,15 @@
 // string instead of an Error, so both shapes are read here.
 
 const GENERIC = '요청을 처리하지 못했습니다.'
-/** Wording of usage.ErrNotFound on the Go side. */
-const NOT_FOUND = /not found/i
-/** Wording of usage.ErrNoConsent on the Go side. */
-const NO_CONSENT = /collection not allowed/i
+// The bridge replaces service errors with fixed Korean sentences
+// (errUsageNotFound and errUsageNoConsent in desktop/usage_bridge.go), so the
+// patterns accept those as well as the Go sentinel wording. The browser test
+// in desktop/frontend/test/usage.mjs opens an unknown session to keep the two
+// sides in step.
+/** Wording of usage.ErrNotFound, from the service or through the bridge. */
+const NOT_FOUND = /not found|세션을 찾을 수 없습니다/i
+/** Wording of usage.ErrNoConsent, from the service or through the bridge. */
+const NO_CONSENT = /collection not allowed|수집을 먼저 허용/i
 
 export function errorText(reason: unknown): string {
   if (reason instanceof Error) return reason.message || GENERIC

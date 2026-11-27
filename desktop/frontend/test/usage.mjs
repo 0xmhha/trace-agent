@@ -286,6 +286,21 @@ try {
     .filter({ hasText: '프로젝트 1개, 그중 제외 0개' })
     .waitFor()
 
+  // A session that is not stored gets its own card, not a generic error:
+  // the page has to recognise the wording the bridge gives a missing session.
+  // The test endpoint answers that request with an error status, which
+  // Chrome reports as a console error; exactly that one is expected here.
+  const before = errors.length
+  await page.evaluate(() => {
+    location.hash = '#session/unknown-session'
+  })
+  await card('세션을 찾지 못했습니다').waitFor()
+  const refused = errors.splice(before)
+  assert.ok(
+    refused.length > 0 && refused.every((e) => e.endsWith(origin + '/__usage')),
+    'only the refused session request may fail: ' + refused.join('; '),
+  )
+
   // 4. The two workspaces leave each other's address and bridge alone.
   await openUsage('대시보드', '#dashboard')
   await kpis()

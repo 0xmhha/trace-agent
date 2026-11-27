@@ -70,7 +70,10 @@ Codex와 Claude Code의 OTel 기록은 같은 창에서 **로컬 OTel 수신기*
 node projects/trace-agent/tests/verify.mjs
 go test -race -count=1 ./...
 make -C desktop check
+(cd desktop && TRACE_IA_BROWSER=1 go test -count=1 -run '^TestDesktop(IA|UsageIA)$' .)
 ```
+
+마지막 명령은 Chrome에서 추적 화면과 사용 분석 화면을 실제로 열어 확인한다. 사용 분석 쪽은 합성 세션 기록을 실제 파이프라인으로 읽은 수치를 화면에서 대조한다.
 
 | 설계 단계 | 검증 기록 |
 |---|---|

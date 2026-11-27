@@ -35,6 +35,9 @@ var (
 	errUsageUnavailable = errors.New("사용 분석을 시작하지 못했습니다")
 	errUsageFailed      = errors.New("사용 분석 요청을 처리하지 못했습니다")
 	errUsageRequest     = errors.New("요청을 확인해 주세요")
+	// The session page recognises the next two sentences by their wording
+	// (desktop/frontend/src/usage/views/session/errors.ts); change both sides
+	// together.
 	errUsageNotFound    = errors.New("세션을 찾을 수 없습니다")
 	errUsageNoConsent   = errors.New("사용 기록 수집을 먼저 허용해 주세요")
 	errUsageDialog      = errors.New("확인 창을 열 수 없습니다")
