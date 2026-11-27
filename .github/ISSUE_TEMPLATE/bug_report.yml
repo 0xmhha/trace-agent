@@ -1,0 +1,58 @@
+name: Bug report
+description: Something does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem. Please do not paste real transcript content, credentials, personal paths or other private data; use synthetic examples instead.
+        Security vulnerabilities must not be reported here. See SECURITY.md.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Desktop app (usage analytics)
+        - Desktop app (trace)
+        - Extension events receiver
+        - trace-emit
+        - trace-usage
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: Output of `git rev-parse --short HEAD` in your checkout.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: macOS version, chip (Apple silicon or Intel), Go and Node.js versions, Claude Code version.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Relevant output with any private data removed.
+      render: shell
