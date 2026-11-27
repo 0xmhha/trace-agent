@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { errorText, formatNumber, t, type MessageKey } from '../i18n'
 import type { UsageApi } from './api'
 import type { Range, Status } from './types'
 import { Card, ErrorNote, lastDays, useLoad } from './ui'
@@ -44,27 +45,40 @@ export interface ViewProps {
   onStatus: (status: Status) => void
 }
 
+/** Message of each view's name, used for the sidebar and the page title. */
+const titles: Record<UsageView, MessageKey> = {
+  dashboard: 'usage.navDashboard',
+  sessions: 'usage.navSessions',
+  session: 'usage.navSession',
+  tools: 'usage.navTools',
+  insights: 'usage.navInsights',
+  extensions: 'usage.navExtensions',
+  settings: 'usage.navSettings',
+}
+
+/** A sidebar entry whose label is looked up in the current locale when read. */
+function navEntry(view: UsageView, icon: string): { view: UsageView; label: string; icon: string } {
+  return {
+    view,
+    icon,
+    get label() {
+      return t(titles[view])
+    },
+  }
+}
+
 /** Sidebar entries, in display order. The session page is reached from the list. */
 export const usageNav: readonly { view: UsageView; label: string; icon: string }[] = [
-  { view: 'dashboard', label: '대시보드', icon: '◔' },
-  { view: 'sessions', label: '세션', icon: '☰' },
-  { view: 'tools', label: '도구와 확장', icon: '⚒' },
-  { view: 'insights', label: '인사이트', icon: '✦' },
-  { view: 'extensions', label: '확장 이벤트', icon: '⇄' },
-  { view: 'settings', label: '수집 설정', icon: '⚙' },
+  navEntry('dashboard', '◔'),
+  navEntry('sessions', '☰'),
+  navEntry('tools', '⚒'),
+  navEntry('insights', '✦'),
+  navEntry('extensions', '⇄'),
+  navEntry('settings', '⚙'),
 ]
 
-const titles: Record<UsageView, string> = {
-  dashboard: '대시보드',
-  sessions: '세션',
-  session: '세션 상세',
-  tools: '도구와 확장',
-  insights: '인사이트',
-  extensions: '확장 이벤트',
-  settings: '수집 설정',
-}
 export function usageTitle(route: UsageRoute): string {
-  return titles[route.view]
+  return t(titles[route.view])
 }
 
 const DEFAULT_DAYS = 7
@@ -117,19 +131,30 @@ export function usageHash(route: UsageRoute): string {
   )
 }
 
+/** Stands in for the folder path so the sentence can wrap it in <code>. */
+const PATH_MARK = '\u0000'
+const DEFAULT_ROOT = '~/.claude/projects'
+const consentPoints: readonly MessageKey[] = [
+  'usage.consentKeepsCounts',
+  'usage.consentNoText',
+  'usage.consentLocal',
+  'usage.consentSettings',
+]
+
 function ConsentCard(p: { api: UsageApi; root: string; done: () => void }) {
   const [error, setError] = useState('')
+  const [before = '', after = ''] = t('usage.consentIntro', { path: PATH_MARK }).split(PATH_MARK)
   return (
-    <Card title="세션 기록 수집을 시작할까요?" className="u-consent">
+    <Card title={t('usage.consentTitle')} className="u-consent">
       <p>
-        이 Mac의 Claude Code 세션 기록 폴더(<code>{p.root || '~/.claude/projects'}</code>)를
-        읽어 사용 현황을 집계합니다.
+        {before}
+        <code>{p.root || DEFAULT_ROOT}</code>
+        {after}
       </p>
       <ul>
-        <li>토큰, 모델, 도구, 스킬, 훅 같은 수치와 이름만 앱의 저장소에 남깁니다.</li>
-        <li>대화 원문은 저장하지 않고, 세션 상세를 열 때 원본 파일에서 바로 읽습니다.</li>
-        <li>읽은 내용을 이 Mac 밖으로 보내지 않습니다.</li>
-        <li>프로젝트별 제외와 수집 중지는 수집 설정에서 할 수 있습니다.</li>
+        {consentPoints.map((key) => (
+          <li key={key}>{t(key)}</li>
+        ))}
       </ul>
       <ErrorNote error={error} />
       <button
@@ -138,12 +163,10 @@ function ConsentCard(p: { api: UsageApi; root: string; done: () => void }) {
           p.api
             .enableWatch()
             .then((granted) => granted && p.done())
-            .catch((e: unknown) =>
-              setError(e instanceof Error ? e.message : '수집을 켜지 못했습니다.'),
-            )
+            .catch((e: unknown) => setError(errorText(e, 'usage.consentFailed')))
         }
       >
-        수집 시작
+        {t('usage.consentStart')}
       </button>
     </Card>
   )
@@ -172,7 +195,7 @@ export function UsagePage(p: {
           setStatusError('')
         })
         .catch((e: unknown) => {
-          if (!stop) setStatusError(e instanceof Error ? e.message : '상태를 읽지 못했습니다.')
+          if (!stop) setStatusError(errorText(e, 'usage.statusFailed'))
         })
     void read()
     const timer = setInterval(read, STATUS_POLL_MS)
@@ -211,25 +234,25 @@ export function UsagePage(p: {
       {ranged && !gated && (
         <div className="u-toolbar">
           <label>
-            기간
+            {t('usage.period')}
             <select
               value={days}
               onChange={(e) => navigate({ ...route, days: Number(e.target.value) })}
             >
               {dayOptions.map((d) => (
                 <option key={d} value={d}>
-                  최근 {d}일
+                  {t('usage.lastDays', { count: d })}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            프로젝트
+            {t('usage.project')}
             <select
               value={route.project ?? ''}
               onChange={(e) => navigate({ ...route, project: e.target.value || undefined })}
             >
-              <option value="">전체</option>
+              <option value="">{t('usage.allProjects')}</option>
               {(projects.data?.items ?? []).map((item) => (
                 <option key={item.key} value={item.key}>
                   {item.path || item.key}
@@ -240,7 +263,10 @@ export function UsagePage(p: {
           <span className="u-spacer" />
           {status?.scanning && (
             <span className="u-hint" role="status">
-              수집 중 {status.filesDone}/{status.filesTotal}
+              {t('usage.scanProgress', {
+                done: formatNumber(status.filesDone),
+                total: formatNumber(status.filesTotal),
+              })}
             </span>
           )}
         </div>

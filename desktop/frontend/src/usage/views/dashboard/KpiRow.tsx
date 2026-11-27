@@ -1,7 +1,10 @@
+import { formatNumber, t } from '../../../i18n'
 import type { Overview } from '../../types'
 import { Stat, fmtCompact, fmtCost, fmtInt, fmtPct, ratio, sumTokens } from '../../ui'
 import { DAY_MS, UNIT, withUnit } from './format'
 import { isCacheHitLow, toolFailureTone } from './tones'
+
+const AVERAGE_DIGITS: Intl.NumberFormatOptions = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
 
 /** Headline numbers of the range. Two tiles lead to the view that explains them. */
 export function KpiRow(p: { overview: Overview; onSessions: () => void; onTools: () => void }) {
@@ -12,59 +15,78 @@ export function KpiRow(p: { overview: Overview; onSessions: () => void; onTools:
     1,
     Math.round((Date.parse(o.range.until) - Date.parse(o.range.from)) / DAY_MS),
   )
+  const average = o.sessions > 0 ? o.prompts / o.sessions : 0
   return (
     <div className="u-dash-kpis">
       <Stat
-        label="세션"
+        label={t('dashboard.kpiSessions')}
         value={withUnit(o.sessions, UNIT.items)}
-        hint="세션 목록 보기"
+        hint={t('dashboard.kpiSessionsHint')}
         onClick={p.onSessions}
       />
       <Stat
-        label="프롬프트"
+        label={t('dashboard.kpiPrompts')}
         value={withUnit(o.prompts, UNIT.times)}
         hint={
-          o.sessions > 0 ? `세션당 평균 ${(o.prompts / o.sessions).toFixed(1)}${UNIT.times}` : undefined
+          o.sessions > 0
+            ? t('dashboard.kpiPromptsHint', {
+                average: withUnit(average, UNIT.times, formatNumber(average, AVERAGE_DIGITS)),
+              })
+            : undefined
         }
       />
       <Stat
-        label="토큰 합계"
+        label={t('dashboard.kpiTokens')}
         value={fmtCompact(sumTokens(o.tokens))}
-        hint={`입력 ${fmtCompact(inputSide)} · 출력 ${fmtCompact(o.tokens.output)}`}
+        hint={t('dashboard.kpiTokensHint', {
+          input: fmtCompact(inputSide),
+          output: fmtCompact(o.tokens.output),
+        })}
       />
       <Stat
-        label="캐시 적중률"
+        label={t('dashboard.cacheTitle')}
         value={fmtPct(o.cacheHitRatio)}
-        hint="입력 중 캐시에서 읽은 비율"
+        hint={t('dashboard.kpiCacheHint')}
         tone={o.cacheHitRatio == null ? 'muted' : isCacheHitLow(o.cacheHitRatio) ? 'warn' : 'plain'}
       />
       <Stat
-        label="도구 호출"
+        label={t('dashboard.kpiToolCalls')}
         value={withUnit(o.toolCalls, UNIT.times)}
         hint={
           failureRate == null
-            ? '호출 없음'
-            : `실패 ${withUnit(o.toolErrors, UNIT.times)} (${fmtPct(failureRate)})`
+            ? t('dashboard.kpiNoCalls')
+            : t('dashboard.kpiToolsHint', {
+                failed: withUnit(o.toolErrors, UNIT.times),
+                rate: fmtPct(failureRate),
+              })
         }
         tone={toolFailureTone(failureRate)}
         onClick={p.onTools}
       />
       <Stat
-        label="비용"
+        label={t('dashboard.kpiCost')}
         value={fmtCost(o.costUsd)}
-        hint={`세션 ${fmtInt(o.sessions)}개 중 ${fmtInt(o.costSessions)}개가 보고`}
+        hint={t('dashboard.kpiCostHint', {
+          count: o.sessions,
+          sessions: fmtInt(o.sessions),
+          reported: fmtInt(o.costSessions),
+        })}
         tone={o.costUsd == null ? 'muted' : 'plain'}
       />
       <Stat
-        label="활동 일수"
+        label={t('dashboard.kpiActiveDays')}
         value={withUnit(o.activeDays, UNIT.days)}
-        hint={`기간 ${withUnit(rangeDays, UNIT.days)} 중`}
+        hint={t('dashboard.kpiActiveDaysHint', { days: withUnit(rangeDays, UNIT.days) })}
       />
-      <Stat label="하위 에이전트" value={withUnit(o.subagents, UNIT.items)} hint="실행한 수" />
       <Stat
-        label="맥락 압축"
+        label={t('dashboard.kpiSubagents')}
+        value={withUnit(o.subagents, UNIT.items)}
+        hint={t('dashboard.kpiSubagentsHint')}
+      />
+      <Stat
+        label={t('dashboard.kpiCompactions')}
         value={withUnit(o.compactions, UNIT.times)}
-        hint="대화를 줄여 이어 간 횟수"
+        hint={t('dashboard.kpiCompactionsHint')}
       />
     </div>
   )

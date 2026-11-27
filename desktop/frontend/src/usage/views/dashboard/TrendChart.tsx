@@ -1,4 +1,5 @@
 import { useMemo, useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from 'react'
+import { t, type MessageKey } from '../../../i18n'
 import type { Bin, Coverage } from '../../types'
 import { Card, DataTable, Empty, fmtCompact, fmtInt, fmtPct, ratio, type Column } from '../../ui'
 import {
@@ -12,7 +13,9 @@ import {
   hourTick,
   isDailyBin,
   niceTicks,
+  unitName,
   withUnit,
+  type Unit,
 } from './format'
 import { Legend, Tip, TipRows, barPath, paintClass, type Paint, type TipRow } from './parts'
 import { useWidth } from './useWidth'
@@ -22,19 +25,19 @@ export type MeasureId = 'tokens' | 'sessions' | 'tools'
 
 interface Series {
   key: string
-  label: string
+  label: MessageKey
   paint: Paint
   value: (bin: Bin) => number
 }
 
 interface Measure {
   id: MeasureId
-  label: string
-  /** Subtitle after the bucket word, e.g. "일별 토큰 사용량". */
-  subject: string
+  label: MessageKey
+  /** Subtitle after the bucket word, e.g. "token usage" in "Daily token usage". */
+  subject: MessageKey
   integer: boolean
   /** Counter of the values; the table prints it once, in the column heads. */
-  unit: string
+  unit: Unit
   /** Exact figure with its unit, for the tooltip. */
   exact: (n: number) => string
   /** Short figure for the legend. */
@@ -47,24 +50,24 @@ interface Measure {
   extra?: (values: readonly number[], total: number) => TipRow[]
 }
 
-const tokenText = (n: number) => withUnit(n, ' ' + UNIT.tokens)
+const tokenText = (n: number) => withUnit(n, UNIT.tokens)
 const timesText = (n: number) => withUnit(n, UNIT.times)
 const itemsText = (n: number) => withUnit(n, UNIT.items)
 
 const MEASURES: Record<MeasureId, Measure> = {
   tokens: {
     id: 'tokens',
-    label: '토큰',
-    subject: '토큰 사용량, 종류별 누적',
+    label: 'dashboard.measureTokens',
+    subject: 'dashboard.subjectTokens',
     integer: false,
     unit: UNIT.tokens,
     exact: tokenText,
     brief: fmtCompact,
     series: [
-      { key: 'input', label: '입력', paint: 's1', value: (b) => b.tokens.input },
-      { key: 'output', label: '출력', paint: 's2', value: (b) => b.tokens.output },
-      { key: 'cacheRead', label: '캐시 읽기', paint: 's3', value: (b) => b.tokens.cacheRead },
-      { key: 'cacheCreate', label: '캐시 생성', paint: 's4', value: (b) => b.tokens.cacheCreate },
+      { key: 'input', label: 'dashboard.input', paint: 's1', value: (b) => b.tokens.input },
+      { key: 'output', label: 'dashboard.output', paint: 's2', value: (b) => b.tokens.output },
+      { key: 'cacheRead', label: 'dashboard.cacheRead', paint: 's3', value: (b) => b.tokens.cacheRead },
+      { key: 'cacheCreate', label: 'dashboard.cacheCreate', paint: 's4', value: (b) => b.tokens.cacheCreate },
     ],
     // The third and fourth series colours are too close to sit next to each
     // other, so the two cache segments are kept apart by the other two.
@@ -72,30 +75,30 @@ const MEASURES: Record<MeasureId, Measure> = {
   },
   sessions: {
     id: 'sessions',
-    label: '세션',
-    subject: '활동한 세션 수',
+    label: 'dashboard.measureSessions',
+    subject: 'dashboard.subjectSessions',
     integer: true,
     unit: UNIT.items,
     exact: itemsText,
     brief: itemsText,
-    series: [{ key: 'sessions', label: '세션', paint: 's1', value: (b) => b.sessions }],
+    series: [{ key: 'sessions', label: 'dashboard.measureSessions', paint: 's1', value: (b) => b.sessions }],
     stack: [0],
   },
   tools: {
     id: 'tools',
-    label: '도구 호출',
-    subject: '도구 호출 수, 성공과 실패',
+    label: 'dashboard.kpiToolCalls',
+    subject: 'dashboard.subjectTools',
     integer: true,
     unit: UNIT.times,
     exact: timesText,
     brief: timesText,
     series: [
-      { key: 'ok', label: '성공', paint: 's1', value: (b) => b.toolCalls - b.toolErrors },
-      { key: 'failed', label: '실패', paint: 'bad', value: (b) => b.toolErrors },
+      { key: 'ok', label: 'dashboard.succeeded', paint: 's1', value: (b) => b.toolCalls - b.toolErrors },
+      { key: 'failed', label: 'dashboard.failed', paint: 'bad', value: (b) => b.toolErrors },
     ],
     stack: [0, 1],
     extra: (values, total) => [
-      { key: 'rate', label: '실패율', value: fmtPct(ratio(values[1] ?? 0, total)) },
+      { key: 'rate', label: t('dashboard.failureRate'), value: fmtPct(ratio(values[1] ?? 0, total)) },
     ],
   },
 }
@@ -109,6 +112,11 @@ export function parseMeasure(tab: string | undefined): MeasureId {
 /** Route tab for a measure; the default is left out to keep the address short. */
 export function measureTab(id: MeasureId): string | undefined {
   return id === DEFAULT_MEASURE ? undefined : id
+}
+
+/** Chart subtitle: the bucket word and what the bars count, e.g. "Daily active sessions". */
+function subjectText(measure: Measure, widthMs: number): string {
+  return t('dashboard.trendHint', { bin: binWord(widthMs), subject: t(measure.subject) })
 }
 
 interface Stack {
@@ -229,19 +237,21 @@ function TrendPlot(p: { measure: Measure; stacks: readonly Stack[]; widthMs: num
         ...measure.series.map((s, i) => ({
           key: s.key,
           paint: s.paint,
-          label: s.label,
+          label: t(s.label),
           value: measure.exact(picked.values[i] ?? 0),
         })),
         ...(measure.series.length > 1
-          ? [{ key: 'total', label: '합계', value: measure.exact(picked.total) }]
+          ? [{ key: 'total', label: t('dashboard.total'), value: measure.exact(picked.total) }]
           : []),
         ...(measure.extra?.(picked.values, picked.total) ?? []),
       ]
     : []
   const title = picked ? binName(picked.from, widthMs) : ''
-  const summary =
-    `${binWord(widthMs)} ${measure.subject} 막대 차트. 구간 ${count}개, ` +
-    `가장 큰 구간은 ${measure.exact(max)}입니다.`
+  const summary = t('dashboard.trendAria', {
+    subject: subjectText(measure, widthMs),
+    count,
+    max: measure.exact(max),
+  })
 
   return (
     <div
@@ -250,7 +260,7 @@ function TrendPlot(p: { measure: Measure; stacks: readonly Stack[]; widthMs: num
       style={{ minHeight: height }}
       tabIndex={0}
       role="group"
-      aria-label={summary + ' 좌우 화살표 키로 구간을 옮겨 상세 수치를 봅니다.'}
+      aria-label={summary}
       onPointerMove={onPointerMove}
       onPointerLeave={() => setActive(null)}
       onKeyDown={onKeyDown}
@@ -352,7 +362,14 @@ function TrendPlot(p: { measure: Measure; stacks: readonly Stack[]; widthMs: num
         </Tip>
       )}
       <p className="u-dash-sr" role="status">
-        {picked ? title + ': ' + rows.map((r) => `${r.label} ${r.value}`).join(', ') : ''}
+        {picked
+          ? t('dashboard.trendStatus', {
+              bin: title,
+              values: rows
+                .map((row) => t('dashboard.labelValue', { label: row.label, value: row.value }))
+                .join(t('usage.listSeparator')),
+            })
+          : ''}
       </p>
     </div>
   )
@@ -361,11 +378,11 @@ function TrendPlot(p: { measure: Measure; stacks: readonly Stack[]; widthMs: num
 function TrendTable(p: { measure: Measure; stacks: readonly Stack[]; widthMs: number }) {
   const { measure, stacks, widthMs } = p
   const columns: Column<Stack>[] = [
-    { key: 'bin', label: '구간', render: (s) => binName(s.from, widthMs) },
+    { key: 'bin', label: t('dashboard.bin'), render: (s) => binName(s.from, widthMs) },
     ...measure.series.map(
       (series, i): Column<Stack> => ({
         key: series.key,
-        label: `${series.label} (${measure.unit})`,
+        label: t('dashboard.columnWithUnit', { label: t(series.label), unit: unitName(measure.unit) }),
         align: 'right',
         render: (s) => fmtInt(s.values[i] ?? 0),
       }),
@@ -374,7 +391,7 @@ function TrendTable(p: { measure: Measure; stacks: readonly Stack[]; widthMs: nu
   if (measure.series.length > 1)
     columns.push({
       key: 'total',
-      label: `합계 (${measure.unit})`,
+      label: t('dashboard.columnWithUnit', { label: t('dashboard.total'), unit: unitName(measure.unit) }),
       align: 'right',
       render: (s) => fmtInt(s.total),
     })
@@ -414,7 +431,7 @@ export function TrendChart(p: {
   const empty = !stacks.some((s) => s.total > 0)
 
   const toggle = (
-    <div className="u-dash-toggle" role="group" aria-label="차트 지표">
+    <div className="u-dash-toggle" role="group" aria-label={t('dashboard.measureGroup')}>
       {MEASURE_ORDER.map((id) => (
         <button
           key={id}
@@ -423,7 +440,7 @@ export function TrendChart(p: {
           className={id === measure.id ? 'u-dash-on' : ''}
           onClick={() => p.onMeasure(id)}
         >
-          {MEASURES[id].label}
+          {t(MEASURES[id].label)}
         </button>
       ))}
     </div>
@@ -431,8 +448,8 @@ export function TrendChart(p: {
 
   return (
     <Card
-      title="사용 추이"
-      hint={`${binWord(widthMs)} ${measure.subject}`}
+      title={t('dashboard.trendTitle')}
+      hint={subjectText(measure, widthMs)}
       action={toggle}
       className={p.className}
     >
@@ -442,11 +459,11 @@ export function TrendChart(p: {
         <>
           {measure.series.length > 1 && (
             <Legend
-              label="범례와 기간 합계"
+              label={t('dashboard.trendLegend')}
               items={measure.series.map((s, i) => ({
                 key: s.key,
                 paint: s.paint,
-                label: s.label,
+                label: t(s.label),
                 value: measure.brief(totals[i] ?? 0),
               }))}
             />
@@ -456,7 +473,7 @@ export function TrendChart(p: {
             className="u-dash-details"
             onToggle={(e) => setTableOpen(e.currentTarget.open)}
           >
-            <summary>표로 보기</summary>
+            <summary>{t('dashboard.showTable')}</summary>
             {tableOpen && <TrendTable measure={measure} stacks={stacks} widthMs={widthMs} />}
           </details>
         </>

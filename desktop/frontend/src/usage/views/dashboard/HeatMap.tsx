@@ -1,7 +1,8 @@
 import { useMemo, useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from 'react'
+import { t } from '../../../i18n'
 import type { Coverage, HeatCell } from '../../types'
-import { Empty } from '../../ui'
-import { UNIT, weekdayName, weekdayShort, withUnit } from './format'
+import { Empty, fmtInt } from '../../ui'
+import { UNIT, hourLabel, weekdayName, weekdayShort, withUnit } from './format'
 import { Tip, TipRows } from './parts'
 import { useWidth } from './useWidth'
 
@@ -37,14 +38,20 @@ function levelRanges(max: number): { level: number; text: string }[] {
     if (low > high) continue
     ranges.push({
       level,
-      text: low === high ? withUnit(low, UNIT.times) : `${low}~${withUnit(high, UNIT.times)}`,
+      text:
+        low === high
+          ? withUnit(low, UNIT.times)
+          : t('dashboard.heatRange', { low: fmtInt(low), high: withUnit(high, UNIT.times) }),
     })
   }
   return ranges
 }
 
 function slotName(slot: Slot): string {
-  return `${weekdayName(WEEK_ORDER[slot.row] ?? 0)} ${slot.hour}시`
+  return t('dashboard.heatSlot', {
+    weekday: weekdayName(WEEK_ORDER[slot.row] ?? 0),
+    hour: hourLabel(slot.hour),
+  })
 }
 
 function HeatGrid(p: { grid: readonly (readonly number[])[]; max: number; peak: Slot }) {
@@ -93,10 +100,10 @@ function HeatGrid(p: { grid: readonly (readonly number[])[]; max: number; peak: 
       style={{ minHeight: height }}
       tabIndex={0}
       role="group"
-      aria-label={
-        '요일과 시간별 프롬프트 수. 가장 많은 시간대는 ' +
-        `${slotName(peak)}, ${withUnit(max, UNIT.times)}입니다. 화살표 키로 칸을 옮겨 수치를 봅니다.`
-      }
+      aria-label={t('dashboard.heatAria', {
+        slot: slotName(peak),
+        value: withUnit(max, UNIT.times),
+      })}
       onPointerMove={onPointerMove}
       onPointerLeave={() => setActive(null)}
       onKeyDown={onKeyDown}
@@ -108,7 +115,7 @@ function HeatGrid(p: { grid: readonly (readonly number[])[]; max: number; peak: 
           {Array.from({ length: HOURS / HOUR_LABEL_EVERY }, (_, i) => i * HOUR_LABEL_EVERY).map(
             (hour) => (
               <text key={hour} className="u-dash-tick" x={cellX(hour)} y={HEADER_HEIGHT - 5}>
-                {hour}시
+                {hourLabel(hour)}
               </text>
             ),
           )}
@@ -156,12 +163,12 @@ function HeatGrid(p: { grid: readonly (readonly number[])[]; max: number; peak: 
         >
           <TipRows
             title={slotName(active)}
-            rows={[{ key: 'prompts', label: '프롬프트', value: detail }]}
+            rows={[{ key: 'prompts', label: t('dashboard.colPrompts'), value: detail }]}
           />
         </Tip>
       )}
       <p className="u-dash-sr" role="status">
-        {active ? `${slotName(active)}: 프롬프트 ${detail}` : ''}
+        {active ? t('dashboard.heatStatus', { slot: slotName(active), value: detail }) : ''}
       </p>
     </div>
   )
@@ -171,13 +178,13 @@ function HeatTable({ grid }: { grid: readonly (readonly number[])[] }) {
   return (
     <div className="u-table-wrap">
       <table className="u-table u-dash-heat-table">
-        <caption className="u-dash-sr">요일과 시간별 프롬프트 수</caption>
+        <caption className="u-dash-sr">{t('dashboard.heatCaption')}</caption>
         <thead>
           <tr>
-            <th scope="col">요일</th>
+            <th scope="col">{t('dashboard.heatWeekday')}</th>
             {Array.from({ length: HOURS }, (_, hour) => (
               <th key={hour} scope="col" className="num">
-                {hour}시
+                {hourLabel(hour)}
               </th>
             ))}
           </tr>
@@ -230,9 +237,9 @@ export function HeatMap(p: { cells: readonly HeatCell[]; coverage: Coverage }) {
       <HeatGrid grid={grid} max={max} peak={peak} />
       <div className="u-dash-heat-foot">
         <span className="u-hint">
-          가장 활발한 시간대는 {slotName(peak)}입니다 (프롬프트 {withUnit(max, UNIT.times)}).
+          {t('dashboard.heatPeak', { slot: slotName(peak), value: withUnit(max, UNIT.times) })}
         </span>
-        <ul className="u-dash-legend" aria-label="색 단계별 프롬프트 수">
+        <ul className="u-dash-legend" aria-label={t('dashboard.heatLegend')}>
           {levelRanges(max).map((range) => (
             <li key={range.level}>
               <svg className="u-dash-svg" width={12} height={12} aria-hidden="true">
@@ -249,7 +256,7 @@ export function HeatMap(p: { cells: readonly HeatCell[]; coverage: Coverage }) {
         </ul>
       </div>
       <details className="u-dash-details" onToggle={(e) => setTableOpen(e.currentTarget.open)}>
-        <summary>표로 보기</summary>
+        <summary>{t('dashboard.showTable')}</summary>
         {tableOpen && <HeatTable grid={grid} />}
       </details>
     </>
