@@ -61,23 +61,41 @@ aside {
   display: flex;
   flex-direction: column;
   padding: 27px 14px 16px;
+  /* Two groups of entries are taller than a small window. */
+  min-height: 0;
+  overflow-y: auto;
 }
 .brand {
   display: flex;
   gap: 10px;
   align-items: center;
   font: 600 18px/1.2 system-ui;
-  padding: 0 8px 36px;
+  padding: 0 8px 26px;
 }
 .brand i {
   font: 700 28px/1 Georgia;
   color: #9fd8bb;
 }
-nav {
+/* The sidebar rules name the sidebar, so that a nav element inside a page
+   does not inherit them. */
+aside nav {
   display: grid;
-  gap: 6px;
+  gap: 14px;
+  /* Keeps the connection line apart when the sidebar has to scroll. */
+  margin-bottom: 16px;
 }
-nav button {
+.navGroup {
+  display: grid;
+  gap: 2px;
+}
+.navCaption {
+  padding: 0 14px 4px;
+  color: #8fa59b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+aside nav button {
   display: flex;
   gap: 14px;
   align-items: center;
@@ -86,14 +104,14 @@ nav button {
   color: #ccdacf;
   border: 0;
   font-size: 0.94rem;
-  padding: 10px 14px;
+  padding: 7px 14px;
 }
-nav button.selected,
-nav button:hover:not(:disabled) {
+aside nav button.selected,
+aside nav button:hover:not(:disabled) {
   color: white;
   background: #345249;
 }
-nav span {
+aside nav span {
   min-width: 18px;
   text-align: center;
 }
@@ -131,6 +149,16 @@ footer {
 }
 header {
   justify-content: space-between;
+}
+/* Header of the usage pages. It carries the page title where the trace header
+   has its filters, at the same height so the layout does not jump. */
+.pageHeader {
+  min-height: 3.75rem;
+}
+.pageHeader h1 {
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+  margin: 0;
 }
 .filters,
 .toolbar,
@@ -356,10 +384,16 @@ fieldset {
   .brand i {
     display: none;
   }
-  nav button {
+  aside nav button {
     font-size: 0.82rem;
     gap: 6px;
-    padding: 9px;
+    padding: 7px 9px;
+  }
+  .navCaption {
+    padding: 0 9px 4px;
+  }
+  .pageHeader {
+    align-items: center;
   }
   header {
     padding: 10px;
