@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (root module)
+    # The root module has no macOS-only code paths in its tests: platform
+    # specific files are split by unix / !unix build tags, the loopback
+    # receivers work on Linux, and tests that need an installed client or
+    # local history skip themselves unless an environment variable is set.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      # internal/collect runs a Node.js oracle script, and verify.mjs needs node:sqlite.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+      - name: Verify stage fixtures
+        run: node projects/trace-agent/tests/verify.mjs
+      - name: Check formatting
+        run: test -z "$(gofmt -l cmd internal projects)"
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -race -count=1 ./...
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop/frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Type-check and build
+        run: npm run build
+
+  desktop:
+    name: Desktop (macOS)
+    # The desktop module embeds the built frontend and links the macOS WebKit
+    # bindings of Wails, so it is built and tested on macOS.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: |
+            go.sum
+            desktop/go.sum
+      - uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Check formatting
+        working-directory: desktop
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        working-directory: desktop
+        run: go vet ./...
+      # Browser, release and qualification tests skip themselves unless their
+      # environment variables (TRACE_IA_BROWSER, TRACE_VERIFY, ...) are set.
+      - name: Test
+        working-directory: desktop
+        run: go test -count=1 ./...
+
+  lint:
+    name: Lint (${{ matrix.module }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: root
+            directory: .
+            os: ubuntu-latest
+          - module: desktop
+            directory: desktop
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.directory }}/go.mod
+          cache: false
+      - uses: actions/setup-node@v5
+        if: matrix.module == 'desktop'
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+      # The desktop module embeds frontend/dist, which must exist to type-check.
+      - name: Build frontend
+        if: matrix.module == 'desktop'
+        working-directory: desktop/frontend
+        run: |
+          npm ci
+          npm run build
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.13
+          working-directory: ${{ matrix.directory }}
