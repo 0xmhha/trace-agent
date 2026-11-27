@@ -1,0 +1,296 @@
+/* 수집 설정 view. Every class here starts with u-set-. Colors come from the
+   variables that usage.css defines on .u-page. */
+.u-set {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* Korean wraps between words, not inside them. Paths still break anywhere. */
+  word-break: keep-all;
+}
+/* Three tiles stay on one row down to the narrowest window. */
+.u-set .u-set-stats {
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+}
+.u-set h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.u-set-line {
+  margin: 0.75rem 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.u-set-foot {
+  margin: 0;
+}
+
+/* Label and value rows. app.css gives every "dl div" a fixed 85px label
+   column; the selector below outranks it. */
+.u-set-facts {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.u-set-facts div {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0;
+}
+.u-set-facts dt {
+  color: var(--u-muted);
+  font-size: 0.84rem;
+}
+.u-set-facts dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+.u-set-path {
+  overflow-wrap: anywhere;
+}
+
+/* 수집 card: state on the left, what is kept on the right. */
+.u-set-watch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 1.5rem;
+}
+.u-set-progress-text {
+  margin: 0;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.u-set-progress {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  height: 0.5rem;
+  margin-top: 0.4rem;
+  accent-color: var(--u-teal);
+}
+.u-set-kept {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--u-line);
+}
+.u-set-kept ul,
+.u-set-reasons,
+.u-set-confirm ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+.u-set-kept li + li,
+.u-set-reasons li + li,
+.u-set-confirm li + li {
+  margin-top: 0.25rem;
+}
+@media (max-width: 900px) {
+  .u-set-watch {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .u-set-kept {
+    padding: 1rem 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--u-line);
+  }
+}
+@media (max-width: 700px) {
+  .u-set-kept {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Result of the last change made in a card. */
+.u-set-feedback {
+  margin-bottom: 0.75rem;
+}
+.u-set-notice {
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--u-line);
+  border-left: 3px solid var(--u-good);
+  border-radius: 6px;
+  background: var(--u-soft);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.u-set-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+}
+.u-set-field label {
+  font-size: 0.86rem;
+}
+.u-set-field input {
+  flex: 1 1 11rem;
+  min-width: 0;
+  max-width: 20rem;
+}
+
+/* 프로젝트 card. */
+.u-set-listbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0 0.5rem;
+}
+.u-set-listbar .u-set-field {
+  flex: 1 1 16rem;
+}
+.u-set-count {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.u-set-proj-name {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.u-set-proj-path {
+  display: block;
+  color: var(--u-muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.u-set-when {
+  white-space: nowrap;
+}
+
+/* Switch. The knob position and the text carry the state; the fill only
+   reinforces it. */
+.u-set-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.1rem 0.25rem 0.1rem 0.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--u-ink);
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+.u-set-switch:hover:not(:disabled) {
+  background: none;
+}
+.u-set-switch:hover:not(:disabled) .u-set-switch-track {
+  box-shadow: 0 0 0 3px var(--u-soft);
+}
+.u-set-switch-track {
+  position: relative;
+  flex: none;
+  width: 2.1rem;
+  height: 1.2rem;
+  border: 1.5px solid var(--u-muted);
+  border-radius: 999px;
+  background: var(--u-surface);
+  transition: background-color 0.12s;
+}
+.u-set-switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--u-muted);
+  transform: translateY(-50%);
+  transition: left 0.12s;
+}
+.u-set-switch[aria-checked='true'] .u-set-switch-track {
+  border-color: var(--u-teal);
+  background: var(--u-teal);
+}
+.u-set-switch[aria-checked='true'] .u-set-switch-knob {
+  left: calc(100% - 0.9rem);
+  background: var(--u-surface);
+}
+.u-set-switch-text {
+  min-width: 2.2rem;
+  text-align: left;
+}
+@media (prefers-reduced-motion: reduce) {
+  .u-set-switch-track,
+  .u-set-switch-knob {
+    transition: none;
+  }
+}
+
+/* Buttons. app.css recolors every hovered button, which would leave white
+   text on a pale fill, so each variant sets its own hover. */
+.u-set-primary {
+  border-color: var(--u-teal);
+  background: var(--u-teal);
+  color: var(--u-surface);
+}
+.u-set-primary:hover:not(:disabled) {
+  border-color: var(--u-teal);
+  background: var(--u-teal);
+  filter: brightness(0.88);
+}
+.u-set-danger {
+  border-color: var(--u-bad);
+  color: var(--u-bad);
+}
+.u-set-danger:hover:not(:disabled) {
+  border-color: var(--u-bad);
+  background: var(--u-soft);
+}
+.u-set-danger-solid {
+  border-color: var(--u-bad);
+  background: var(--u-bad);
+  color: var(--u-surface);
+}
+.u-set-danger-solid:hover:not(:disabled) {
+  border-color: var(--u-bad);
+  background: var(--u-bad);
+  filter: brightness(0.88);
+}
+
+/* 관리 card: a description with its button, then the confirmation. */
+.u-set-task {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.u-set-task + .u-set-task {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--u-soft);
+}
+.u-set-task button {
+  flex: none;
+}
+.u-set-confirm {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--u-bad);
+  border-radius: 6px;
+}
+.u-set-confirm-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+.u-set-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
