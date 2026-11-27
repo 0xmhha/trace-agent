@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -220,5 +222,133 @@ func TestCountRejected(t *testing.T) {
 	}
 	if got := ingestCount(t, s, "ext_reject", ""); got != 3 {
 		t.Fatalf("rejection counters = %d; want one per sender", got)
+	}
+}
+
+// extWriteIDs lists the stored extension event IDs in ascending order.
+func extWriteIDs(t *testing.T, s *Store) []string {
+	t.Helper()
+	rows, err := s.db.QueryContext(context.Background(), "SELECT id FROM ext_event ORDER BY id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	if err = rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return ids
+}
+
+// extWriteStep is one AppendExt call of a scenario and what it must leave.
+type extWriteStep struct {
+	name     string
+	events   []usage.ExtEvent
+	wantKept []string
+	bumps    bool
+}
+
+// extWriteRun runs the steps in order through appendExt with extCap.
+func extWriteRun(t *testing.T, s *Store, extCap int64, steps []extWriteStep) {
+	t.Helper()
+	ctx := context.Background()
+	for _, step := range steps {
+		version := ingestVersion(t, s)
+		if err := s.appendExt(ctx, step.events, extCap); err != nil {
+			t.Fatalf("%s: %v", step.name, err)
+		}
+		if got := extWriteIDs(t, s); !slices.Equal(got, step.wantKept) {
+			t.Fatalf("%s: stored = %v; want %v", step.name, got, step.wantKept)
+		}
+		want := version
+		if step.bumps {
+			want++
+		}
+		if got := ingestVersion(t, s); got != want {
+			t.Fatalf("%s: data_version = %d; want %d", step.name, got, want)
+		}
+	}
+}
+
+func TestAppendExtEnforcesTheCap(t *testing.T) {
+	const extCap = 3
+	// Event times run against the receive order, so the test tells the two
+	// apart: the cap follows the receive time, as Prune does.
+	event := func(i int) usage.ExtEvent {
+		e := ingestExtEvent(fmt.Sprintf("ext-%d", i), "", i)
+		e.At = ingestStart.Add(-time.Duration(i) * time.Minute)
+		return e
+	}
+	extWriteRun(t, openTest(t), extCap, []extWriteStep{
+		{name: "under the cap", events: []usage.ExtEvent{event(0), event(1)}, wantKept: []string{"ext-0", "ext-1"}, bumps: true},
+		{name: "reaching the cap", events: []usage.ExtEvent{event(2)}, wantKept: []string{"ext-0", "ext-1", "ext-2"}, bumps: true},
+		{name: "oldest go first", events: []usage.ExtEvent{event(3), event(4)}, wantKept: []string{"ext-2", "ext-3", "ext-4"}, bumps: true},
+		{name: "one call above the cap", events: []usage.ExtEvent{event(5), event(6), event(7), event(8)},
+			wantKept: []string{"ext-6", "ext-7", "ext-8"}, bumps: true},
+		{name: "repeats only", events: []usage.ExtEvent{event(8)}, wantKept: []string{"ext-6", "ext-7", "ext-8"}},
+	})
+}
+
+func TestAppendExtTrimsOnlyAfterAnInsert(t *testing.T) {
+	s := openTest(t)
+	extWriteRun(t, s, 10, []extWriteStep{{name: "two events", wantKept: []string{"ext-1", "ext-2"}, bumps: true,
+		events: []usage.ExtEvent{ingestExtEvent("ext-1", "", 0), ingestExtEvent("ext-2", "", 1)}}})
+	// A call that stores nothing new leaves the table alone even above a
+	// smaller cap; the hourly Prune deals with that.
+	extWriteRun(t, s, 1, []extWriteStep{{name: "repeat under a smaller cap", wantKept: []string{"ext-1", "ext-2"},
+		events: []usage.ExtEvent{ingestExtEvent("ext-1", "", 0)}}})
+}
+
+func TestAppendExtUsesTheSharedCap(t *testing.T) {
+	ctx := context.Background()
+	s := openTest(t)
+	if err := s.AppendExt(ctx, []usage.ExtEvent{ingestExtEvent("ext-1", "", 0), ingestExtEvent("ext-2", "", 1)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ingestCount(t, s, "ext_event", ""); got != 2 {
+		t.Fatalf("ext_event rows = %d; AppendExt must keep a store under usage.MaxExtEvents", got)
+	}
+}
+
+func TestAppendExtDropsEventsOfExcludedSessions(t *testing.T) {
+	ctx := context.Background()
+	s := openTest(t)
+	// Streams of an excluded project (root and one sub-agent) and of an
+	// included one. The rows are written directly so that the excluded
+	// project's streams are present.
+	for _, stmt := range []struct {
+		query string
+		args  []any
+	}{
+		{query: "INSERT INTO project(project_key,excluded) VALUES(?,1),(?,0)", args: []any{"proj-out", "proj-in"}},
+		{query: "INSERT INTO stream(session_id,agent_id,project_key,file_path,first_ms,last_ms) VALUES(?,'',?,?,0,0),(?,?,?,?,0,0),(?,'',?,?,0,0)",
+			args: []any{"sess-out", "proj-out", "out/sess-out.jsonl",
+				"sess-out", "agent-1", "proj-out", "out/sess-out/subagents/agent-1.jsonl",
+				"sess-in", "proj-in", "in/sess-in.jsonl"}},
+	} {
+		if _, err := s.db.ExecContext(ctx, stmt.query, stmt.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	extWriteRun(t, s, usage.MaxExtEvents, []extWriteStep{
+		{name: "only excluded sessions", wantKept: []string{},
+			events: []usage.ExtEvent{ingestExtEvent("ext-out-1", "sess-out", 0), ingestExtEvent("ext-out-2", "sess-out", 1)}},
+		{name: "mixed body", bumps: true, wantKept: []string{"ext-in", "ext-none", "ext-unknown"},
+			events: []usage.ExtEvent{
+				ingestExtEvent("ext-out-3", "sess-out", 2),
+				ingestExtEvent("ext-in", "sess-in", 3),
+				ingestExtEvent("ext-none", "", 4),
+				ingestExtEvent("ext-unknown", "sess-unknown", 5),
+			}},
+	})
+	if got := ingestCount(t, s, "ext_reject", ""); got != 0 {
+		t.Fatalf("rejection counters = %d; dropped events must not be counted", got)
 	}
 }
