@@ -1,0 +1,466 @@
+/* Session detail view. Every class starts with u-sd-. */
+
+/* Header */
+.u-sd-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.u-sd-back {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.86rem;
+}
+.u-sd-title {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.u-sd-lead {
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.u-sd-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.86rem;
+}
+.u-sd-meta li {
+  display: flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.u-sd-meta-key {
+  flex: none;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+}
+.u-sd-meta-value {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.u-sd-models {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+/* Eight tiles: two rows of four, or four rows of two where the page is narrow. */
+.u-sd-stats {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.u-sd-stats .u-stat {
+  min-width: 0;
+}
+.u-sd-stats .u-stat-value {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .u-sd-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Tabs */
+.u-sd-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.u-sd-panel[hidden] {
+  display: none;
+}
+
+/* Small shared pieces */
+.u-sd-name {
+  overflow-wrap: anywhere;
+}
+.u-sd-num {
+  font-variant-numeric: tabular-nums;
+}
+.u-sd-dim {
+  color: var(--u-muted);
+}
+.u-sd-grow {
+  flex: 1;
+}
+.u-sd-small {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Timeline controls */
+.u-sd-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+}
+.u-sd-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.u-sd-control select {
+  max-width: 20rem;
+}
+.u-sd-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--u-ink);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.u-sd-check input {
+  margin: 0;
+  padding: 0;
+}
+.u-sd-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  margin: 0.7rem 0;
+}
+.u-sd-kinds legend {
+  float: left;
+  margin-right: 0.9rem;
+  padding: 0;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+}
+.u-sd-kinds .u-count {
+  margin-left: 0;
+}
+.u-sd-mask-note {
+  margin: 0 0 0.6rem;
+}
+.u-sd-mask-note + .u-note {
+  margin: 0 0 0.6rem;
+}
+
+/* Timeline */
+.u-sd-timeline,
+.u-sd-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.u-sd-item {
+  --u-sd-stripe: var(--u-line);
+  min-width: 0;
+  border: 1px solid var(--u-line);
+  border-left: 4px solid var(--u-sd-stripe);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  background: var(--u-surface);
+}
+/* The stripe repeats what the kind label already says in words. */
+.u-sd-k-prompt {
+  --u-sd-stripe: var(--u-s3);
+  background: var(--u-soft);
+}
+.u-sd-k-assistant {
+  --u-sd-stripe: var(--u-s1);
+}
+.u-sd-k-thinking {
+  --u-sd-stripe: var(--u-s5);
+}
+.u-sd-k-tool_call,
+.u-sd-k-tool_result {
+  --u-sd-stripe: var(--u-s2);
+}
+.u-sd-k-hook {
+  --u-sd-stripe: var(--u-s4);
+}
+.u-sd-k-ext {
+  --u-sd-stripe: var(--u-s6);
+}
+/* Rows that belong to the call above them step in. */
+.u-sd-timeline > .u-sd-k-tool_result,
+.u-sd-timeline > .u-sd-k-hook,
+.u-sd-timeline > .u-sd-k-ext {
+  margin-left: 1.25rem;
+}
+.u-sd-failed {
+  border-color: var(--u-bad);
+  --u-sd-stripe: var(--u-bad);
+}
+.u-sd-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.55rem;
+  font-size: 0.84rem;
+}
+.u-sd-kind {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.u-sd-label {
+  overflow-wrap: anywhere;
+}
+.u-sd-tokens {
+  margin: 0.2rem 0 0;
+  color: var(--u-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.u-sd-line {
+  margin: 0.3rem 0 0;
+  font-size: 0.86rem;
+}
+.u-sd-text {
+  margin: 0.4rem 0 0;
+  max-height: 26rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.u-sd-mono {
+  padding: 0.5rem 0.65rem;
+  border-radius: 5px;
+  background: var(--u-soft);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.u-sd-k-prompt .u-sd-mono {
+  background: var(--u-surface);
+}
+.u-sd-fold {
+  margin-top: 0.3rem;
+}
+.u-sd-fold > summary {
+  /* app.css gives every summary a tall margin. */
+  margin: 0;
+  font-size: 0.84rem;
+}
+.u-sd-fold > summary:focus-visible {
+  outline: 3px solid #d58b2f;
+  outline-offset: 2px;
+}
+.u-sd-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+}
+.u-sd-attrs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+.u-sd-attrs li {
+  display: inline-flex;
+  max-width: 100%;
+  border: 1px solid var(--u-line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.u-sd-attr-key {
+  flex: none;
+  padding: 0.05rem 0.4rem;
+  background: var(--u-soft);
+  color: var(--u-muted);
+}
+.u-sd-attr-value {
+  padding: 0.05rem 0.4rem;
+  overflow-wrap: anywhere;
+}
+.u-sd-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+.u-sd-more .u-hint {
+  margin: 0;
+}
+
+/* Tables inside the tabs */
+.u-sd-panel .u-table .num {
+  white-space: nowrap;
+}
+.u-sd-panel .u-table .u-sd-name {
+  /* Long tool names wrap, but never down to one letter per line. */
+  display: inline-block;
+  min-width: 8rem;
+}
+.u-sd-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.u-sd-stack > * {
+  white-space: nowrap;
+}
+
+/* Token flow */
+.u-sd-facts,
+.u-sd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.3rem;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.84rem;
+}
+.u-sd-facts {
+  color: var(--u-muted);
+}
+.u-sd-facts b {
+  color: var(--u-ink);
+  font-variant-numeric: tabular-nums;
+}
+.u-sd-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.u-sd-key {
+  display: inline-block;
+  flex: none;
+}
+.u-sd-key-line {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--u-s1);
+}
+.u-sd-key-bar {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--u-s2);
+}
+.u-sd-chart {
+  position: relative;
+  min-width: 0;
+  border-radius: 6px;
+}
+.u-sd-chart:focus-visible {
+  outline: 3px solid #d58b2f;
+  outline-offset: 4px;
+}
+.u-sd-chart svg {
+  display: block;
+  max-width: 100%;
+}
+.u-sd-grid {
+  stroke: var(--u-line);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.u-sd-tick,
+.u-sd-axis-title,
+.u-sd-panel-title,
+.u-sd-direct {
+  fill: var(--u-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.u-sd-panel-title,
+.u-sd-direct {
+  fill: var(--u-ink);
+  font-size: 12px;
+}
+.u-sd-panel-title {
+  font-weight: 600;
+}
+.u-sd-direct {
+  /* Keeps the label readable where it crosses the line. */
+  paint-order: stroke;
+  stroke: var(--u-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.u-sd-area {
+  fill: var(--u-s1);
+  opacity: 0.1;
+}
+.u-sd-line-mark {
+  fill: none;
+  stroke: var(--u-s1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.u-sd-bars {
+  fill: var(--u-s2);
+}
+.u-sd-dot {
+  fill: var(--u-s1);
+  stroke: var(--u-surface);
+  stroke-width: 2;
+}
+.u-sd-cross {
+  stroke: var(--u-muted);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.u-sd-bar-pick {
+  fill: none;
+  stroke: var(--u-ink);
+  stroke-width: 1.5;
+}
+.u-sd-hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+.u-sd-tip {
+  position: absolute;
+  z-index: 1;
+  width: max-content;
+  max-width: 17rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--u-line);
+  border-radius: 6px;
+  background: var(--u-surface);
+  box-shadow: 0 2px 8px rgb(29 52 49 / 14%);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+.u-sd-tip-left {
+  transform: translateX(-100%);
+}
+.u-sd-tip-head,
+.u-sd-tip-foot {
+  color: var(--u-muted);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+.u-sd-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.15rem 0;
+  color: var(--u-muted);
+}
+.u-sd-tip-row strong {
+  color: var(--u-ink);
+  font-variant-numeric: tabular-nums;
+}
