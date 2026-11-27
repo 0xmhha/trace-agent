@@ -73,7 +73,10 @@ status is still 0 (run: the command's status). A malformed flag exits 2.
 // environment is everything the command takes from its process, injected so
 // that tests can replace the clock, the randomness, the transport and stdio.
 type environment struct {
-	getenv    func(string) string
+	getenv func(string) string
+	// environ lists the process environment as key=value pairs; run mode
+	// builds the wrapped command's environment from it.
+	environ   func() []string
 	stdin     io.Reader
 	stdout    io.Writer
 	stderr    io.Writer
@@ -87,12 +90,13 @@ type environment struct {
 
 func main() {
 	env := environment{
-		getenv: os.Getenv,
-		stdin:  os.Stdin,
-		stdout: os.Stdout,
-		stderr: os.Stderr,
-		now:    time.Now,
-		random: rand.Reader,
+		getenv:  os.Getenv,
+		environ: os.Environ,
+		stdin:   os.Stdin,
+		stdout:  os.Stdout,
+		stderr:  os.Stderr,
+		now:     time.Now,
+		random:  rand.Reader,
 		// No proxy: the event and the credential must not leave this machine.
 		transport: &http.Transport{Proxy: nil, DisableKeepAlives: true},
 		signals:   notifySignals,

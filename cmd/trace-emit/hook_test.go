@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -20,6 +21,90 @@ func (u unreadable) Read([]byte) (int, error) {
 type failingReader struct{ err error }
 
 func (f failingReader) Read([]byte) (int, error) { return 0, f.err }
+
+// endsOnce yields its text with end of file and fails the test when it is
+// read again: an input that has ended must not be read twice, as a terminal
+// would block there.
+type endsOnce struct {
+	t    *testing.T
+	text string
+	done bool
+}
+
+func (e *endsOnce) Read(p []byte) (int, error) {
+	if e.done {
+		e.t.Error("stdin was read after end of file")
+		return 0, io.EOF
+	}
+	e.done = true
+	return copy(p, e.text), io.EOF
+}
+
+func cancelledContext(t *testing.T) context.Context {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	return ctx
+}
+
+// Bytes that arrive after the wait gave up still reach the wrapped command.
+func TestHookReadDeliversLateInputThroughRest(t *testing.T) {
+	reader, writer := io.Pipe()
+	read := startHookRead(reader)
+	defer read.stop()
+	raw, rest, err := read.wait(cancelledContext(t))
+	if len(raw) != 0 || !errors.Is(err, context.Canceled) {
+		t.Fatalf("wait = %q, %v", raw, err)
+	}
+	go func() {
+		_, _ = io.WriteString(writer, "late input")
+		_ = writer.Close()
+	}()
+	got, err := io.ReadAll(rest)
+	if err != nil || string(got) != "late input" {
+		t.Fatalf("rest = %q, %v", got, err)
+	}
+}
+
+func TestHookReadRestEndsAfterStop(t *testing.T) {
+	reader, writer := io.Pipe()
+	t.Cleanup(func() { _ = writer.Close() })
+	read := startHookRead(reader)
+	_, rest, _ := read.wait(cancelledContext(t))
+	read.stop()
+	read.stop() // a second stop is harmless
+	if n, err := rest.Read(make([]byte, 1)); n != 0 || !errors.Is(err, io.EOF) {
+		t.Fatalf("Read after stop = %d, %v", n, err)
+	}
+}
+
+func TestHookReadRest(t *testing.T) {
+	const beyond = 9
+	oversized := strings.Repeat("x", hookInputLimit+1+beyond)
+	for _, tc := range []struct {
+		name     string
+		stdin    func(t *testing.T) io.Reader
+		wantRaw  int
+		wantRest int
+		wantErr  error
+	}{
+		{"ended input", func(t *testing.T) io.Reader { return &endsOnce{t: t, text: "{}"} }, 2, 0, nil},
+		{"larger than the limit", func(*testing.T) io.Reader { return strings.NewReader(oversized) }, hookInputLimit + 1, beyond, nil},
+		{"no stdin", func(*testing.T) io.Reader { return nil }, 0, 0, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			read := startHookRead(tc.stdin(t))
+			defer read.stop()
+			raw, rest, err := read.wait(t.Context())
+			if len(raw) != tc.wantRaw || !errors.Is(err, tc.wantErr) {
+				t.Fatalf("wait = %d bytes, %v; want %d bytes", len(raw), err, tc.wantRaw)
+			}
+			got, err := io.ReadAll(rest)
+			if err != nil || len(got) != tc.wantRest {
+				t.Fatalf("rest = %d bytes, %v; want %d", len(got), err, tc.wantRest)
+			}
+		})
+	}
+}
 
 func TestEmitFromHook(t *testing.T) {
 	const private = "do-not-forward"

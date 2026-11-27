@@ -281,6 +281,126 @@ func TestParseFlagsAcceptsDatabaseOutsideDesktopData(t *testing.T) {
 	}
 }
 
+// writeFile creates a file with some content and returns its path.
+func writeFile(t *testing.T, path string) string {
+	t.Helper()
+	if err := os.WriteFile(path, []byte("synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// The desktop data directory and database are compared by identity, so that
+// another name for them does not get through.
+func TestExecuteRefusesDesktopDatabaseUnderAnotherName(t *testing.T) {
+	root := t.TempDir()
+	configDir := t.TempDir()
+	appDir := filepath.Join(configDir, desktopDataDir)
+	if err := os.Mkdir(appDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	appDB := writeFile(t, filepath.Join(appDir, desktopDatabaseFile))
+	elsewhere := t.TempDir()
+	linkedConfig := filepath.Join(elsewhere, "config-link")
+	if err := os.Symlink(configDir, linkedConfig); err != nil {
+		t.Fatal(err)
+	}
+	hardLinkToApp := filepath.Join(elsewhere, "hard-link.sqlite")
+	if err := os.Link(appDB, hardLinkToApp); err != nil {
+		t.Fatal(err)
+	}
+	symlinkToApp := filepath.Join(elsewhere, "symlink.sqlite")
+	if err := os.Symlink(appDB, symlinkToApp); err != nil {
+		t.Fatal(err)
+	}
+	other := writeFile(t, filepath.Join(elsewhere, "other.sqlite"))
+	otherLink := filepath.Join(elsewhere, "other-link.sqlite")
+	if err := os.Link(other, otherLink); err != nil {
+		t.Fatal(err)
+	}
+	dangling := filepath.Join(elsewhere, "dangling.sqlite")
+	if err := os.Symlink(filepath.Join(appDir, "new.sqlite"), dangling); err != nil {
+		t.Fatal(err)
+	}
+	withHome := testEnvironment(t.TempDir(), "", configDir)
+	tests := []struct {
+		name    string
+		dbPath  func(t *testing.T) string
+		wantErr error
+	}{
+		{
+			name: "different spelling on a case-insensitive file system",
+			dbPath: func(t *testing.T) string {
+				upper := filepath.Join(configDir, strings.ToUpper(desktopDataDir))
+				same, err := os.Stat(upper)
+				appInfo, appErr := os.Stat(appDir)
+				if err != nil || appErr != nil || !os.SameFile(same, appInfo) {
+					t.Skip("the temporary file system is case-sensitive, so another spelling names another directory")
+				}
+				return filepath.Join(upper, desktopDatabaseFile)
+			},
+			wantErr: errDesktopDB,
+		},
+		{
+			name:    "symbolic link to a parent of the data directory",
+			dbPath:  func(*testing.T) string { return filepath.Join(linkedConfig, desktopDataDir, "new.sqlite") },
+			wantErr: errDesktopDB,
+		},
+		{
+			name:    "hard link to the desktop database",
+			dbPath:  func(*testing.T) string { return hardLinkToApp },
+			wantErr: errDesktopDB,
+		},
+		{
+			name:    "symbolic link to the desktop database",
+			dbPath:  func(*testing.T) string { return symlinkToApp },
+			wantErr: errDesktopDB,
+		},
+		{
+			name:    "file with a second hard link",
+			dbPath:  func(*testing.T) string { return otherLink },
+			wantErr: errLinkedDB,
+		},
+		{
+			name:    "symbolic link to a missing file",
+			dbPath:  func(*testing.T) string { return dangling },
+			wantErr: errDanglingDB,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dbPath := tt.dbPath(t)
+			if _, err := parseFlags([]string{"--root", root, "--db", dbPath}, withHome); !errors.Is(err, tt.wantErr) {
+				t.Fatalf("parseFlags error = %v, want %v", err, tt.wantErr)
+			}
+			h := newHarness(t, newFakeService())
+			if code := execute(t.Context(), []string{"--root", root, "--db", dbPath}, withHome, unusedDeps(t, h)); code != exitUsage {
+				t.Fatalf("exit code = %d, want %d", code, exitUsage)
+			}
+			if stderr := h.stderr.String(); !strings.Contains(stderr, tt.wantErr.Error()) || !strings.Contains(stderr, "--help") {
+				t.Errorf("stderr = %q, want %q and a pointer to --help", stderr, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestParseFlagsAcceptsExistingDatabaseOutsideDesktopData(t *testing.T) {
+	configDir := t.TempDir()
+	appDir := filepath.Join(configDir, desktopDataDir)
+	if err := os.Mkdir(appDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(appDir, desktopDatabaseFile))
+	dbPath := writeFile(t, filepath.Join(t.TempDir(), "usage.sqlite"))
+	cfg, err := parseFlags([]string{"--root", t.TempDir(), "--db", dbPath}, testEnvironment("", "", configDir))
+	if err != nil {
+		t.Fatalf("parseFlags: %v", err)
+	}
+	if cfg.dbPath != dbPath {
+		t.Errorf("database path = %s, want %s", cfg.dbPath, dbPath)
+	}
+}
+
 func TestExecuteHelp(t *testing.T) {
 	for _, arg := range []string{"--help", "-h"} {
 		t.Run(arg, func(t *testing.T) {

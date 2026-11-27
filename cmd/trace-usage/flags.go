@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -48,6 +49,10 @@ const (
 // repeated here; it only backs the refusal of a --db path inside it.
 const desktopDataDir = "org.0xmhha.trace-agent"
 
+// desktopDatabaseFile is the desktop app's usage database in desktopDataDir,
+// repeated from the desktop module for the same reason.
+const desktopDatabaseFile = "usage.sqlite"
+
 // Usage errors. Each of them ends the command with exitUsage.
 var (
 	errHelp           = flag.ErrHelp
@@ -55,6 +60,8 @@ var (
 	errFlagRange      = errors.New("flag value out of range")
 	errNoDefaultRoot  = errors.New("cannot determine the default transcript root; pass --" + flagRoot)
 	errDesktopDB      = errors.New("--" + flagDB + " must not point into the desktop app's data directory")
+	errLinkedDB       = errors.New("--" + flagDB + " must not be a file with more than one hard link")
+	errDanglingDB     = errors.New("--" + flagDB + " must not be a symbolic link to a missing file")
 )
 
 // environment is what the flag defaults read from the process.
@@ -164,9 +171,55 @@ func resolveDB(cfg *config, env environment) error {
 		// directory to protect.
 		return nil
 	}
-	appDir := resolveExisting(filepath.Join(base, desktopDataDir))
-	if _, inside := relativeInside(appDir, resolveExisting(abs)); inside {
+	return refuseDesktopDB(filepath.Join(base, desktopDataDir), abs)
+}
+
+// refuseDesktopDB returns an error when dbPath, an absolute path, reaches the
+// desktop app's data directory appDir or its database. Comparing path
+// strings is not enough: a case-insensitive file system accepts another
+// spelling of the same directory, and a hard link reaches the app's database
+// from anywhere. So the directories and files are also compared by identity.
+func refuseDesktopDB(appDir, dbPath string) error {
+	// The lexical check also covers an app directory that does not exist
+	// yet, which has no identity to compare.
+	if _, inside := relativeInside(resolveExisting(appDir), resolveExisting(dbPath)); inside {
 		return errDesktopDB
+	}
+	appInfo, err := os.Stat(appDir)
+	if err != nil {
+		// Nothing exists there yet that the database could reach.
+		return nil
+	}
+	for dir := dbPath; ; {
+		// A directory that cannot be examined is not the app's directory as
+		// far as this check can tell; the app directory itself was examined.
+		if info, err := os.Stat(dir); err == nil && os.SameFile(info, appInfo) {
+			return errDesktopDB
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	dbInfo, err := os.Stat(dbPath)
+	if err != nil {
+		// Opening a symbolic link to a missing file creates the link's
+		// target, which none of the checks above has seen.
+		if linkInfo, lerr := os.Lstat(dbPath); lerr == nil && linkInfo.Mode()&os.ModeSymlink != 0 {
+			return errDanglingDB
+		}
+		// A file that does not exist yet is created by this command and is
+		// nobody else's database.
+		return nil
+	}
+	if appDB, err := os.Stat(filepath.Join(appDir, desktopDatabaseFile)); err == nil && os.SameFile(dbInfo, appDB) {
+		return errDesktopDB
+	}
+	// A second name for the file may lie inside the app directory, and the
+	// other names of a file cannot be listed.
+	if links, ok := linkCount(dbInfo); ok && links > 1 {
+		return errLinkedDB
 	}
 	return nil
 }

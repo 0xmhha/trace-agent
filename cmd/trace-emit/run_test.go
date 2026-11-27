@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -161,6 +163,97 @@ func TestRunFromHookReplaysStdin(t *testing.T) {
 			}
 			if ev := h.sent(); ev.SessionID != tc.wantSession || ev.ToolUseID != tc.wantToolUse {
 				t.Fatalf("linked to session %q, tool use %q; want %q, %q", ev.SessionID, ev.ToolUseID, tc.wantSession, tc.wantToolUse)
+			}
+		})
+	}
+}
+
+// otherVariable stands for the environment the wrapped command needs.
+const otherVariable = "TRACE_EMIT_TEST_OTHER"
+
+// The credential must not reach the wrapped command or anything it starts.
+func TestRunKeepsTheCredentialFromTheCommand(t *testing.T) {
+	h, self := newRunHarness(t)
+	h.env.environ = func() []string {
+		return append(os.Environ(), envToken+"="+testToken, envURL+"="+testEndpoint, otherVariable+"=kept")
+	}
+	if code := h.dispatch(runWord, "--", self, childEnvOf, envToken, envURL, otherVariable); code != exitOK {
+		t.Fatalf("exit %d (stderr %q)", code, h.stderr)
+	}
+	want := envToken + childUnset + "\n" + envURL + "=" + testEndpoint + "\n" + otherVariable + "=kept\n"
+	if got := h.stdout.String(); got != want {
+		t.Fatalf("command saw\n%s\nwant\n%s", got, want)
+	}
+	// The event itself still carries the credential to the endpoint.
+	if got := h.transport.captured()[0].header.Get(headerAuthorization); got != bearerPrefix+testToken {
+		t.Fatal("the event was sent without the credential")
+	}
+}
+
+func TestChildEnvironment(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		parent []string
+		want   []string
+	}{
+		{"credential removed", []string{"A=1", envToken + "=x", envURL + "=u"}, []string{"A=1", envURL + "=u"}},
+		{"every copy removed", []string{envToken + "=x", "B=2", envToken + "=y"}, []string{"B=2"}},
+		{"empty credential removed", []string{envToken + "="}, []string{}},
+		{"longer name kept", []string{envToken + "_FILE=f"}, []string{envToken + "_FILE=f"}},
+		{"nothing to remove", []string{"A=1"}, []string{"A=1"}},
+		{"empty parent", nil, []string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := childEnvironment(tc.parent)
+			if got == nil {
+				t.Fatal("a nil environment lets the command inherit the parent's")
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("childEnvironment = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// A hook runner, a terminal or a script can leave stdin open. The command
+// must still start and get what was written so far, and the span goes out
+// unlinked.
+func TestRunFromHookStartsOnStdinThatStaysOpen(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		written string
+		command func(self string) []string
+	}{
+		{"nothing written", "", func(self string) []string { return []string{self, childExit, "0"} }},
+		{"partial input", "first\nsecond\n", func(self string) []string { return []string{self, childLines, "2"} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h, self := newRunHarness(t)
+			reader, writer := io.Pipe()
+			// Closing the writer ends the read that the command left behind.
+			t.Cleanup(func() { _ = writer.Close() })
+			if tc.written != "" {
+				// Ends when the input was read or the writer was closed.
+				go func() { _, _ = io.WriteString(writer, tc.written) }()
+			}
+			h.env.stdin = reader
+
+			started := time.Now()
+			args := append([]string{runWord, "--from-hook", "--verbose", "--name", "lint", "--"}, tc.command(self)...)
+			if code := h.dispatch(args...); code != exitOK {
+				t.Fatalf("exit %d (stderr %q)", code, h.stderr)
+			}
+			if waited := time.Since(started); waited < hookReadTimeout {
+				t.Fatalf("started after %v, before giving up at %v", waited, hookReadTimeout)
+			}
+			if got := h.stdout.String(); got != tc.written {
+				t.Fatalf("command received %q, want %q", got, tc.written)
+			}
+			if ev := h.sent(); ev.SessionID != "" || ev.ToolUseID != "" {
+				t.Fatalf("event linked without complete hook input: %+v", ev)
+			}
+			if !strings.Contains(h.stderr.String(), "deadline exceeded") {
+				t.Fatalf("stderr %q", h.stderr)
 			}
 		})
 	}
