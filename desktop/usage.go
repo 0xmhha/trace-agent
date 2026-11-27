@@ -36,8 +36,8 @@ const (
 	usageStartTimeout = 10 * time.Second
 	// The notices name no path and repeat no internal error text; the
 	// process log may be read by other people than the user.
-	usageStartNotice    = "사용 분석을 시작하지 못했습니다. 추적 기능은 그대로 동작합니다.\n"
-	usageReceiverNotice = "확장 이벤트 수신기를 다시 열지 못했습니다. 수집 설정에서 다시 켜 주세요.\n"
+	usageStartNotice    = "Usage analytics could not start. Tracing keeps working.\n"
+	usageReceiverNotice = "The extension event receiver could not be reopened. Turn it on again in the collection settings.\n"
 )
 
 // usageService is the part of the usage service the desktop process drives.
@@ -132,6 +132,9 @@ type usageRuntime struct {
 	dialog         usageDialogFunc
 	clipboard      usageClipboardFunc
 	saveCredential usageCredentialSaver
+	// locale is the language of the usage dialogs, shared with the Bridge
+	// that receives SetLocale. Nil means the default locale.
+	locale *localeHolder
 
 	// startErr is why the pipeline is unavailable. receiverErr is why an
 	// endpoint that was enabled before could not be restored; the pipeline

@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"embed"
-	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -29,6 +28,7 @@ type Bridge struct {
 	collector *collector
 	url       string
 	usage     *usageRuntime
+	locale    localeHolder
 }
 
 // BootstrapResult carries a single-use connection ticket in process memory.
@@ -40,12 +40,16 @@ type BootstrapResult struct {
 // Bootstrap issues a one-time ticket for the local desktop.
 func (b *Bridge) Bootstrap() (BootstrapResult, error) {
 	ticket, err := b.server.Ticket(true)
-	return BootstrapResult{b.url, ticket}, err
+	if err != nil {
+		return BootstrapResult{}, errBootstrapFailed
+	}
+	return BootstrapResult{b.url, ticket}, nil
 }
 
 // Pick opens an OS dialog and returns an opaque, expiring selection capability.
 func (b *Bridge) Pick(kind string) (string, error) {
 	src := selectedSource{Kind: collect.Kind(kind)}
+	text := textFor(b.locale.get())
 	switch kind {
 	case "claude-otlp", "codex-otlp":
 		src = selectedSource{Kind: collect.Telemetry, Path: receiverInstance}
@@ -54,8 +58,8 @@ func (b *Bridge) Pick(kind string) (string, error) {
 			src = selectedSource{Kind: collect.CodexTelemetry, Path: codexReceiverInstance}
 			label = "Codex"
 		}
-		answer, err := wruntime.MessageDialog(b.ctx, wruntime.MessageDialogOptions{Type: wruntime.QuestionDialog, Title: "로컬 수신기 연결", Message: "이 Mac에서 " + label + "가 보낸 OTel 기록을 받을까요?", Buttons: []string{"연결", "취소"}, DefaultButton: "취소", CancelButton: "취소"})
-		if err != nil || answer != "연결" {
+		allowed, err := confirmReceiver(b.ctx, text, text.format(dlgReceiverOTel, label))
+		if err != nil || !allowed {
 			return "", err
 		}
 		return b.collector.offer(src)
@@ -66,16 +70,16 @@ func (b *Bridge) Pick(kind string) (string, error) {
 		src.Folder = true
 	case "claude-transcript", "codex-rollout", "claude-otel":
 	default:
-		return "", errors.New("알 수 없는 출처입니다")
+		return "", errSourceKindUnknown
 	}
 	var err error
 	if src.Folder {
-		src.Path, err = wruntime.OpenDirectoryDialog(b.ctx, wruntime.OpenDialogOptions{Title: "수집할 디렉터리 선택", ShowHiddenFiles: true})
+		src.Path, err = wruntime.OpenDirectoryDialog(b.ctx, wruntime.OpenDialogOptions{Title: text.get(dlgPickDirectory), ShowHiddenFiles: true})
 	} else {
-		src.Path, err = wruntime.OpenFileDialog(b.ctx, wruntime.OpenDialogOptions{Title: "수집할 세션 파일 선택", ShowHiddenFiles: true, Filters: []wruntime.FileFilter{{DisplayName: "세션 기록", Pattern: "*.jsonl"}}})
+		src.Path, err = wruntime.OpenFileDialog(b.ctx, wruntime.OpenDialogOptions{Title: text.get(dlgPickFile), ShowHiddenFiles: true, Filters: []wruntime.FileFilter{{DisplayName: text.get(dlgPickFileFilter), Pattern: "*.jsonl"}}})
 	}
 	if err != nil {
-		return "", errors.New("출처를 선택할 수 없습니다")
+		return "", errSourcePickerFailed
 	}
 	if src.Path == "" {
 		return "", nil
@@ -103,13 +107,18 @@ func (b *Bridge) PickHistory(id string) (string, error) {
 	}
 	c.mu.Unlock()
 	if kind == "" {
-		return "", errors.New("이력 범위를 다시 선택할 수 없는 출처입니다")
+		return "", errSourceHistoryUnavailable
 	}
 	return b.Pick(kind)
 }
+
+// startFailureNotice names no path and repeats no internal error text; the
+// process log may be read by other people than the user.
+const startFailureNotice = "Trace Agent could not start. Check the local storage and Keychain permissions.\n"
+
 func main() {
 	if err := run(); err != nil {
-		_, _ = os.Stderr.WriteString("Trace Agent를 시작하지 못했습니다. 로컬 저장소와 키체인 권한을 확인해 주세요.\n")
+		_, _ = os.Stderr.WriteString(startFailureNotice)
 		os.Exit(1)
 	}
 }
@@ -163,6 +172,7 @@ func runDesktop(dir string, storage vault, id string, ready func(context.Context
 	defer func() { _ = u.close() }()
 	u.report(os.Stderr)
 	b := &Bridge{server: server, collector: c, url: url, usage: u}
+	u.locale = &b.locale
 	assets, err := fs.Sub(files, "frontend/dist")
 	if err != nil {
 		return err
