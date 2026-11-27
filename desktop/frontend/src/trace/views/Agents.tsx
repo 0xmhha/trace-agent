@@ -1,5 +1,6 @@
 import { obj, rows, str, short, label, date } from '../../data'
 import { entity } from '../../nav'
+import { t } from '../../i18n'
 import {
   Badge,
   Group,
@@ -10,22 +11,22 @@ import {
   type Props,
 } from './shared'
 export function AgentPage({ screen: s, go, route }: Props) {
-  const t = taskOf(route)
+  const id = taskOf(route)
   return (
-    <Group title="에이전트 계보">
+    <Group title={t('trace.agents.lineage')}>
       <Items
         items={rows(s.items)}
         render={(a) => (
           <>
             <button
               onClick={() =>
-                go({ kind: 'AGENT', entity: entity(t, str(a.id)) })
+                go({ kind: 'AGENT', entity: entity(id, str(a.id)) })
               }
             >
               <ID value={a.id} />
             </button>
             <span>
-              부모 <ID value={a.parentId} />
+              {t('trace.parent')} <ID value={a.parentId} />
             </span>
             <Badge value={a.state} />
             <time>{date(a.lastEvidenceAt)}</time>
@@ -36,17 +37,19 @@ export function AgentPage({ screen: s, go, route }: Props) {
   )
 }
 export function AgentDetail({ screen: s, go, route }: Props) {
-  const t = taskOf(route)
+  const id = taskOf(route)
   return (
     <>
-      <Group title={'에이전트 ' + short(obj(s.agent).id)}>
+      <Group title={t('trace.agent.title', { id: short(obj(s.agent).id) })}>
         <Badge value={obj(s.agent).state} />
-        <p>미션 {label(s.mission)}</p>
+        <p>{t('trace.mission', { mission: label(s.mission) })}</p>
         <p>
-          모델 <ID value={s.modelId} />
+          {t('trace.agent.model')} <ID value={s.modelId} />
         </p>
       </Group>
-      <Group title="활동">{activityRows(s.activities, go, t)}</Group>
+      <Group title={t('trace.activity')}>
+        {activityRows(s.activities, go, id)}
+      </Group>
     </>
   )
 }

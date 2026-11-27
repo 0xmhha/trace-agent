@@ -1,5 +1,6 @@
 import { obj, rows, str, num, short, code, date } from '../../data'
 import { entity } from '../../nav'
+import { t } from '../../i18n'
 import {
   Badge,
   EvidenceLinks,
@@ -12,14 +13,14 @@ import {
   type Props,
 } from './shared'
 export function AttemptPage({ screen: s, go }: Props) {
-  return <Group title="호출 시도">{attemptRows(rows(s.items), go)}</Group>
+  return <Group title={t('trace.attempts.title')}>{attemptRows(rows(s.items), go)}</Group>
 }
 export function AttemptDetail({ screen: s, go, route }: Props) {
-  const t = taskOf(route),
+  const id = taskOf(route),
     a = obj(s.attempt)
   return (
     <>
-      <Group title={'시도 ' + short(a.id)}>
+      <Group title={t('trace.attempt.title', { id: short(a.id) })}>
         <Badge value={a.phase} /> <Badge value={a.result} />
         <p>
           {date(a.started)} → {date(a.ended)}
@@ -28,24 +29,24 @@ export function AttemptDetail({ screen: s, go, route }: Props) {
           {a.moduleId ? (
             <button
               onClick={() =>
-                go({ kind: 'MODULE', entity: entity(t, str(a.moduleId)) })
+                go({ kind: 'MODULE', entity: entity(id, str(a.moduleId)) })
               }
             >
-              모듈 열기
+              {t('trace.attempt.openModule')}
             </button>
           ) : null}
           {a.agentId ? (
             <button
               onClick={() =>
-                go({ kind: 'AGENT', entity: entity(t, str(a.agentId)) })
+                go({ kind: 'AGENT', entity: entity(id, str(a.agentId)) })
               }
             >
-              에이전트 열기
+              {t('trace.attempt.openAgent')}
             </button>
           ) : null}
         </div>
       </Group>
-      <Group title="전달 과정">
+      <Group title={t('trace.attempt.delivery')}>
         <Items
           items={rows(s.edges)}
           render={(e) => (
@@ -60,7 +61,7 @@ export function AttemptDetail({ screen: s, go, route }: Props) {
           )}
         />
       </Group>
-      <Group title="지연 근거">
+      <Group title={t('trace.attempt.latency')}>
         <Items
           items={rows(s.durations)}
           render={(d) => (
@@ -73,7 +74,7 @@ export function AttemptDetail({ screen: s, go, route }: Props) {
           )}
         />
       </Group>
-      <Group title="입력·응답">
+      <Group title={t('trace.attempt.io')}>
         <Fields
           value={[
             ...rows(s.request),
@@ -82,7 +83,7 @@ export function AttemptDetail({ screen: s, go, route }: Props) {
           ]}
         />
       </Group>
-      <Group title="근거 기록">{evidenceRows(s.evidence, go)}</Group>
+      <Group title={t('trace.evidenceRecords')}>{evidenceRows(s.evidence, go)}</Group>
     </>
   )
 }

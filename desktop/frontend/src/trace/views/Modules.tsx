@@ -1,4 +1,5 @@
 import { obj, rows, str, num, short } from '../../data'
+import { t } from '../../i18n'
 import {
   Badge,
   Group,
@@ -10,17 +11,17 @@ import {
 } from './shared'
 export function ModuleGroupPage({ screen: s, go }: Props) {
   return (
-    <Group title="모듈 그룹">
+    <Group title={t('trace.modules.groups')}>
       <div className="tabs">
         {[
-          ['', '전체'],
-          ['MODEL', '모델'],
-          ['TOOL', '도구'],
-          ['MCP_SERVER', 'MCP 서버'],
-          ['MCP_TOOL', 'MCP 도구'],
+          ['', t('trace.modules.all')],
+          ['MODEL', t('trace.modules.model')],
+          ['TOOL', t('trace.modules.tool')],
+          ['MCP_SERVER', t('trace.modules.mcpServer')],
+          ['MCP_TOOL', t('trace.modules.mcpTool')],
         ].map(([k, v]) => (
           <button
-            key={v}
+            key={k || 'ALL'}
             onClick={() =>
               go({ kind: 'MODULE_GROUPS', ...(k ? { moduleKind: k } : {}) })
             }
@@ -39,7 +40,9 @@ export function ModuleGroupPage({ screen: s, go }: Props) {
               {str(m.name) || short(m.id)}
             </button>
             <Badge value={m.kind} />
-            <span>인스턴스 {num(m.instances)}개</span>
+            <span>
+              {t('trace.modules.instances', { count: num(m.instances) })}
+            </span>
           </>
         )}
       />
@@ -48,24 +51,24 @@ export function ModuleGroupPage({ screen: s, go }: Props) {
 }
 export function GroupDetail({ screen: s, go }: Props) {
   return (
-    <Group title={str(obj(s.group).name) || '모듈 인스턴스'}>
+    <Group title={str(obj(s.group).name) || t('trace.modules.groupInstances')}>
       {moduleRows(rows(obj(s.instances).items), go)}
     </Group>
   )
 }
 export function ModulePage({ screen: s, go }: Props) {
-  return <Group title="모듈 목록">{moduleRows(rows(s.items), go)}</Group>
+  return <Group title={t('trace.modules.list')}>{moduleRows(rows(s.items), go)}</Group>
 }
 export function ModuleDetail({ screen: s, go }: Props) {
   return (
     <>
-      <Group title={str(obj(s.module).name) || '모듈 상세'}>
+      <Group title={str(obj(s.module).name) || t('trace.modules.detail')}>
         <Badge value={obj(s.module).kind} /> <ID value={obj(s.module).id} />
       </Group>
-      <Group title="연결 모듈">
+      <Group title={t('trace.modules.linked')}>
         {moduleRows(rows(obj(s.children).items), go)}
       </Group>
-      <Group title="시도">
+      <Group title={t('trace.modules.attempts')}>
         {attemptRows(rows(obj(s.attempts).items), go)}
       </Group>
     </>

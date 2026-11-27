@@ -1,6 +1,6 @@
 // Building blocks the trace views share. The sibling panels outside this
 // folder reach them through ../../Screen.
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import {
   obj,
   rows,
@@ -14,6 +14,7 @@ import {
   type Filter,
   type Stamp,
 } from '../../data'
+import { t } from '../../i18n'
 import { entity, type Go, type Query, type Route } from '../../nav'
 export interface Props {
   screen: Row
@@ -29,6 +30,24 @@ export interface Props {
 /** Task the selection points at, named directly or through an entity. */
 export function taskOf(r: Route): string {
   return r.selection.task?.taskId ?? r.selection.entity?.taskId ?? ''
+}
+/**
+ * Splits a message at its {name} placeholders and puts the matching element
+ * of parts in each place, so that an element (an input, a <time>) can sit
+ * where the language wants it. Placeholders without a part stay as text.
+ */
+export function interleave(
+  message: string,
+  parts: Record<string, ReactNode>,
+): ReactNode {
+  return message.split(/(\{\w+\})/).map((piece, i) => {
+    const name = /^\{(\w+)\}$/.exec(piece)?.[1]
+    return (
+      <Fragment key={i}>
+        {name !== undefined && name in parts ? parts[name] : piece}
+      </Fragment>
+    )
+  })
 }
 export function Group({
   title,
@@ -47,7 +66,7 @@ export function Group({
 export function Items({
   items,
   render,
-  empty = '이 범위의 기록이 없습니다.',
+  empty = t('trace.items.empty'),
 }: {
   items: Row[]
   render: (r: Row) => ReactNode
@@ -71,7 +90,7 @@ export function ID({ value }: { value: unknown }) {
 export function Badge({ value }: { value: unknown }) {
   return (
     <span className={'badge ' + str(value).toLowerCase()}>
-      {code(value) || '불명'}
+      {code(value) || t('trace.badge.unknown')}
     </span>
   )
 }
@@ -83,7 +102,7 @@ export function EvidenceLinks({ ids, go }: { ids: unknown; go: Go }) {
           key={id}
           onClick={() => go({ kind: 'UNLINKED_DETAIL', evidenceId: id })}
         >
-          근거 {short(id)}
+          {t('trace.evidence.id', { id: short(id) })}
         </button>
       ))}
     </span>
@@ -100,7 +119,7 @@ export function evidenceRows(page: unknown, go: Go) {
               go({ kind: 'UNLINKED_DETAIL', evidenceId: str(e.id) })
             }
           >
-            {str(e.recordKind) || '근거'} <ID value={e.id} />
+            {str(e.recordKind) || t('trace.evidence.record')} <ID value={e.id} />
           </button>
           <Badge value={e.link} />
           <small>{date(e.observed)}</small>
@@ -127,7 +146,7 @@ export function activityRows(page: unknown, go: Go, taskId: string) {
                 })
               }
             >
-              호출 상세
+              {t('trace.attempt.openDetail')}
             </button>
           ) : null}
           <EvidenceLinks ids={a.evidenceIds} go={go} />
@@ -150,7 +169,9 @@ export function moduleRows(items: Row[], go: Go) {
             {str(m.name) || short(m.id)}
           </button>
           <Badge value={m.kind} />
-          <span>시도 {num(obj(m.count).count)}회</span>
+          <span>
+            {t('trace.module.attempts', { count: num(obj(m.count).count) })}
+          </span>
         </>
       )}
     />
@@ -167,7 +188,7 @@ export function attemptRows(items: Row[], go: Go) {
               go({ kind: 'ATTEMPT', entity: entity(str(a.taskId), str(a.id)) })
             }
           >
-            시도 <ID value={a.id} />
+            {t('trace.attempt.label')} <ID value={a.id} />
           </button>
           <Badge value={a.phase} />
           <Badge value={a.result} />
@@ -180,7 +201,7 @@ export function attemptRows(items: Row[], go: Go) {
                 })
               }
             >
-              모듈 <ID value={a.moduleId} />
+              {t('trace.module.label')} <ID value={a.moduleId} />
             </button>
           ) : null}
           <small>{date(a.started)}</small>
@@ -193,7 +214,7 @@ export function Fields({ value }: { value: unknown }) {
   return (
     <Items
       items={rows(value)}
-      empty="이 범위에 제공된 본문이 없습니다."
+      empty={t('trace.fields.empty')}
       render={(f) => (
         <>
           <span>{str(f.purpose)}</span>

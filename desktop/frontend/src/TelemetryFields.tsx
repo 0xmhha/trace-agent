@@ -1,19 +1,23 @@
 import { obj } from './data'
+import { t } from './i18n'
 
 export function TelemetryFields({ value }: { value: unknown }) {
   const meta = obj(value)
   const rows: [string, string][] = []
   for (const [key, label, suffix] of [
-    ['attempt', 'API 시도 번호 (0부터)', ''],
-    ['httpStatus', 'HTTP 상태 코드', ''],
-    ['durationMs', '클라이언트가 보고한 시간', ' ms'],
+    ['attempt', 'trace.telemetry.attempt', ''],
+    ['httpStatus', 'trace.telemetry.httpStatus', ''],
+    ['durationMs', 'trace.telemetry.duration', ' ms'],
   ] as const) {
     const n = meta[key]
     if (typeof n === 'number' && Number.isSafeInteger(n) && n >= 0)
-      rows.push([label, String(n) + suffix])
+      rows.push([t(label), String(n) + suffix])
   }
   if (typeof meta.toolSuccess === 'boolean')
-    rows.push(['도구 결과', meta.toolSuccess ? '성공' : '실패'])
+    rows.push([
+      t('trace.telemetry.toolResult'),
+      meta.toolSuccess ? t('trace.telemetry.success') : t('trace.telemetry.failure'),
+    ])
   if (!rows.length) return null
   return (
     <dl>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { obj, str } from '../../data'
+import { t } from '../../i18n'
 import { Sequence } from '../../Sequence'
 import { AgentDetail, AgentPage } from './Agents'
 import { AttemptDetail, AttemptPage } from './Attempts'
@@ -52,7 +53,7 @@ export function Screen(p: Props) {
       {View ? (
         <View {...p} />
       ) : (
-        <p className="notice">이 화면의 자료를 표시할 수 없습니다.</p>
+        <p className="notice">{t('trace.screen.unavailable')}</p>
       )}
       {page.hasNext === true && (
         <button
@@ -63,7 +64,7 @@ export function Screen(p: Props) {
             })
           }
         >
-          다음 페이지
+          {t('trace.page.next')}
         </button>
       )}
     </>
