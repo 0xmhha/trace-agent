@@ -1,3 +1,4 @@
+import type { MessageKey } from '../../../i18n'
 import type { SessionSort } from '../../types'
 
 /** Sort and search of the session list, kept in the route so reload and back restore them. */
@@ -11,11 +12,11 @@ export const DEFAULT_SORT: SessionSort = 'last'
 export const MAX_SEARCH_LEN = 100
 
 /** Sort choices in display order. Adding an order means adding one entry here. */
-export const sortOptions: readonly { id: SessionSort; label: string }[] = [
-  { id: 'last', label: '최근 활동' },
-  { id: 'tokens', label: '토큰' },
-  { id: 'errors', label: '실패' },
-  { id: 'cost', label: '비용' },
+export const sortOptions: readonly { id: SessionSort; labelKey: MessageKey }[] = [
+  { id: 'last', labelKey: 'sessions.sortLast' },
+  { id: 'tokens', labelKey: 'sessions.sortTokens' },
+  { id: 'errors', labelKey: 'sessions.sortErrors' },
+  { id: 'cost', labelKey: 'sessions.sortCost' },
 ]
 
 const SEPARATOR = ':'

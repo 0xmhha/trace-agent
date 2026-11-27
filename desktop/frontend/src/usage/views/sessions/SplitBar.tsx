@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { t, type MessageKey } from '../../../i18n'
 import type { TokenTotals } from '../../types'
 import { fmtInt, fmtPct, ratio, sumTokens } from '../../ui'
 
@@ -6,11 +7,11 @@ import { fmtInt, fmtPct, ratio, sumTokens } from '../../ui'
  * The four token kinds in the order they are drawn and listed. The class sets
  * the series colour (--u-s1..--u-s4, in that order) for the bar and the legend.
  */
-const tokenParts: readonly { key: keyof TokenTotals; label: string; className: string }[] = [
-  { key: 'input', label: '입력', className: 'u-sess-part-input' },
-  { key: 'output', label: '출력', className: 'u-sess-part-output' },
-  { key: 'cacheRead', label: '캐시 읽기', className: 'u-sess-part-cache-read' },
-  { key: 'cacheCreate', label: '캐시 쓰기', className: 'u-sess-part-cache-create' },
+const tokenParts: readonly { key: keyof TokenTotals; label: MessageKey; className: string }[] = [
+  { key: 'input', label: 'sessions.partInput', className: 'u-sess-part-input' },
+  { key: 'output', label: 'sessions.partOutput', className: 'u-sess-part-output' },
+  { key: 'cacheRead', label: 'sessions.partCacheRead', className: 'u-sess-part-cache-read' },
+  { key: 'cacheCreate', label: 'sessions.partCacheCreate', className: 'u-sess-part-cache-create' },
 ]
 
 const BAR_WIDTH = 72
@@ -47,15 +48,21 @@ function layout(tokens: TokenTotals): Segment[] {
   })
 }
 
-/** "입력 4,012 (1.3%), 출력 …": the exact figures behind a bar, for tooltips and screen readers. */
+/** Joins the parts of a split summary. */
+const PART_SEPARATOR = ', '
+
+/** "Input 4,012 (1.3%), Output …": the exact figures behind a bar, for tooltips and screen readers. */
 export function splitSummary(tokens: TokenTotals): string {
   const total = sumTokens(tokens)
   return tokenParts
     .map((part) => {
       const share = ratio(tokens[part.key], total)
-      return `${part.label} ${fmtInt(tokens[part.key])}${share == null ? '' : ` (${fmtPct(share)})`}`
+      const vars = { label: t(part.label), n: fmtInt(tokens[part.key]) }
+      return share == null
+        ? t('sessions.splitPart', vars)
+        : t('sessions.splitPartShare', { ...vars, pct: fmtPct(share) })
     })
-    .join(', ')
+    .join(PART_SEPARATOR)
 }
 
 /**
@@ -74,7 +81,7 @@ export function SplitBar({ tokens }: { tokens: TokenTotals }) {
       height={BAR_HEIGHT}
       viewBox={`0 0 ${BAR_WIDTH} ${BAR_HEIGHT}`}
       role="img"
-      aria-label={'토큰 구성: ' + summary}
+      aria-label={t('sessions.barLabel', { summary })}
     >
       <title>{summary}</title>
       <clipPath id={clipId}>
@@ -101,13 +108,13 @@ export function SplitBar({ tokens }: { tokens: TokenTotals }) {
 /** One legend for every bar in the table. */
 export function SplitLegend() {
   return (
-    <ul className="u-sess-legend" aria-label="토큰 막대 범례">
+    <ul className="u-sess-legend" aria-label={t('sessions.legendLabel')}>
       {tokenParts.map((part) => (
         <li key={part.key}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
             <rect className={part.className} width="10" height="10" rx="2" />
           </svg>
-          {part.label}
+          {t(part.label)}
         </li>
       ))}
     </ul>
