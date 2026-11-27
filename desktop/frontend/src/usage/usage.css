@@ -1,0 +1,250 @@
+/* Shared styles of the usage pages. Every class starts with u- so that the
+   trace views in app.css are unaffected. View-specific rules live next to
+   their view. */
+.u-page {
+  --u-ink: #1d3431;
+  --u-teal: #17685c;
+  --u-muted: #576967;
+  --u-line: #d3dcd6;
+  --u-surface: #fff;
+  --u-soft: #eef2ee;
+  --u-good: #1f7a4d;
+  --u-warn: #9a6200;
+  --u-bad: #b3372f;
+  /* Series colors, in the order they are assigned. The set passes the
+     categorical checks on a white surface: every adjacent pair stays apart
+     under protan, deutan and tritan simulation (worst pair delta E 11.8).
+     Orange, aqua, yellow and pink are below 3:1 against white, so a chart
+     that uses them must show labels or offer a table view. */
+  --u-s1: #257de0;
+  --u-s2: #f47230;
+  --u-s3: #00b894;
+  --u-s4: #f2a600;
+  --u-s5: #ee7fac;
+  --u-s6: #008a17;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: var(--u-ink);
+}
+.u-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.u-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--u-muted);
+  font-size: 0.86rem;
+}
+.u-toolbar .u-spacer {
+  flex: 1;
+}
+.u-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+.u-span-3 {
+  grid-column: span 3;
+}
+.u-span-4 {
+  grid-column: span 4;
+}
+.u-span-6 {
+  grid-column: span 6;
+}
+.u-span-8 {
+  grid-column: span 8;
+}
+.u-span-12 {
+  grid-column: span 12;
+}
+@media (max-width: 900px) {
+  .u-span-3,
+  .u-span-4 {
+    grid-column: span 6;
+  }
+  .u-span-6,
+  .u-span-8 {
+    grid-column: span 12;
+  }
+}
+.u-card {
+  background: var(--u-surface);
+  border: 1px solid var(--u-line);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  min-width: 0;
+}
+.u-card-head {
+  /* app.css styles every header element; undo that inside a card. */
+  padding: 0;
+  border: 0;
+  background: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.u-card-head h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+.u-hint {
+  margin: 0.15rem 0 0;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.u-stats {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.u-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  text-align: left;
+  background: var(--u-surface);
+  border: 1px solid var(--u-line);
+  border-radius: 8px;
+  padding: 0.8rem 0.95rem;
+}
+.u-stat-label {
+  color: var(--u-muted);
+  font-size: 0.8rem;
+}
+.u-stat-value {
+  font-size: 1.55rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.u-tone-good {
+  color: var(--u-good);
+}
+.u-tone-warn {
+  color: var(--u-warn);
+}
+.u-tone-bad {
+  color: var(--u-bad);
+}
+.u-tone-muted {
+  color: var(--u-muted);
+}
+.u-pill {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.u-note {
+  border: 1px solid var(--u-line);
+  border-left: 3px solid var(--u-teal);
+  background: var(--u-soft);
+  border-radius: 6px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.86rem;
+}
+.u-note button {
+  margin-left: 0.6rem;
+}
+.u-note-warn {
+  border-left-color: var(--u-warn);
+}
+.u-note-bad {
+  border-left-color: var(--u-bad);
+}
+.u-empty {
+  margin: 0.5rem 0;
+  color: var(--u-muted);
+  font-size: 0.88rem;
+}
+.u-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--u-line);
+}
+.u-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 0.5rem 0.8rem;
+  color: var(--u-muted);
+}
+.u-tabs button.selected {
+  color: var(--u-ink);
+  border-bottom-color: var(--u-teal);
+  font-weight: 600;
+}
+.u-count {
+  margin-left: 0.35rem;
+  color: var(--u-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.u-table-wrap {
+  overflow-x: auto;
+}
+.u-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.u-table th {
+  text-align: left;
+  color: var(--u-muted);
+  font-weight: 500;
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--u-line);
+  padding: 0.4rem 0.6rem;
+  white-space: nowrap;
+}
+.u-table td {
+  border-bottom: 1px solid var(--u-soft);
+  padding: 0.45rem 0.6rem;
+  vertical-align: top;
+}
+.u-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.u-table tr.clickable {
+  cursor: pointer;
+}
+.u-table tr.clickable:hover td {
+  background: var(--u-soft);
+}
+.u-consent {
+  max-width: 44rem;
+}
+.u-consent ul {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.1rem;
+  color: var(--u-muted);
+  font-size: 0.88rem;
+}
+.u-primary {
+  background: var(--u-teal);
+  border-color: var(--u-teal);
+  color: #fff;
+}
+/* app.css restyles every hovered button; keep the filled look readable. */
+button.u-primary:hover:not(:disabled) {
+  background: var(--u-ink);
+  border-color: var(--u-ink);
+  color: #fff;
+}

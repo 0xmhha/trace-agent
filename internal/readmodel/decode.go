@@ -21,7 +21,7 @@ func streamID(e collect.Evidence) string { return key(e.Source, e.Generation, e.
 func (d *decoder) event(r store.Record, dir direction, kind string, n int) FactEvent {
 	e := r.Evidence
 	root := collect.SessionKey(e.Profile, dir.session)
-	return FactEvent{ID: key(e.Source, e.Stream, e.Generation, e.RecordKey, e.VersionKey, strconv.Itoa(n), kind), Task: collect.TaskKey(e.Profile, dir.session, dir.turn), Session: root, Root: root, Actor: firstNon(dir.actor, root), Source: e.Source, Client: client(e.Kind), Kind: kind, Grade: "DIRECT", Side: "LOCAL", Occurred: e.OccurredMS, Observed: e.ObservedMS, Evidence: []string{recID(r)}, Stream: streamID(e), Clock: e.Source, Position: e.Position, Ordered: e.Kind == collect.Rollout || e.Kind == collect.Transcript}
+	return FactEvent{ID: key(e.Source, e.Stream, e.Generation, e.RecordKey, e.VersionKey, strconv.Itoa(n), kind), Task: collect.TaskKey(e.Profile, dir.session, dir.turn), Session: root, Root: root, Actor: firstNon(dir.actor, root), Source: e.Source, Client: client(e.Kind), Kind: kind, Grade: "DIRECT", Side: "LOCAL", Occurred: e.OccurredMS, Observed: e.ObservedMS, Evidence: []string{recID(r)}, Stream: streamID(e), Clock: e.Source, Position: e.Position, Ordered: collect.StreamOrdered(e.Kind)}
 }
 func (d *decoder) emit(e FactEvent) { d.events = append(d.events, e) }
 func (d *decoder) tool(r store.Record, dir direction, index int, id, name, server, kind string) FactEvent {
@@ -76,7 +76,7 @@ func (m *Model) decode(records []store.Record) {
 		if at := r.Evidence.OccurredMS; at != nil && !m.opts.Until.IsZero() && *at >= m.opts.Until.UnixMilli() {
 			continue
 		}
-		switch r.Evidence.Kind {
+		switch kind := r.Evidence.Kind; kind {
 		case collect.Transcript:
 			cl = append(cl, r)
 		case collect.Rollout:
@@ -87,6 +87,13 @@ func (m *Model) decode(records []store.Record) {
 			d.m.unlinked[recID(r)] = true
 		case collect.Telemetry:
 			d.otel(r)
+		default:
+			// Observer kinds are linked by observedEdges once calls resolve. Any
+			// other kind has no decoder here: its evidence stays visibly unlinked
+			// instead of passing as matched.
+			if !collect.IsObserver(kind) {
+				d.m.unlinked[recID(r)] = true
+			}
 		}
 	}
 	d.claude(cl)

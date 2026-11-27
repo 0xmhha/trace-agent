@@ -1,9 +1,15 @@
 APP := build/bin/Trace Agent.app
-.PHONY: package frontend check
+.PHONY: package frontend check tools
 frontend:
 	cd frontend && npm ci && npm run build
 check: frontend
 	go test ./...
+# Command-line companions: trace-emit sends extension events, trace-usage
+# prints usage aggregates without the app.
+tools:
+	mkdir -p build/bin
+	cd .. && go build -trimpath -o desktop/build/bin/trace-emit ./cmd/trace-emit
+	cd .. && go build -trimpath -o desktop/build/bin/trace-usage ./cmd/trace-usage
 package: frontend
 	mkdir -p "$(APP)/Contents/MacOS"
 	cp build/darwin/Info.plist "$(APP)/Contents/Info.plist"

@@ -22,6 +22,34 @@ export type Route = {
   caption?: string
   scroll?: number
 }
+/** One entry of the trace group in the sidebar. */
+export interface TraceNavEntry {
+  kind: string
+  label: string
+  icon: string
+  /** The entry that follows the tasks in progress instead of a fixed list. */
+  live?: boolean
+}
+/** Sidebar entries of the trace group, in display order. */
+export const traceNav: readonly TraceNavEntry[] = [
+  { kind: 'TASKS', label: '실시간', icon: '⌁', live: true },
+  { kind: 'OVERVIEW', label: '개요', icon: '▥' },
+  { kind: 'TASKS', label: '작업', icon: '☷' },
+  { kind: 'MODULE_GROUPS', label: '모듈', icon: '◫' },
+  { kind: 'SOURCES', label: '출처와 설정', icon: '⚙' },
+]
+/** A task sequence belongs to the live entry even though its kind differs. */
+export function isLive(s: Selection): boolean {
+  return s.activeTasksOnly === true || s.kind === 'SEQUENCE'
+}
+/** Selection a sidebar entry opens. */
+export function navSelection(e: TraceNavEntry): Selection {
+  return { kind: e.kind, ...(e.live ? { activeTasksOnly: true } : {}) }
+}
+/** Whether a sidebar entry is the one the selection belongs to. */
+export function navSelected(e: TraceNavEntry, s: Selection): boolean {
+  return e.live ? isLive(s) : !isLive(s) && s.kind === e.kind
+}
 export const task = (taskId: string) => ({ taskId })
 export const entity = (taskId: string, id: string) => ({ taskId, id })
 export function interval(hours: number): Filter {

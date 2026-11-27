@@ -1,0 +1,397 @@
+/* Dashboard view. Every class starts with u-dash-. Colours come from the
+   variables on .u-page; shared classes are only restyled below .u-dash. */
+.u-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* The content column is much narrower than the window because of the
+     sidebar, so the layout follows this box and not the viewport. */
+  container: u-dash / inline-size;
+  /* Korean breaks between words, not inside them; long names still wrap. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.u-dash-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: opacity 0.15s ease;
+}
+/* Dimming waits a moment so that a quick refresh does not flicker. */
+.u-dash-stale {
+  opacity: 0.6;
+  transition-delay: 0.3s;
+}
+
+/* Nine tiles: 2 or 3 per row when narrow, then a row of 4 over a row of 5. */
+.u-dash-kpis {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.u-dash-kpis > .u-stat {
+  min-width: 0;
+}
+@container u-dash (min-width: 460px) {
+  .u-dash-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container u-dash (min-width: 760px) {
+  .u-dash-kpis {
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+  }
+  .u-dash-kpis > .u-stat {
+    grid-column: span 4;
+  }
+  .u-dash-kpis > .u-stat:nth-child(-n + 4) {
+    grid-column: span 5;
+  }
+}
+@supports not (container-type: inline-size) {
+  .u-dash-kpis {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+/* Between the shared 900px breakpoint and a wide window the sidebar leaves
+   too little room for two cards side by side. */
+@container u-dash (max-width: 720px) {
+  .u-dash-grid > .u-span-4,
+  .u-dash-grid > .u-span-6,
+  .u-dash-grid > .u-span-8 {
+    grid-column: span 12;
+  }
+}
+
+/* Mark colours. A class sets the colour once; fills and swatches read it. */
+.u-dash-c-s1 {
+  --u-dash-c: var(--u-s1);
+}
+.u-dash-c-s2 {
+  --u-dash-c: var(--u-s2);
+}
+.u-dash-c-s3 {
+  --u-dash-c: var(--u-s3);
+}
+.u-dash-c-s4 {
+  --u-dash-c: var(--u-s4);
+}
+.u-dash-c-bad {
+  --u-dash-c: var(--u-bad);
+}
+.u-dash-c-warn {
+  --u-dash-c: var(--u-warn);
+}
+.u-dash-fill {
+  fill: var(--u-dash-c);
+}
+.u-dash-track {
+  fill-opacity: 0.18;
+}
+
+.u-dash-svg {
+  display: block;
+  overflow: visible;
+}
+.u-dash-gridline {
+  stroke: var(--u-soft);
+  stroke-width: 1;
+}
+.u-dash-axis {
+  stroke: var(--u-line);
+  stroke-width: 1;
+}
+.u-dash-tick {
+  fill: var(--u-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.u-dash-tick-strong {
+  fill: var(--u-ink);
+}
+.u-dash-band {
+  fill: var(--u-soft);
+}
+.u-dash-plot {
+  position: relative;
+  border-radius: 4px;
+}
+.u-dash-plot:focus-visible,
+.u-dash-details summary:focus-visible {
+  outline: 3px solid var(--u-teal);
+  outline-offset: 3px;
+}
+
+.u-dash-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  list-style: none;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+}
+.u-dash-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.u-dash-legend b {
+  color: var(--u-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.u-dash-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--u-dash-c);
+}
+
+.u-dash-tip {
+  position: absolute;
+  z-index: 2;
+  transform: translateX(14px);
+  min-width: 9rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--u-line);
+  border-radius: 6px;
+  background: var(--u-surface);
+  box-shadow: 0 4px 14px rgb(29 52 49 / 0.16);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.u-dash-tip-flip {
+  transform: translateX(calc(-100% - 14px));
+}
+.u-dash-tip-title {
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+.u-dash-tip-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--u-muted);
+}
+.u-dash-tip-row b {
+  color: var(--u-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.u-dash-key {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--u-dash-c);
+}
+
+/* Read by screen readers only. */
+.u-dash-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.u-dash-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--u-line);
+  border-radius: 6px;
+}
+.u-dash-toggle button {
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  padding: 0.3rem 0.65rem;
+  color: var(--u-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.u-dash-toggle button.u-dash-on {
+  background: var(--u-teal);
+  color: #fff;
+  font-weight: 600;
+}
+
+button.u-dash-link {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  padding: 0;
+  color: var(--u-teal);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.u-dash-link:hover:not(:disabled) {
+  background: none;
+  color: var(--u-ink);
+}
+
+.u-dash-details {
+  margin-top: 0.6rem;
+  font-size: 0.84rem;
+}
+.u-dash-details summary {
+  width: fit-content;
+  border-radius: 3px;
+  color: var(--u-muted);
+  cursor: pointer;
+}
+.u-dash-table-scroll {
+  max-height: 16rem;
+  margin-top: 0.4rem;
+  overflow-y: auto;
+}
+
+.u-dash-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.u-dash-bar-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  margin-bottom: 0.25rem;
+  font-size: 0.84rem;
+}
+.u-dash-bar-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u-dash-bar-note {
+  flex-shrink: 0;
+  color: var(--u-muted);
+  font-size: 0.74rem;
+}
+.u-dash-bar-figure {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.u-dash-cache {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.u-dash-cache-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.55rem;
+}
+.u-dash-cache-value {
+  font-size: 1.9rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.u-dash-cache-parts tbody th {
+  border-bottom-color: var(--u-soft);
+  color: var(--u-ink);
+  font-size: 0.86rem;
+  white-space: normal;
+}
+.u-dash-cache-parts tbody th small {
+  display: block;
+}
+
+/* One hue, darker for more; the lightest step still stands off the card. */
+.u-dash-heat-0 {
+  fill: var(--u-soft);
+}
+.u-dash-heat-1 {
+  fill: var(--u-s1);
+  fill-opacity: 0.45;
+}
+.u-dash-heat-2 {
+  fill: var(--u-s1);
+  fill-opacity: 0.63;
+}
+.u-dash-heat-3 {
+  fill: var(--u-s1);
+  fill-opacity: 0.82;
+}
+.u-dash-heat-4 {
+  fill: var(--u-s1);
+}
+.u-dash-heat-active {
+  fill: none;
+  stroke: var(--u-ink);
+  stroke-width: 2;
+}
+.u-dash-heat-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-top: 0.6rem;
+}
+.u-dash-heat-foot .u-dash-legend {
+  margin: 0;
+}
+.u-dash-heat-foot .u-hint {
+  margin: 0;
+}
+.u-dash-heat-table {
+  font-size: 0.78rem;
+}
+.u-dash-heat-table th,
+.u-dash-heat-table td {
+  padding: 0.3rem 0.4rem;
+}
+
+.u-dash-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0 0 0.7rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
+}
+.u-dash-insights li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.u-dash-insights .u-pill {
+  flex-shrink: 0;
+}
+.u-dash-clear {
+  margin: 0.25rem 0;
+  font-size: 0.88rem;
+}
+.u-dash-project {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}

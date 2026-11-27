@@ -10,9 +10,10 @@ func capability(code, state, reason string) object {
 }
 func capabilities(i store.SourceInfo) []any {
 	items := []any{capability("desktop_live", "UNVERIFIED", "별도 데스크톱 창에서 시작한 작업의 알림과 재시작을 확인하지 못했습니다.")}
-	observer := i.Kind == string(collect.ClaudeHook) || i.Kind == string(collect.MCPObserver)
+	// A stored kind this build does not register has neither property.
+	info, _ := collect.KindInfo(collect.Kind(i.Kind))
+	observer, telemetry := info.Observer, info.OTLP
 	codexOTel := i.Kind == string(collect.CodexTelemetry)
-	telemetry := i.Kind == string(collect.Telemetry) || codexOTel
 	if telemetry {
 		reason := "Claude Code CLI 2.1.329의 OTLP/HTTP protobuf와 JSON 송신을 확인했습니다."
 		state := "AVAILABLE"

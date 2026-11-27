@@ -139,6 +139,8 @@ func TestMetadataOnly(t *testing.T) {
 		{Rollout, `{"type":"response_item","payload":{"type":"function_call_output","call_id":"X","output":"X","error":"X"}} `},
 		{Telemetry, `{"event.name":"api_response_body","request_body_id":"X","body":"X","body_ref":"X"}`},
 		{AppServer, `{"method":"turn/plan/updated","params":{"threadId":"X","turnId":"X","explanation":"X","plan":[{"step":"X","status":"X"}]}}`},
+		{CodexTelemetry, `{"event.name":"codex.tool_result","conversation.id":"X","model":"X","call_id":"X","tool_name":"X","arguments":"X","output":"X","prompt":"X","success":"X","duration_ms":"X","endpoint":"X"}`},
+		{CodexTelemetry, `{"event.name":"codex.user_prompt","conversation.id":"X","prompt":"X","service.version":"X"}`},
 	} {
 		a := adapter(t, tc.k)
 		raw := bytes.ReplaceAll([]byte(tc.raw), []byte("X"), []byte(marker))
