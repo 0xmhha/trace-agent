@@ -27,7 +27,7 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
       # internal/collect runs a Node.js oracle script, and verify.mjs needs node:sqlite.
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
       - name: Verify stage fixtures
@@ -47,7 +47,7 @@ jobs:
         working-directory: desktop/frontend
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: npm
@@ -70,7 +70,7 @@ jobs:
           cache-dependency-path: |
             go.sum
             desktop/go.sum
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: npm
@@ -111,7 +111,7 @@ jobs:
         with:
           go-version-file: ${{ matrix.directory }}/go.mod
           cache: false
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: matrix.module == 'desktop'
         with:
           node-version: lts/*
