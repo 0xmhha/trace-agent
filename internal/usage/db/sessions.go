@@ -139,10 +139,13 @@ SELECT agent_id, key, at_ms, model, input, output, cache_read, cache_create, ski
 FROM model_call WHERE session_id = ? ORDER BY at_ms, key`
 
 // sessHooksSQL counts failures with hookFailedSQL, as the range aggregate
-// does, which is why hook_run is named h.
+// does, which is why hook_run is named h. A stored duration of zero means the
+// transcript reported none, so such a run takes no part in the average or the
+// maximum, again as in the range aggregate.
 const sessHooksSQL = `
 SELECT h.event, h.name, COUNT(*), SUM(` + hookFailedSQL + `),
-       AVG(h.duration_ms), MAX(h.duration_ms)
+       AVG(CASE WHEN h.duration_ms > 0 THEN h.duration_ms END),
+       MAX(CASE WHEN h.duration_ms > 0 THEN h.duration_ms END)
 FROM hook_run h WHERE h.session_id = ?
 GROUP BY h.event, h.name ORDER BY COUNT(*) DESC, h.event, h.name`
 
@@ -665,6 +668,18 @@ func (a *sessAcc) modelRows() []usage.ModelUsage {
 	return out
 }
 
+// sessAttributed gives every row a Tokens value. Skill and plugin rows always
+// carry one, zero when no model call was attributed, as the range aggregate
+// reports them; other groups leave it unset.
+func sessAttributed(rows []usage.GroupUsage) []usage.GroupUsage {
+	for i := range rows {
+		if rows[i].Tokens == nil {
+			rows[i].Tokens = &usage.TokenTotals{}
+		}
+	}
+	return rows
+}
+
 // sessGroupRows lists groups by calls, then by name.
 func sessGroupRows(groups map[string]*sessGroup) []usage.GroupUsage {
 	out := make([]usage.GroupUsage, 0, len(groups))
@@ -809,8 +824,8 @@ func (s *Store) sessDetail(ctx context.Context, sessionID string, maxTurns int) 
 		Models:         acc.modelRows(),
 		Tools:          acc.toolRows(),
 		MCPServers:     sessGroupRows(acc.mcpServers),
-		Skills:         sessGroupRows(acc.skills),
-		Plugins:        sessGroupRows(acc.plugins),
+		Skills:         sessAttributed(sessGroupRows(acc.skills)),
+		Plugins:        sessAttributed(sessGroupRows(acc.plugins)),
 		Hooks:          hooks,
 		Agents:         acc.agentRows(streams),
 		Turns:          acc.turns,

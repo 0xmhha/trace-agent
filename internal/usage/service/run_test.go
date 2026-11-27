@@ -104,7 +104,9 @@ func TestRunReturnsAtOnceWhenAlreadyCancelled(t *testing.T) {
 	})
 }
 
-func TestRunDoesNothingWithoutConsent(t *testing.T) {
+// Without consent no transcript is read, but retention still applies: the
+// extension endpoint accepts events whether or not transcripts are collected.
+func TestRunReadsNothingWithoutConsent(t *testing.T) {
 	h := newHarness(t, func(cfg *Config) { cfg.Interval = fastInterval })
 	h.fixtures()
 	h.store.with(func(f *fakeStore) { f.settings.Consent = false })
@@ -118,8 +120,11 @@ func TestRunDoesNothingWithoutConsent(t *testing.T) {
 		t.Fatalf("scanned without consent: %+v", calls)
 	}
 	h.store.with(func(f *fakeStore) {
-		if len(f.pruned)+len(f.cursorLookups)+len(f.applied) != 0 {
-			t.Fatalf("the store was changed without consent: pruned %d, cursors %d, applied %d", len(f.pruned), len(f.cursorLookups), len(f.applied))
+		if len(f.cursorLookups)+len(f.applied) != 0 {
+			t.Fatalf("transcripts were read without consent: cursors %d, applied %d", len(f.cursorLookups), len(f.applied))
+		}
+		if len(f.pruned) != 1 {
+			t.Fatalf("pruned %d times without consent; want once", len(f.pruned))
 		}
 	})
 }

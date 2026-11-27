@@ -120,8 +120,9 @@ const DefaultInterval = 5 * time.Second
 // pruneInterval is the shortest time between two Store.Prune calls.
 const pruneInterval = time.Hour
 
-// Run scans until ctx is cancelled and returns ctx.Err(). It does nothing
-// while consent is not granted.
+// Run scans until ctx is cancelled and returns ctx.Err(). It reads nothing
+// while consent is not granted. Retention is applied either way, because
+// extension events arrive whether or not transcripts are collected.
 func (s *Service) Run(ctx context.Context) error {
 	ticker := time.NewTicker(s.cfg.Interval)
 	defer ticker.Stop()
@@ -141,14 +142,13 @@ func (s *Service) Run(ctx context.Context) error {
 
 // cycle is one iteration of Run: a scan pass and, when due, a prune.
 func (s *Service) cycle(ctx context.Context) {
-	consented, err := s.scan(ctx)
-	if err != nil {
+	if _, err := s.scan(ctx); err != nil {
 		s.report(ctx, err)
 	}
-	if !consented || ctx.Err() != nil {
+	if ctx.Err() != nil {
 		return
 	}
-	if err = s.pruneIfDue(ctx); err != nil {
+	if err := s.pruneIfDue(ctx); err != nil {
 		s.report(ctx, err)
 	}
 }
