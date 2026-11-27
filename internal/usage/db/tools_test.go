@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/0xmhha/trace-agent/internal/usage"
 )
@@ -24,9 +25,12 @@ func TestToolsWorld(t *testing.T) {
 			{Name: "plugin_devkit_search", Calls: 1, Errors: 1, Sessions: 1, AvgMs: aggF(300)},
 		},
 		Skills: []usage.GroupUsage{
-			// "devkit:deploy" and "deploy" are one skill; its tokens come from
-			// the model call attributed to "deploy".
-			{Name: "deploy", Calls: 2, Sessions: 2, Tokens: &usage.TokenTotals{Input: 10, Output: 20, CacheRead: 300}, AvgMs: aggF(100)},
+			// "deploy" comes from no plugin and "devkit:deploy" from one: they
+			// are two skills. No model call is attributed to the first.
+			{Name: "deploy", Calls: 1, Sessions: 1, Tokens: &usage.TokenTotals{}, AvgMs: aggF(150)},
+			// The plugin skill, with the tokens of the model call attributed
+			// to its full name.
+			{Name: "devkit:deploy", Calls: 1, Sessions: 1, Tokens: &usage.TokenTotals{Input: 10, Output: 20, CacheRead: 300}, AvgMs: aggF(50)},
 			// Attributed model calls without a Skill call in the range.
 			{Name: "review", Sessions: 1, Tokens: &usage.TokenTotals{Input: 1, Output: 2, CacheRead: 3, CacheCreate: 4}},
 		},
@@ -158,24 +162,135 @@ func TestToolsCapsAndOrdersRows(t *testing.T) {
 	}
 }
 
-func TestAggBareName(t *testing.T) {
+// The Go and the SQL form of the skill group rule must name every attribution
+// alike, or the two read paths drift apart again.
+func TestSkillGroupRule(t *testing.T) {
 	s := openTest(t)
-	tests := []struct{ in, want string }{
-		{"deploy", "deploy"},
-		{"devkit:deploy", "deploy"},
-		{"market:devkit:deploy", "deploy"},
-		{"devkit:", ""},
-		{":deploy", "deploy"},
-		{"", ""},
+	query := "SELECT " + skillGroupSQL("x.skill", "x.plugin") + " FROM (SELECT ? AS skill, ? AS plugin) x"
+	tests := []struct{ name, skill, plugin, want string }{
+		{"plugin skill by its full name", "devkit:deploy", "devkit", "devkit:deploy"},
+		{"skill without a plugin", "deploy", "", "deploy"},
+		{"bare name beside a plugin is qualified", "deploy", "devkit", "devkit:deploy"},
+		{"full name without a plugin", "devkit:deploy", "", "devkit:deploy"},
+		{"full name of another plugin is kept", "other:deploy", "devkit", "other:deploy"},
+		{"name with two qualifiers is kept", "market:devkit:deploy", "devkit", "market:devkit:deploy"},
+		{"trailing qualifier is kept", "devkit:", "devkit", "devkit:"},
+		{"leading qualifier is kept", ":deploy", "devkit", ":deploy"},
+		{"name outside ASCII", "d\u00e9ploiement", "bo\u00eete", "bo\u00eete:d\u00e9ploiement"},
+		{"no attribution", "", "", ""},
+		{"plugin without a skill is no skill group", "", "devkit", ""},
 	}
 	for _, tc := range tests {
-		t.Run(tc.in, func(t *testing.T) {
-			var got string
-			err := s.db.QueryRowContext(context.Background(),
-				"SELECT "+aggBareName("x.v")+" FROM (SELECT ? AS v) x", tc.in).Scan(&got)
-			if err != nil || got != tc.want {
-				t.Fatalf("bare name of %q = %q, %v; want %q", tc.in, got, err, tc.want)
+		t.Run(tc.name, func(t *testing.T) {
+			inGo := skillGroupName(tc.skill, tc.plugin)
+			var inSQL string
+			if err := s.db.QueryRowContext(context.Background(), query, tc.skill, tc.plugin).Scan(&inSQL); err != nil {
+				t.Fatal(err)
+			}
+			if inGo != tc.want || inSQL != tc.want {
+				t.Fatalf("group of skill %q with plugin %q = %q in Go, %q in SQL; want %q",
+					tc.skill, tc.plugin, inGo, inSQL, tc.want)
 			}
 		})
 	}
+}
+
+// aggSeedOneSession stores one root session whose rows all fall on the first
+// instant of the seeded week, so that the range aggregate and the session
+// detail cover the same rows.
+func aggSeedOneSession(t *testing.T, s *Store, id string, batch usage.Batch) {
+	t.Helper()
+	batch.Session = usage.SessionPatch{SessionID: id, FirstAt: aggFrom, LastAt: aggFrom}
+	batch.NextOffset = 1
+	seedBatch(t, s, usage.FileRef{Path: "p/" + id + ".jsonl", ProjectKey: "p", Size: 1, ModTime: testNow}, batch)
+}
+
+// The tools page and the session detail show one skill under one name with
+// the same numbers, for a plugin skill and for a skill without a plugin.
+func TestSkillGroupsAgreeAcrossReads(t *testing.T) {
+	s := openTest(t)
+	const id = "s1"
+	skillCall := func(key, skill, plugin string) usage.ToolCall {
+		return usage.ToolCall{Key: key, SessionID: id, At: aggFrom, Name: usage.ToolNameSkill,
+			Category: usage.ToolSkill, Skill: skill, Plugin: plugin}
+	}
+	attributed := func(key, skill, plugin string, input int64) usage.ModelCall {
+		return usage.ModelCall{Key: key, SessionID: id, At: aggFrom, Model: "model-a", Input: input, Skill: skill, Plugin: plugin}
+	}
+	aggSeedOneSession(t, s, id, usage.Batch{
+		ToolCalls: []usage.ToolCall{
+			skillCall("c1", "devkit:deploy", "devkit"),
+			skillCall("c2", "devkit:deploy", "devkit"), // pending
+			skillCall("c3", "notes", ""),
+			skillCall("c4", "", ""), // names no skill: no group on either page
+			// Only a Skill call belongs to a skill group, whatever its row holds.
+			{Key: "c5", SessionID: id, At: aggFrom, Name: "Read", Category: usage.ToolBuiltin, Skill: "notes"},
+		},
+		ToolResults: []usage.ToolResult{
+			{Key: "c1", SessionID: id, At: aggFrom.Add(time.Second), DurationMs: 40},
+			{Key: "c3", SessionID: id, At: aggFrom.Add(time.Second), IsError: true, DurationMs: 10},
+		},
+		ModelCalls: []usage.ModelCall{
+			attributed("m1", "devkit:deploy", "devkit", 1), // the shape of a real transcript
+			attributed("m2", "deploy", "devkit", 10),       // a bare name beside its plugin is the same skill
+			attributed("m3", "notes", "", 100),
+			attributed("m4", "review", "", 1000),  // attributed to, never called
+			attributed("m5", "", "devkit", 10000), // a plugin alone names no skill
+			attributed("m6", "", "", 100000),
+		},
+	})
+	want := []usage.GroupUsage{
+		{Name: "devkit:deploy", Calls: 2, Sessions: 1, Tokens: &usage.TokenTotals{Input: 11}, AvgMs: aggF(40)},
+		{Name: "notes", Calls: 1, Errors: 1, Sessions: 1, Tokens: &usage.TokenTotals{Input: 100}, AvgMs: aggF(10)},
+		{Name: "review", Sessions: 1, Tokens: &usage.TokenTotals{Input: 1000}},
+	}
+	tools, err := s.Tools(context.Background(), aggWeek)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := s.Session(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	aggEqualJSON(t, "skills of the tools page", tools.Skills, want)
+	aggEqualJSON(t, "skills of the session detail", detail.Skills, want)
+}
+
+// A hook run fails on the tools page exactly when it fails in the session
+// detail: on an error or a block, and on nothing else.
+func TestHookFailuresAgreeAcrossReads(t *testing.T) {
+	s := openTest(t)
+	const id = "s1"
+	tests := []struct {
+		status   usage.HookStatus
+		failures int64
+	}{
+		{usage.HookBlocked, 1},
+		{usage.HookError, 1},
+		{usage.HookSuccess, 0},
+		{usage.HookUnknown, 0},
+	}
+	var batch usage.Batch
+	want := make([]usage.HookUsage, 0, len(tests))
+	// One hook per status, listed by name, which is the status.
+	for _, tc := range tests {
+		name := string(tc.status)
+		batch.Hooks = append(batch.Hooks, usage.HookRun{
+			Key: "h-" + name, SessionID: id, At: aggFrom, Event: "PreToolUse", Name: name, Status: tc.status, DurationMs: 20,
+		})
+		want = append(want, usage.HookUsage{
+			Event: "PreToolUse", Name: name, Runs: 1, Failures: tc.failures, AvgMs: aggF(20), MaxMs: aggF(20),
+		})
+	}
+	aggSeedOneSession(t, s, id, batch)
+	tools, err := s.Tools(context.Background(), aggWeek)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := s.Session(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	aggEqualJSON(t, "hooks of the tools page", tools.Hooks, want)
+	aggEqualJSON(t, "hooks of the session detail", detail.Hooks, want)
 }

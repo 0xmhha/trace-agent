@@ -31,11 +31,12 @@ const (
 	// sessDetailSessions is the session count of every group in a session
 	// detail: the detail covers exactly one session.
 	sessDetailSessions int64 = 1
-	// sessSkillQualifier separates the plugin from the skill in the name of a
-	// plugin-provided skill: <plugin>:<skill>.
-	sessSkillQualifier = ":"
-	sessP50            = 0.50
-	sessP95            = 0.95
+)
+
+// Percentiles reported for the closed tool calls of a session.
+const (
+	sessP50 = 0.50
+	sessP95 = 0.95
 )
 
 // Sort ranks. A session that lacks the value it is sorted by goes after
@@ -137,11 +138,13 @@ const sessModelCallsSQL = `
 SELECT agent_id, key, at_ms, model, input, output, cache_read, cache_create, skill, plugin
 FROM model_call WHERE session_id = ? ORDER BY at_ms, key`
 
+// sessHooksSQL counts failures with hookFailedSQL, as the range aggregate
+// does, which is why hook_run is named h.
 const sessHooksSQL = `
-SELECT event, name, COUNT(*), SUM(CASE WHEN status = ?2 THEN 1 ELSE 0 END),
-       AVG(duration_ms), MAX(duration_ms)
-FROM hook_run WHERE session_id = ?1
-GROUP BY event, name ORDER BY COUNT(*) DESC, event, name`
+SELECT h.event, h.name, COUNT(*), SUM(` + hookFailedSQL + `),
+       AVG(h.duration_ms), MAX(h.duration_ms)
+FROM hook_run h WHERE h.session_id = ?
+GROUP BY h.event, h.name ORDER BY COUNT(*) DESC, h.event, h.name`
 
 const sessExtSourcesSQL = `
 SELECT source, COUNT(*), SUM(CASE WHEN status = ?2 THEN 1 ELSE 0 END), AVG(duration_ms)
@@ -591,7 +594,8 @@ func (a *sessAcc) addTool(c sessToolRow) {
 	if c.mcpServer != "" {
 		sessGroupOf(a.mcpServers, c.mcpServer).addCall(c)
 	}
-	if c.skill != "" {
+	// The skill groups of db.go: a Skill call belongs to the skill it names.
+	if c.category == string(usage.ToolSkill) && c.skill != "" {
 		sessGroupOf(a.skills, c.skill).addCall(c)
 	}
 	if c.plugin != "" {
@@ -600,17 +604,6 @@ func (a *sessAcc) addTool(c sessToolRow) {
 	if c.agentID == "" && c.messageKey != "" {
 		a.rootToolsByMsg[c.messageKey]++
 	}
-}
-
-// sessSkillName is the group a model call attributed to skill belongs to.
-// A Skill tool call names a plugin-provided skill as <plugin>:<skill>, while
-// the attribution carries the two parts separately; joining them keeps the
-// calls and the tokens of one skill in one group.
-func sessSkillName(skill, plugin string) string {
-	if plugin == "" || strings.Contains(skill, sessSkillQualifier) {
-		return skill
-	}
-	return plugin + sessSkillQualifier + skill
 }
 
 func (a *sessAcc) addModel(m sessModelRow) {
@@ -624,8 +617,8 @@ func (a *sessAcc) addModel(m sessModelRow) {
 	}
 	model.Calls++
 	sessAddTokens(&model.Tokens, m.tokens)
-	if m.skill != "" {
-		sessGroupOf(a.skills, sessSkillName(m.skill, m.plugin)).addTokens(m.tokens)
+	if skill := skillGroupName(m.skill, m.plugin); skill != "" {
+		sessGroupOf(a.skills, skill).addTokens(m.tokens)
 	}
 	if m.plugin != "" {
 		sessGroupOf(a.plugins, m.plugin).addTokens(m.tokens)
@@ -796,7 +789,7 @@ func (s *Store) sessDetail(ctx context.Context, sessionID string, maxTurns int) 
 	if err != nil {
 		return usage.SessionDetail{}, err
 	}
-	hooks, err := sessCollect(ctx, s.db, "read session hooks", sessScanHook, sessHooksSQL, sessionID, string(usage.HookError))
+	hooks, err := sessCollect(ctx, s.db, "read session hooks", sessScanHook, sessHooksSQL, sessionID)
 	if err != nil {
 		return usage.SessionDetail{}, err
 	}

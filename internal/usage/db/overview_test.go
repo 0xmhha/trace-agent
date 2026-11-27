@@ -93,7 +93,7 @@ func aggSeedWorld(t *testing.T, s *Store) {
 		ModelCalls: []usage.ModelCall{
 			{Key: "m-before", SessionID: "s1", At: before, Model: "model-a", Input: 7000, Output: 7000, CacheRead: 7000, CacheCreate: 7000},
 			{Key: "m1", SessionID: "s1", At: aggAt(1, 0, 0, 5), Model: "model-a", Input: 100, Output: 50, CacheRead: 1000, CacheCreate: 200},
-			{Key: "m2", SessionID: "s1", At: aggAt(2, 10, 16, 0), Model: "model-a", Input: 10, Output: 20, CacheRead: 300, Skill: "deploy", Plugin: "devkit"},
+			{Key: "m2", SessionID: "s1", At: aggAt(2, 10, 16, 0), Model: "model-a", Input: 10, Output: 20, CacheRead: 300, Skill: "devkit:deploy", Plugin: "devkit"},
 			{Key: "m-after", SessionID: "s1", At: after, Model: "model-a", Input: 9000, Output: 9000, CacheRead: 9000, CacheCreate: 9000},
 		},
 		ToolCalls: []usage.ToolCall{

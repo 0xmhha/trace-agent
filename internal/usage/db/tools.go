@@ -31,12 +31,13 @@ const aggResultJoin = "r.session_id = c.session_id AND r.key = c.key"
 // result arrived. Every list is ordered by count descending and then by name,
 // and holds at most usage.MaxPageSize rows.
 //
-// Skills are grouped by bare name: a Skill call may name its skill as
-// <plugin>:<skill> while the transcript attributes model calls to <skill>, so
-// both are keyed by the part after the last colon. A skill or plugin row
-// always carries Tokens; Sessions counts the sessions that called it or had a
-// model call attributed to it. The duration of a hook is averaged over the
-// runs that reported one, and is nil when none did.
+// Skills are grouped by full name, <plugin>:<skill> for a plugin-provided
+// skill, as the session detail does: a Skill call is keyed by the skill it
+// names and an attributed model call by skillGroupSQL. A Skill call that
+// names no skill belongs to no group. A skill or plugin row always carries
+// Tokens; Sessions counts the sessions that called it or had a model call
+// attributed to it. The duration of a hook is averaged over the runs that
+// reported one, and is nil when none did.
 //
 // A range that does not start before it ends is usage.ErrBadRequest.
 func (s *Store) Tools(ctx context.Context, q usage.Query) (usage.Tools, error) {
@@ -55,9 +56,9 @@ func (s *Store) Tools(ctx context.Context, q usage.Query) (usage.Tools, error) {
 	}{
 		{&out.MCPServers, aggGroupSpec{label: "c.mcp_server", filter: "c.mcp_server <> ''"}},
 		{&out.Skills, aggGroupSpec{
-			label:  aggBareName("c.skill"),
-			filter: "c.category = '" + string(usage.ToolSkill) + "'",
-			tokens: aggBareName("m.skill"),
+			label:  "c.skill",
+			filter: "c.category = '" + string(usage.ToolSkill) + "' AND c.skill <> ''",
+			tokens: skillGroupSQL("m.skill", "m.plugin"),
 		}},
 		{&out.Plugins, aggGroupSpec{label: "c.plugin", filter: "c.plugin <> ''", tokens: "m.plugin"}},
 		{&out.Subagents, aggGroupSpec{label: "c.subagent_type", filter: "c.category = '" + string(usage.ToolAgent) + "'"}},
@@ -159,14 +160,6 @@ type aggGroupSpec struct {
 	tokens string
 }
 
-// aggBareName is the SQL expression for the part of column after its last
-// colon, or the whole value when it has none. rtrim strips the trailing
-// characters that are not colons, which leaves the prefix up to and including
-// the last colon; the name starts right after it.
-func aggBareName(column string) string {
-	return "substr(" + column + ", length(rtrim(" + column + ", replace(" + column + ", ':', ''))) + 1)"
-}
-
 // query builds the grouping statement. Tool calls and attributed model calls
 // are stacked into one relation first, so that Sessions counts a session once
 // even when it appears on both sides.
@@ -217,24 +210,24 @@ func (s *Store) aggGroupRows(ctx context.Context, sc aggScope, spec aggGroupSpec
 	return groups, nil
 }
 
+// hookFailedSQL is the condition that a hook run failed, for a query that
+// names hook_run as h: the run ended in an error or blocked the action. An
+// unknown outcome is not a failure. Every read counts HookUsage.Failures with
+// it, so that a hook has one failure count on every page.
+const hookFailedSQL = "h.status IN ('" + string(usage.HookError) + "', '" + string(usage.HookBlocked) + "')"
+
 // aggHookRows returns the hooks of the scope by event and name, ordered by
-// runs descending, then event, then name. A run fails when its status is
-// error or blocked. A stored duration of zero means the transcript reported
+// runs descending, then event, then name. Failures counts the runs that match
+// hookFailedSQL. A stored duration of zero means the transcript reported
 // none, so such runs do not pull the average toward zero.
 func (s *Store) aggHookRows(ctx context.Context, sc aggScope) ([]usage.HookUsage, error) {
-	const argError, argBlocked = "hook_error", "hook_blocked"
-	query := `SELECT h.event, h.name, COUNT(*), SUM(h.status IN (:` + argError + `, :` + argBlocked + `)),
+	query := `SELECT h.event, h.name, COUNT(*), SUM(` + hookFailedSQL + `),
 	       AVG(CASE WHEN h.duration_ms > 0 THEN h.duration_ms END),
 	       MAX(CASE WHEN h.duration_ms > 0 THEN h.duration_ms END)
 	FROM hook_run h WHERE ` + aggInRange("h") + `
 	GROUP BY h.event, h.name ORDER BY COUNT(*) DESC, h.event ASC, h.name ASC LIMIT :` + aggArgLimit
-	args := sc.args(
-		sql.Named(argError, string(usage.HookError)),
-		sql.Named(argBlocked, string(usage.HookBlocked)),
-		sql.Named(aggArgLimit, aggMaxRows),
-	)
 	hooks := []usage.HookUsage{}
-	err := s.aggQuery(ctx, query, args, func(rows *sql.Rows) error {
+	err := s.aggQuery(ctx, query, sc.args(sql.Named(aggArgLimit, aggMaxRows)), func(rows *sql.Rows) error {
 		var hook usage.HookUsage
 		var avg, peak sql.NullFloat64
 		if err := rows.Scan(&hook.Event, &hook.Name, &hook.Runs, &hook.Failures, &avg, &peak); err != nil {

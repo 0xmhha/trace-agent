@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -53,6 +54,37 @@ const (
 // toolDurationSQL is the duration in milliseconds of a closed tool call, for
 // a query that joins tool_call as c to tool_result as r on (session_id, key).
 const toolDurationSQL = "CASE WHEN r.duration_ms > 0 THEN r.duration_ms ELSE MAX(r.at_ms - c.at_ms, 0) END"
+
+// skillQualifier separates the plugin from the skill in the full name of a
+// plugin-provided skill: <plugin>:<skill>.
+const skillQualifier = ":"
+
+// Every read groups skills by their full name, so that one skill has one name
+// on every page. A Skill tool call belongs to the group named by its stored
+// skill. The transcript attributes a model call to the same full name and
+// repeats the plugin beside it; skillGroupName and skillGroupSQL are the one
+// rule that turns such an attribution into a group name, in Go and in SQL,
+// and must stay identical.
+
+// skillGroupName is the skill group of a model call attributed to skill and
+// plugin, or "" when the call is attributed to no skill. A bare skill name
+// beside a plugin is qualified, so that it joins the Skill calls that name
+// the skill <plugin>:<skill> instead of forming a second group.
+func skillGroupName(skill, plugin string) string {
+	if skill == "" || plugin == "" || strings.Contains(skill, skillQualifier) {
+		return skill
+	}
+	return plugin + skillQualifier + skill
+}
+
+// skillGroupSQL is skillGroupName as an SQL expression over the columns that
+// hold the attributed skill and plugin of a model call.
+func skillGroupSQL(skillColumn, pluginColumn string) string {
+	return "CASE WHEN " + skillColumn + " = '' OR " + pluginColumn + " = ''" +
+		" OR instr(" + skillColumn + ", '" + skillQualifier + "') > 0" +
+		" THEN " + skillColumn +
+		" ELSE " + pluginColumn + " || '" + skillQualifier + "' || " + skillColumn + " END"
+}
 
 // A root session is "in range" when any model_call or prompt row with its
 // session_id, from any agent, has at_ms in [from, until). Sub-agent rows

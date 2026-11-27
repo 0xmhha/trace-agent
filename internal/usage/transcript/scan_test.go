@@ -437,7 +437,7 @@ func TestScanModelCallMerge(t *testing.T) {
 	}
 	data := jsonl(t,
 		block("b1", testTime, nil, obj{"id": "m1", "model": "model-small", "stop_reason": nil, "usage": usageOf(20), "content": []obj{{"type": "thinking", "thinking": "hidden"}}}),
-		block("b2", testLater, obj{"attributionSkill": "review", "attributionPlugin": "kit"},
+		block("b2", testLater, obj{"attributionSkill": "kit:review", "attributionPlugin": "kit"},
 			obj{"id": "m1", "model": "model-small", "stop_reason": "tool_use", "usage": usageOf(25), "content": []obj{toolUse("t1", "Read", obj{"file_path": "/work/a"})}}),
 		block("b3", testLater, nil, obj{"id": "m1", "model": "model-small", "usage": "unexpected", "content": "also unexpected"}),
 		block("b4", "", nil, obj{"id": "m2", "content": []obj{toolUse("t2", "Task", obj{"subagent_type": "helper"})}}),
@@ -445,7 +445,7 @@ func TestScanModelCallMerge(t *testing.T) {
 	got := mustScan(t, data, usage.ScanInput{SessionID: testSession, AgentID: testAgent})
 	wantCalls := []usage.ModelCall{
 		{Key: "m1", SessionID: testSession, AgentID: testAgent, At: instant(t, testTime), Model: "model-small",
-			Input: 10, Output: 25, CacheRead: 300, StopReason: "tool_use", Skill: "review", Plugin: "kit"},
+			Input: 10, Output: 25, CacheRead: 300, StopReason: "tool_use", Skill: "kit:review", Plugin: "kit"},
 		{Key: "m2", SessionID: testSession, AgentID: testAgent},
 	}
 	wantTools := []usage.ToolCall{
