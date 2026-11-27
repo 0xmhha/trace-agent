@@ -153,7 +153,7 @@ A tool that does not receive hook input cannot know the two values. That is usua
 
 ## 8. Masking
 
-Before storing, the receiver replaces parts that look like secrets with the mask token `[가림]`.
+Before storing, the receiver replaces parts that look like secrets with the mask token `[REDACTED]`.
 
 - `name` and `message` are scanned as whole text and masked.
 - For attributes the key name is checked first. If it contains a word such as `password`, `token`, `secret` or `api_key`, the whole value is masked. Keys that mean a count or a name, such as `token_count`, are exceptions. For other keys the value is scanned as text and masked.
