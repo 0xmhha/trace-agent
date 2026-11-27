@@ -297,9 +297,10 @@ func TestDisplayTextCutsBeforeMasking(t *testing.T) {
 	text := block + strings.Repeat("t", tailLen)
 
 	got, truncated, masked := displayText(text)
-	want := usage.MaskToken + strings.Repeat("t", usage.MaxMaskInput-len(block))
+	// The tail stops maskGuardBytes before the first cut.
+	want := usage.MaskToken + strings.Repeat("t", usage.MaxMaskInput-maskGuardBytes-len(block))
 	if got != want || !truncated || masked != 1 {
-		t.Errorf("displayText = %d bytes, %v, %d; want %d bytes (the mask token and the tail inside the first cut), true, 1",
+		t.Errorf("displayText = %d bytes, %v, %d; want %d bytes (the mask token and the tail inside the guarded first cut), true, 1",
 			len(got), truncated, masked, len(want))
 	}
 }
@@ -318,7 +319,7 @@ func TestReadJoinedResultIsMarkedTruncated(t *testing.T) {
 	)
 	items, _, _ := readAll(t, data, usage.TimelineRequest{})
 	result := items[1]
-	want := usage.MaskToken + "\n" + strings.Repeat("t", usage.MaxMaskInput-len(block)-1)
+	want := usage.MaskToken + "\n" + strings.Repeat("t", usage.MaxMaskInput-maskGuardBytes-len(block)-1)
 	if result.Text != want || !result.Truncated || result.Masked != 1 {
 		t.Errorf("result = %d bytes, Truncated %v, Masked %d; want %d bytes, true, 1", len(result.Text), result.Truncated, result.Masked, len(want))
 	}

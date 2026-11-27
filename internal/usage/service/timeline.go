@@ -81,9 +81,14 @@ func (s *Service) readTimeline(ctx context.Context, rel string, request usage.Ti
 		return usage.TimelinePage{Source: source}, nil
 	}
 	defer func() { _ = f.Close() }()
-	page, err := s.cfg.Timeline(f, request)
+	page, err := s.cfg.Timeline(newCtxReader(ctx, f), request)
 	if errors.Is(err, usage.ErrBadRequest) {
 		return usage.TimelinePage{}, fmt.Errorf("read timeline: %w", err)
+	}
+	if ctxErr := ctx.Err(); err != nil && ctxErr != nil {
+		// The request ran out of time or was abandoned; the transcript is
+		// not at fault.
+		return usage.TimelinePage{}, fmt.Errorf("read timeline: %w", ctxErr)
 	}
 	if err != nil {
 		// The file opened but reading it failed part-way.
