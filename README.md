@@ -146,4 +146,4 @@ Please do not report vulnerabilities in public issues. See [SECURITY.md](SECURIT
 
 ## License
 
-See [LICENSE](LICENSE).
+Trace Agent is licensed under the [Apache License 2.0](LICENSE).

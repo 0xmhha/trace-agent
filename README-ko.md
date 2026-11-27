@@ -146,4 +146,4 @@ make -C desktop check
 
 ## 라이선스
 
-[LICENSE](LICENSE)를 본다.
+Trace Agent 는 [Apache License 2.0](LICENSE) 으로 배포한다.

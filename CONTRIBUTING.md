@@ -105,3 +105,8 @@ The interface is English by default and can be switched to Korean. The localizat
 1. Add a row to `LOCALES` in `desktop/frontend/src/i18n/core.ts`.
 2. Add the language to every file in `desktop/frontend/src/i18n/messages/`; the TypeScript compiler lists every missing key.
 3. Add the code to `usage.Locales()` and to the Go message tables (insight rules and desktop dialogs).
+
+## License
+
+By contributing, you agree that your contributions are licensed under the
+[Apache License 2.0](LICENSE), the license of this project.

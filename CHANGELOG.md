@@ -29,6 +29,7 @@ Unreleased.
 - Open-source project files: English README with a Korean copy, contributing
   guide, security policy, code of conduct, issue and pull request templates,
   Dependabot configuration and a CI workflow.
+- Apache License 2.0 (`LICENSE`).
 
 ### Changed
 
