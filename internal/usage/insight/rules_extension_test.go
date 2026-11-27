@@ -11,7 +11,7 @@ func TestUnusedExtensions(t *testing.T) {
 		return wantInsight{
 			id:       "unused-extensions:" + subject,
 			severity: usage.SeverityInfo,
-			evidence: []usage.Evidence{ev(callLabel, 0, unitTimes), ev("구간의 세션", sessions, unitItems)},
+			evidence: []usage.Evidence{ev(callLabel, 0, koTimes), ev("구간의 세션", sessions, koItems)},
 			recKind:  kind,
 		}
 	}
@@ -86,7 +86,7 @@ func TestExtErrorRate(t *testing.T) {
 			items: []wantInsight{{
 				id:        "ext-error-rate:deploy-script",
 				severity:  usage.SeverityWarn,
-				evidence:  []usage.Evidence{evOf("오류 이벤트", 4, 20, unitItems), ev("오류 비율", 20, unitPercent)},
+				evidence:  []usage.Evidence{evOf("오류 이벤트", 4, 20, koItems), ev("오류 비율", 20, koPercent)},
 				recKind:   usage.RecommendPlugin,
 				recTarget: "deploy-script",
 			}},
@@ -101,7 +101,7 @@ func TestExtErrorRate(t *testing.T) {
 			items: []wantInsight{{
 				id:        "ext-error-rate:lint-runner",
 				severity:  usage.SeverityCritical,
-				evidence:  []usage.Evidence{evOf("오류 이벤트", 40, 100, unitItems), ev("오류 비율", 40, unitPercent)},
+				evidence:  []usage.Evidence{evOf("오류 이벤트", 40, 100, koItems), ev("오류 비율", 40, koPercent)},
 				recKind:   usage.RecommendPlugin,
 				recTarget: "lint-runner",
 			}},
@@ -129,10 +129,10 @@ func TestExtRejected(t *testing.T) {
 				id:       "ext-rejected",
 				severity: usage.SeverityWarn,
 				evidence: []usage.Evidence{
-					ev("거부된 입력", 7, unitCases),
-					ev("src-a 출처의 거부", 4, unitCases),
-					ev("src-b 출처의 거부", 1, unitCases),
-					ev("출처를 알 수 없는 거부", 2, unitCases),
+					ev("거부된 입력", 7, koCases),
+					ev("src-a 출처의 거부", 4, koCases),
+					ev("src-b 출처의 거부", 1, koCases),
+					ev("출처를 알 수 없는 거부", 2, koCases),
 				},
 				recKind: usage.RecommendPlugin,
 			}},
@@ -144,7 +144,7 @@ func TestExtRejected(t *testing.T) {
 			items: []wantInsight{{
 				id:       "ext-rejected",
 				severity: usage.SeverityWarn,
-				evidence: []usage.Evidence{ev("거부된 입력", 1, unitCases), ev("출처를 알 수 없는 거부", 1, unitCases)},
+				evidence: []usage.Evidence{ev("거부된 입력", 1, koCases), ev("출처를 알 수 없는 거부", 1, koCases)},
 				recKind:  usage.RecommendPlugin,
 			}},
 		},
@@ -162,10 +162,10 @@ func TestExtRejected(t *testing.T) {
 				id:       "ext-rejected",
 				severity: usage.SeverityWarn,
 				evidence: []usage.Evidence{
-					ev("거부된 입력", 10, unitCases),
-					ev("src-d 출처의 거부", 4, unitCases),
-					ev("src-c 출처의 거부", 3, unitCases),
-					ev("src-b 출처의 거부", 2, unitCases),
+					ev("거부된 입력", 10, koCases),
+					ev("src-d 출처의 거부", 4, koCases),
+					ev("src-c 출처의 거부", 3, koCases),
+					ev("src-b 출처의 거부", 2, koCases),
 				},
 				recKind: usage.RecommendPlugin,
 			}},

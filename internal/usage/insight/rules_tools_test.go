@@ -20,7 +20,7 @@ func TestToolErrorRate(t *testing.T) {
 			items: []wantInsight{{
 				id:        "tool-error-rate:Bash",
 				severity:  usage.SeverityWarn,
-				evidence:  []usage.Evidence{evOf("실패한 Bash 호출", 180, 900, unitTimes), ev("실패율", 20, unitPercent)},
+				evidence:  []usage.Evidence{evOf("실패한 Bash 호출", 180, 900, koTimes), ev("실패율", 20, koPercent)},
 				recKind:   usage.RecommendSetting,
 				recTarget: settingPermissionsAllow,
 			}},
@@ -32,7 +32,7 @@ func TestToolErrorRate(t *testing.T) {
 			items: []wantInsight{{
 				id:        "tool-error-rate:Edit",
 				severity:  usage.SeverityWarn,
-				evidence:  []usage.Evidence{evOf("실패한 Edit 호출", 3, 20, unitTimes), ev("실패율", 15, unitPercent)},
+				evidence:  []usage.Evidence{evOf("실패한 Edit 호출", 3, 20, koTimes), ev("실패율", 15, koPercent)},
 				recKind:   usage.RecommendHabit,
 				recTarget: toolNameRead,
 			}},
@@ -44,7 +44,7 @@ func TestToolErrorRate(t *testing.T) {
 			items: []wantInsight{{
 				id:        "tool-error-rate:Grep",
 				severity:  usage.SeverityCritical,
-				evidence:  []usage.Evidence{evOf("실패한 Grep 호출", 12, 40, unitTimes), ev("실패율", 30, unitPercent)},
+				evidence:  []usage.Evidence{evOf("실패한 Grep 호출", 12, 40, koTimes), ev("실패율", 30, koPercent)},
 				recKind:   usage.RecommendHabit,
 				recTarget: "Grep",
 			}},
@@ -61,14 +61,14 @@ func TestToolErrorRate(t *testing.T) {
 				{
 					id:        "tool-error-rate:Write",
 					severity:  usage.SeverityWarn,
-					evidence:  []usage.Evidence{evOf("실패한 Write 호출", 7, 30, unitTimes), ev("실패율", 23.3, unitPercent)},
+					evidence:  []usage.Evidence{evOf("실패한 Write 호출", 7, 30, koTimes), ev("실패율", 23.3, koPercent)},
 					recKind:   usage.RecommendHabit,
 					recTarget: toolNameRead,
 				},
 				{
 					id:        "tool-error-rate:Bash",
 					severity:  usage.SeverityWarn,
-					evidence:  []usage.Evidence{evOf("실패한 Bash 호출", 29, 100, unitTimes), ev("실패율", 29, unitPercent)},
+					evidence:  []usage.Evidence{evOf("실패한 Bash 호출", 29, 100, koTimes), ev("실패율", 29, koPercent)},
 					recKind:   usage.RecommendSetting,
 					recTarget: settingPermissionsAllow,
 				},
@@ -93,7 +93,7 @@ func TestMCPServerErrorRate(t *testing.T) {
 			items: []wantInsight{{
 				id:        "mcp-server-error-rate:tracker",
 				severity:  usage.SeverityWarn,
-				evidence:  []usage.Evidence{evOf("실패한 tracker 호출", 2, 10, unitTimes), ev("실패율", 20, unitPercent)},
+				evidence:  []usage.Evidence{evOf("실패한 tracker 호출", 2, 10, koTimes), ev("실패율", 20, koPercent)},
 				recKind:   usage.RecommendMCP,
 				recTarget: "tracker",
 			}},
@@ -105,7 +105,7 @@ func TestMCPServerErrorRate(t *testing.T) {
 			items: []wantInsight{{
 				id:        "mcp-server-error-rate:docs",
 				severity:  usage.SeverityCritical,
-				evidence:  []usage.Evidence{evOf("실패한 docs 호출", 20, 50, unitTimes), ev("실패율", 40, unitPercent)},
+				evidence:  []usage.Evidence{evOf("실패한 docs 호출", 20, 50, koTimes), ev("실패율", 40, koPercent)},
 				recKind:   usage.RecommendMCP,
 				recTarget: "docs",
 			}},

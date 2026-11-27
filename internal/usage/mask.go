@@ -6,7 +6,7 @@ import (
 )
 
 // MaskToken replaces every masked secret.
-const MaskToken = "[가림]"
+const MaskToken = "[REDACTED]"
 
 // Thresholds of the assignment rule for values that are not quoted.
 const (

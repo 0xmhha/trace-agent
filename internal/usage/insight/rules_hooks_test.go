@@ -20,9 +20,9 @@ func TestSlowHook(t *testing.T) {
 				id:       "slow-hook:Stop",
 				severity: usage.SeverityWarn,
 				evidence: []usage.Evidence{
-					ev("평균 실행 시간", 1240, unitMillis),
-					ev("실행 횟수", 198, unitTimes),
-					ev("가장 긴 실행 시간", 3000, unitMillis),
+					ev("평균 실행 시간", 1240, koMillis),
+					ev("실행 횟수", 198, koTimes),
+					ev("가장 긴 실행 시간", 3000, koMillis),
 				},
 				recKind: usage.RecommendHook,
 			}},
@@ -34,7 +34,7 @@ func TestSlowHook(t *testing.T) {
 			items: []wantInsight{{
 				id:       "slow-hook:PreToolUse:Bash",
 				severity: usage.SeverityCritical,
-				evidence: []usage.Evidence{ev("평균 실행 시간", 2000, unitMillis), ev("실행 횟수", 20, unitTimes)},
+				evidence: []usage.Evidence{ev("평균 실행 시간", 2000, koMillis), ev("실행 횟수", 20, koTimes)},
 				recKind:  usage.RecommendHook,
 			}},
 		},
@@ -45,7 +45,7 @@ func TestSlowHook(t *testing.T) {
 			items: []wantInsight{{
 				id:       "slow-hook:PostToolUse/format",
 				severity: usage.SeverityWarn,
-				evidence: []usage.Evidence{ev("평균 실행 시간", 1000, unitMillis), ev("실행 횟수", 30, unitTimes)},
+				evidence: []usage.Evidence{ev("평균 실행 시간", 1000, koMillis), ev("실행 횟수", 30, koTimes)},
 				recKind:  usage.RecommendHook,
 			}},
 		},
@@ -77,7 +77,7 @@ func TestFailingHook(t *testing.T) {
 			items: []wantInsight{{
 				id:       "failing-hook:Stop",
 				severity: usage.SeverityWarn,
-				evidence: []usage.Evidence{evOf("실패한 훅 실행", 1, 10, unitTimes), ev("실패율", 10, unitPercent)},
+				evidence: []usage.Evidence{evOf("실패한 훅 실행", 1, 10, koTimes), ev("실패율", 10, koPercent)},
 				recKind:  usage.RecommendHook,
 			}},
 		},
@@ -91,7 +91,7 @@ func TestFailingHook(t *testing.T) {
 			items: []wantInsight{{
 				id:       "failing-hook:SessionStart",
 				severity: usage.SeverityCritical,
-				evidence: []usage.Evidence{evOf("실패한 훅 실행", 10, 50, unitTimes), ev("실패율", 20, unitPercent)},
+				evidence: []usage.Evidence{evOf("실패한 훅 실행", 10, 50, koTimes), ev("실패율", 20, koPercent)},
 				recKind:  usage.RecommendHook,
 			}},
 		},

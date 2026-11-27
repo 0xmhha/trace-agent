@@ -8,18 +8,6 @@ import (
 	"github.com/0xmhha/trace-agent/internal/usage"
 )
 
-// Evidence units shown next to a number.
-const (
-	unitTimes   = "회"
-	unitPercent = "%"
-	unitMillis  = "ms"
-	unitItems   = "개"
-	unitCases   = "건"
-)
-
-// unnamedLabel stands in for a row whose name the transcript left empty.
-const unnamedLabel = "(이름 없음)"
-
 const (
 	// percentScale converts a share to percent.
 	percentScale = 100
@@ -62,27 +50,6 @@ func rateSeverity(part, whole, thresholdPct int64) usage.Severity {
 	return usage.SeverityWarn
 }
 
-// count is an evidence row holding a plain number.
-func count(label string, value int64, unit string) usage.Evidence {
-	return usage.Evidence{Label: label, Value: float64(value), Unit: unit}
-}
-
-// countOf is an evidence row holding "value out of total".
-func countOf(label string, value, total int64, unit string) usage.Evidence {
-	of := float64(total)
-	return usage.Evidence{Label: label, Value: float64(value), Unit: unit, Of: &of}
-}
-
-// share is an evidence row holding part out of whole as a percentage.
-func share(label string, part, whole int64) usage.Evidence {
-	return usage.Evidence{Label: label, Value: percentOf(part, whole), Unit: unitPercent}
-}
-
-// millis is an evidence row holding a duration in milliseconds.
-func millis(label string, ms float64) usage.Evidence {
-	return usage.Evidence{Label: label, Value: math.Round(ms), Unit: unitMillis}
-}
-
 // formatCount writes n with thousands separators, as the page shows counts.
 func formatCount(n int64) string {
 	digits := strconv.FormatInt(n, 10)
@@ -110,20 +77,6 @@ func formatPercent(p float64) string {
 // formatShare writes part out of whole as a percentage.
 func formatShare(part, whole int64) string {
 	return formatPercent(percentOf(part, whole))
-}
-
-// formatSeconds writes a duration given in milliseconds as seconds with one
-// decimal place.
-func formatSeconds(ms float64) string {
-	return strconv.FormatFloat(ms/millisPerSecond, 'f', 1, 64) + "초"
-}
-
-// displayName is name, or a placeholder when the name is empty.
-func displayName(name string) string {
-	if name == "" {
-		return unnamedLabel
-	}
-	return name
 }
 
 // totalTokens adds the four token kinds the model API reports.
