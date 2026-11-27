@@ -83,6 +83,7 @@ func newBridgeHarness(t *testing.T) *bridgeHarness {
 		saveCredential: h.keychain.save,
 	}
 	h.bridge = &Bridge{ctx: t.Context(), usage: u}
+	u.locale = &h.bridge.locale
 	return h
 }
 
@@ -114,22 +115,22 @@ func TestUsageConfirmationRouting(t *testing.T) {
 		{"rescan is not confirmed", usage.MethodRescan, "{}", false, "", &usageCall{usage.MethodRescan, "{}"}, false},
 		{"unknown method is left to the service", "launch", "{}", false, "", &usageCall{"launch", "{}"}, false},
 
-		{"enabling the endpoint, accepted", usage.MethodSetExtension, `{"enabled":true}`, true, "확장 이벤트",
+		{"enabling the endpoint, accepted", usage.MethodSetExtension, `{"enabled":true}`, true, "extension events",
 			&usageCall{usage.MethodSetExtension, `{"enabled":true}`}, false},
-		{"enabling the endpoint, declined", usage.MethodSetExtension, `{"enabled":true}`, false, "확장 이벤트", nil, true},
+		{"enabling the endpoint, declined", usage.MethodSetExtension, `{"enabled":true}`, false, "extension events", nil, true},
 		{"disabling the endpoint is not confirmed", usage.MethodSetExtension, `{"enabled":false}`, false, "",
 			&usageCall{usage.MethodSetExtension, `{"enabled":false}`}, false},
-		{"field name in another case is still confirmed", usage.MethodSetExtension, `{"ENABLED":true}`, false, "확장 이벤트", nil, true},
-		{"repeated field is confirmed by its effective value", usage.MethodSetExtension, `{"enabled":false,"enabled":true}`, true, "확장 이벤트",
+		{"field name in another case is still confirmed", usage.MethodSetExtension, `{"ENABLED":true}`, false, "extension events", nil, true},
+		{"repeated field is confirmed by its effective value", usage.MethodSetExtension, `{"enabled":false,"enabled":true}`, true, "extension events",
 			&usageCall{usage.MethodSetExtension, `{"enabled":true}`}, false},
 
-		{"widening the window, accepted", usage.MethodSetWindow, fmt.Sprintf(`{"days":%d}`, widened), true, "30일에서 60일",
+		{"widening the window, accepted", usage.MethodSetWindow, fmt.Sprintf(`{"days":%d}`, widened), true, "from 30 to 60 days",
 			&usageCall{usage.MethodSetWindow, `{"days":60}`}, false},
-		{"widening the window, declined", usage.MethodSetWindow, fmt.Sprintf(`{"days":%d}`, widened), false, "30일에서 60일", nil, true},
+		{"widening the window, declined", usage.MethodSetWindow, fmt.Sprintf(`{"days":%d}`, widened), false, "from 30 to 60 days", nil, true},
 		{"same window is not confirmed", usage.MethodSetWindow, `{"days":30}`, false, "", &usageCall{usage.MethodSetWindow, `{"days":30}`}, false},
 		{"narrowing the window is not confirmed", usage.MethodSetWindow, `{"days":7}`, false, "", &usageCall{usage.MethodSetWindow, `{"days":7}`}, false},
-		{"repeated days are confirmed by the effective value", usage.MethodSetWindow, `{"days":7,"days":90}`, false, "30일에서 90일", nil, true},
-		{"widest window, accepted", usage.MethodSetWindow, fmt.Sprintf(`{"days":%d}`, usage.MaxWindowDays), true, "365일",
+		{"repeated days are confirmed by the effective value", usage.MethodSetWindow, `{"days":7,"days":90}`, false, "from 30 to 90 days", nil, true},
+		{"widest window, accepted", usage.MethodSetWindow, fmt.Sprintf(`{"days":%d}`, usage.MaxWindowDays), true, "to 365 days",
 			&usageCall{usage.MethodSetWindow, `{"days":365}`}, false},
 
 		{"including a project again, accepted", usage.MethodSetExcluded, `{"project":"-synthetic-project","excluded":false}`, true, "-synthetic-project",
@@ -139,8 +140,8 @@ func TestUsageConfirmationRouting(t *testing.T) {
 		{"excluding a project is not confirmed", usage.MethodSetExcluded, `{"project":"-synthetic-project","excluded":true}`, false, "",
 			&usageCall{usage.MethodSetExcluded, `{"project":"-synthetic-project","excluded":true}`}, false},
 
-		{"clearing data, accepted", usage.MethodClearData, "{}", true, "되돌릴 수 없습니다", &usageCall{usage.MethodClearData, "{}"}, false},
-		{"clearing data, declined", usage.MethodClearData, "{}", false, "되돌릴 수 없습니다", nil, true},
+		{"clearing data, accepted", usage.MethodClearData, "{}", true, "cannot be restored", &usageCall{usage.MethodClearData, "{}"}, false},
+		{"clearing data, declined", usage.MethodClearData, "{}", false, "cannot be restored", nil, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newBridgeHarness(t)

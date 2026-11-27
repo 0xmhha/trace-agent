@@ -45,6 +45,17 @@ import (
 	"unsafe"
 )
 
+// Keychain failures. They reach the process log at start-up or are mapped to
+// a bridge code by the caller, so they are plain English sentences.
+var (
+	errKeychainRead      = errors.New("cannot read the keychain")
+	errKeychainWrite     = errors.New("cannot save sources to the keychain")
+	errRegistryTooLarge  = errors.New("stored source registry exceeds its size limit")
+	errRegistryInvalid   = errors.New("stored source registry is invalid")
+	errCredentialInvalid = errors.New("receiver credential is invalid")
+	errCredentialWrite   = errors.New("cannot save the receiver credential to the keychain")
+)
+
 type keychain struct{}
 
 func (keychain) Load() (registry, error) {
@@ -55,15 +66,15 @@ func (keychain) Load() (registry, error) {
 		return registry{}, nil
 	}
 	if s != C.errSecSuccess {
-		return registry{}, errors.New("키체인을 읽을 수 없습니다")
+		return registry{}, errKeychainRead
 	}
 	defer C.free(p)
 	if n > 1<<20 {
-		return registry{}, errors.New("저장된 출처 정보가 너무 큽니다")
+		return registry{}, errRegistryTooLarge
 	}
 	var r registry
 	if json.Unmarshal(C.GoBytes(p, C.int(n)), &r) != nil || len(r.Key) != 32 {
-		return registry{}, errors.New("저장된 출처 정보를 확인할 수 없습니다")
+		return registry{}, errRegistryInvalid
 	}
 	return r, nil
 }
@@ -73,10 +84,10 @@ func (keychain) Save(r registry) error {
 		return err
 	}
 	if len(data) > 1<<20 {
-		return errors.New("출처 정보 크기 제한을 넘었습니다")
+		return errRegistryTooLarge
 	}
 	if C.traceSave(unsafe.Pointer(&data[0]), C.size_t(len(data)), nil) != C.errSecSuccess {
-		return errors.New("키체인에 출처를 저장할 수 없습니다")
+		return errKeychainWrite
 	}
 	return nil
 }
@@ -84,12 +95,12 @@ func (keychain) Save(r registry) error {
 func saveSenderCredential(service, credential string) error {
 	data := []byte(credential)
 	if len(data) != 64 {
-		return errors.New("수신기 자격을 확인할 수 없습니다")
+		return errCredentialInvalid
 	}
 	name := C.CString(service)
 	defer C.free(unsafe.Pointer(name))
 	if C.traceSave(unsafe.Pointer(&data[0]), C.size_t(len(data)), name) != C.errSecSuccess {
-		return errors.New("수신기 자격을 키체인에 저장할 수 없습니다")
+		return errCredentialWrite
 	}
 	return nil
 }

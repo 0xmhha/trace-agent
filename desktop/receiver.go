@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -46,7 +45,7 @@ func (c *collector) parentSource(id string) (*collect.Adapter, error) {
 			return a, nil
 		}
 	}
-	return nil, errors.New("먼저 연결한 클라이언트 출처를 선택해 주세요")
+	return nil, errSourceParentMissing
 }
 
 func (s selectedSource) receiver() bool {
@@ -137,26 +136,38 @@ func (b *Bridge) PickObserver(id, kind, name string) (string, error) {
 	parent, err := c.parentSource(id)
 	c.mu.Unlock()
 	if err != nil {
-		return "", err
+		return "", asBridgeError(err, errSourceParentMissing)
 	}
 	src := selectedSource{Parent: id, Path: "local:observer"}
+	text := textFor(b.locale.get())
 	var label string
 	switch {
 	case kind == "hook" && collect.AcceptsParent(collect.ClaudeHook, parent.Kind()) && name == "":
 		src.Kind = collect.ClaudeHook
-		label = "Claude Code 도구 훅"
+		label = text.get(dlgReceiverHook)
 	case kind == "mcp" && serverName.MatchString(name):
 		src.Kind = collect.MCPObserver
 		src.Server = name
-		label = "MCP 서버 " + name
+		label = text.format(dlgReceiverMCP, name)
 	default:
-		return "", errors.New("수신기 종류와 서버 이름을 확인해 주세요")
+		return "", errReceiverInvalid
 	}
-	answer, err := wruntime.MessageDialog(b.ctx, wruntime.MessageDialogOptions{Type: wruntime.QuestionDialog, Title: "로컬 수신기 연결", Message: label + "의 기록을 선택한 클라이언트와 연결할까요?", Buttons: []string{"연결", "취소"}, DefaultButton: "취소", CancelButton: "취소"})
-	if err != nil || answer != "연결" {
+	allowed, err := confirmReceiver(b.ctx, text, text.format(dlgReceiverOwner, label))
+	if err != nil || !allowed {
 		return "", err
 	}
 	return c.offer(src)
+}
+
+// confirmReceiver asks whether to connect a local receiver. Cancel is the
+// default button, so that a stray key press never opens an endpoint.
+func confirmReceiver(ctx context.Context, text dialogText, message string) (bool, error) {
+	connect, cancel := text.get(dlgConnect), text.get(dlgCancel)
+	answer, err := wruntime.MessageDialog(ctx, wruntime.MessageDialogOptions{Type: wruntime.QuestionDialog, Title: text.get(dlgReceiverTitle), Message: message, Buttons: []string{connect, cancel}, DefaultButton: cancel, CancelButton: cancel})
+	if err != nil {
+		return false, errReceiverDialog
+	}
+	return answer == connect, nil
 }
 
 // HasReceiver identifies a local OTLP endpoint without exposing its credentials.
@@ -170,17 +181,20 @@ func (b *Bridge) HasReceiver(id string) bool {
 func (b *Bridge) CopyReceiverSettings(id string) error {
 	src, key, ok := b.collector.receiverSource(id)
 	if !ok {
-		return errors.New("등록된 수신기를 찾을 수 없습니다")
+		return errReceiverNotFound
 	}
 	cfg, err := b.collector.db.SourceConfig(b.ctx, id)
 	if err != nil || !cfg.Enabled {
-		return errors.New("출처 수집을 먼저 켜 주세요")
+		return errReceiverSourceOff
 	}
 	if err := saveSenderCredential(receiverService+id, receiverToken(key, id)); err != nil {
-		return err
+		return errReceiverCredential
 	}
 	settings := senderSettings(src, id, cfg.Consent)
-	return wruntime.ClipboardSetText(b.ctx, settings)
+	if err := wruntime.ClipboardSetText(b.ctx, settings); err != nil {
+		return errReceiverClipboard
+	}
+	return nil
 }
 
 func senderSettings(src selectedSource, id string, consent bool) string {

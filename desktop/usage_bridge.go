@@ -26,24 +26,6 @@ const (
 	// enough that the question around it stays visible.
 	usagePromptLabelRunes = 120
 	usagePromptEllipsis   = "…"
-	usagePromptCancel     = "취소"
-)
-
-// Errors returned to the WebView. They name no path and repeat no internal
-// error text.
-var (
-	errUsageUnavailable = errors.New("사용 분석을 시작하지 못했습니다")
-	errUsageFailed      = errors.New("사용 분석 요청을 처리하지 못했습니다")
-	errUsageRequest     = errors.New("요청을 확인해 주세요")
-	// The session page recognises the next two sentences by their wording
-	// (desktop/frontend/src/usage/views/session/errors.ts); change both sides
-	// together.
-	errUsageNotFound    = errors.New("세션을 찾을 수 없습니다")
-	errUsageNoConsent   = errors.New("사용 기록 수집을 먼저 허용해 주세요")
-	errUsageDialog      = errors.New("확인 창을 열 수 없습니다")
-	errUsageEndpointOff = errors.New("확장 이벤트 수신기를 먼저 켜 주세요")
-	errUsageCredential  = errors.New("수신기 자격을 키체인에 저장할 수 없습니다")
-	errUsageClipboard   = errors.New("클립보드에 복사할 수 없습니다")
 )
 
 // usagePrompt is one native confirmation. Cancel is always the default
@@ -53,50 +35,56 @@ type usagePrompt struct {
 	title   string
 	message string
 	accept  string
+	cancel  string
 }
 
-func watchPrompt(rootLabel string) usagePrompt {
+func watchPrompt(text dialogText, rootLabel string) usagePrompt {
 	return usagePrompt{
 		kind:    wruntime.QuestionDialog,
-		title:   "사용 기록 수집",
-		message: fmt.Sprintf("이 Mac의 %s 아래에 있는 Claude Code 세션 기록을 읽어 사용 현황을 집계할까요? 대화 원문은 저장하지 않습니다.", promptLabel(rootLabel)),
-		accept:  "허용",
+		title:   text.get(dlgWatchTitle),
+		message: text.format(dlgWatchMessage, promptLabel(rootLabel)),
+		accept:  text.get(dlgWatchAccept),
+		cancel:  text.get(dlgCancel),
 	}
 }
 
-func extensionPrompt() usagePrompt {
+func extensionPrompt(text dialogText) usagePrompt {
 	return usagePrompt{
 		kind:    wruntime.QuestionDialog,
-		title:   "확장 이벤트 수신",
-		message: "이 Mac의 다른 도구가 보내는 확장 이벤트를 받을까요? 이 Mac 안에서 보낸 것만 받습니다.",
-		accept:  "켜기",
+		title:   text.get(dlgExtensionTitle),
+		message: text.get(dlgExtensionMsg),
+		accept:  text.get(dlgExtensionAccept),
+		cancel:  text.get(dlgCancel),
 	}
 }
 
-func windowPrompt(current, requested int) usagePrompt {
+func windowPrompt(text dialogText, current, requested int) usagePrompt {
 	return usagePrompt{
 		kind:    wruntime.QuestionDialog,
-		title:   "수집 기간 변경",
-		message: fmt.Sprintf("수집 기간을 %d일에서 %d일로 늘릴까요? 더 오래된 세션 기록까지 읽습니다.", current, requested),
-		accept:  "늘리기",
+		title:   text.get(dlgWindowTitle),
+		message: text.format(dlgWindowMessage, current, requested),
+		accept:  text.get(dlgWindowAccept),
+		cancel:  text.get(dlgCancel),
 	}
 }
 
-func includePrompt(project string) usagePrompt {
+func includePrompt(text dialogText, project string) usagePrompt {
 	return usagePrompt{
 		kind:    wruntime.QuestionDialog,
-		title:   "프로젝트 다시 수집",
-		message: "제외한 프로젝트의 세션 기록을 다시 읽을까요?\n\n" + promptLabel(project),
-		accept:  "다시 수집",
+		title:   text.get(dlgIncludeTitle),
+		message: text.format(dlgIncludeMessage, promptLabel(project)),
+		accept:  text.get(dlgIncludeAccept),
+		cancel:  text.get(dlgCancel),
 	}
 }
 
-func clearPrompt() usagePrompt {
+func clearPrompt(text dialogText) usagePrompt {
 	return usagePrompt{
 		kind:    wruntime.WarningDialog,
-		title:   "사용 분석 자료 지우기",
-		message: "모은 사용 분석 자료와 확장 이벤트를 모두 지우고 수집을 끌까요? 지운 자료는 되돌릴 수 없습니다. 원본 세션 기록은 그대로 둡니다.",
-		accept:  "지우기",
+		title:   text.get(dlgClearTitle),
+		message: text.get(dlgClearMessage),
+		accept:  text.get(dlgClearAccept),
+		cancel:  text.get(dlgCancel),
 	}
 }
 
@@ -157,7 +145,8 @@ func (u *usageRuntime) request(ctx context.Context, method, params string) (stri
 	if err != nil {
 		return "", err
 	}
-	forward, prompt, err := gateUsageRequest(method, json.RawMessage(params), func() (usage.Status, error) {
+	text := textFor(u.locale.get())
+	forward, prompt, err := gateUsageRequest(text, method, json.RawMessage(params), func() (usage.Status, error) {
 		return currentUsageStatus(ctx, svc)
 	})
 	if err != nil {
@@ -183,7 +172,7 @@ func (u *usageRuntime) request(ctx context.Context, method, params string) (stri
 // returns the parameters to forward. Gated requests are forwarded in the
 // decoded and re-encoded form, so the service acts on exactly the values the
 // decision here was based on, however it parses its input.
-func gateUsageRequest(method string, params json.RawMessage, current func() (usage.Status, error)) (json.RawMessage, *usagePrompt, error) {
+func gateUsageRequest(text dialogText, method string, params json.RawMessage, current func() (usage.Status, error)) (json.RawMessage, *usagePrompt, error) {
 	var (
 		request any
 		prompt  *usagePrompt
@@ -195,7 +184,7 @@ func gateUsageRequest(method string, params json.RawMessage, current func() (usa
 			return nil, nil, err
 		}
 		if req.Enabled {
-			p := extensionPrompt()
+			p := extensionPrompt(text)
 			prompt = &p
 		}
 		request = req
@@ -212,7 +201,7 @@ func gateUsageRequest(method string, params json.RawMessage, current func() (usa
 			return nil, nil, err
 		}
 		if req.Days > status.WindowDays {
-			p := windowPrompt(status.WindowDays, req.Days)
+			p := windowPrompt(text, status.WindowDays, req.Days)
 			prompt = &p
 		}
 		request = req
@@ -225,12 +214,12 @@ func gateUsageRequest(method string, params json.RawMessage, current func() (usa
 			if promptLabel(req.Project) == "" {
 				return nil, nil, errUsageRequest
 			}
-			p := includePrompt(req.Project)
+			p := includePrompt(text, req.Project)
 			prompt = &p
 		}
 		request = req
 	case usage.MethodClearData:
-		p := clearPrompt()
+		p := clearPrompt(text)
 		return params, &p, nil
 	default:
 		return params, nil, nil
@@ -272,7 +261,7 @@ func callUsage(ctx context.Context, svc usageService, method string, params json
 	return response, nil
 }
 
-// usageBridgeError maps a service failure to the text shown in the WebView.
+// usageBridgeError maps a service failure to the code sent to the WebView.
 func usageBridgeError(err error) error {
 	switch {
 	case errors.Is(err, usage.ErrBadRequest):
@@ -292,9 +281,9 @@ func (u *usageRuntime) confirm(ctx context.Context, prompt usagePrompt) (bool, e
 		Type:          prompt.kind,
 		Title:         prompt.title,
 		Message:       prompt.message,
-		Buttons:       []string{prompt.accept, usagePromptCancel},
-		DefaultButton: usagePromptCancel,
-		CancelButton:  usagePromptCancel,
+		Buttons:       []string{prompt.accept, prompt.cancel},
+		DefaultButton: prompt.cancel,
+		CancelButton:  prompt.cancel,
 	})
 	if err != nil {
 		return false, errUsageDialog
@@ -307,7 +296,7 @@ func (u *usageRuntime) enableWatch(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	allowed, err := u.confirm(ctx, watchPrompt(u.rootLabel))
+	allowed, err := u.confirm(ctx, watchPrompt(textFor(u.locale.get()), u.rootLabel))
 	if err != nil || !allowed {
 		return false, err
 	}
