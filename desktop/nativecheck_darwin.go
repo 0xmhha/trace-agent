@@ -21,6 +21,15 @@ import (
 // It uses a disposable profile instead of the operator's Keychain and database.
 type acceptanceVault string
 
+// The app opens on the usage dashboard, which has none of what the probe
+// looks for. Unless a trace view is already on screen, a stage first opens the
+// trace address that shows it: the tasks in progress report that no source is
+// attached, the overview carries the metrics of the attached one.
+const (
+	probeEmptyRoute   = "#live"
+	probeHistoryRoute = "#overview"
+)
+
 func (v acceptanceVault) Load() (registry, error) {
 	data, err := os.ReadFile(string(v))
 	if errors.Is(err, os.ErrNotExist) {
@@ -61,7 +70,13 @@ func run() error {
 	report := make(chan error, 1)
 	probe := func(ctx context.Context, b *Bridge) {
 		check := func(stage string) {
-			command := `(()=>{const stage=` + fmt.Sprintf("%q", stage) + `;let ticks=0;const timer=setInterval(()=>{
+			route := probeHistoryRoute
+			if stage == "empty" {
+				route = probeEmptyRoute
+			}
+			command := `(()=>{const stage=` + fmt.Sprintf("%q", stage) + `,route=` + fmt.Sprintf("%q", route) + `;
+				if(!document.querySelector('.connection'))location.hash=route;
+				let ticks=0;const timer=setInterval(()=>{
 				const text=document.body.innerText, heading=document.querySelector('.eyebrow')?.textContent || '';
 				const connected=document.querySelector('.connection')?.textContent.includes('연결됨');
 				if(connected && heading.includes('#') && (stage==='empty'?text.includes('연결한 출처가 없습니다.'):text.includes('현재 출처 1개') && text.includes('도구 시도') && Array.from(document.querySelectorAll('.metric')).some(m=>m.textContent.includes('도구 시도')&&m.querySelector('strong')?.textContent==='1'))){
