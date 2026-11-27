@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/0xmhha/trace-agent/internal/usage"
 )
@@ -84,6 +85,12 @@ func (s *Store) aggQuery(ctx context.Context, query string, args []any, scan fun
 	return rows.Err()
 }
 
+// coverageWindowSlack is how far before the collection window a range may
+// start without counting as outside it. A page builds "the last N days" from
+// its own clock some time before the store reads its clock, so with a window
+// of the same N days the range would otherwise always start a moment early.
+const coverageWindowSlack = 24 * time.Hour
+
 // Coverage reports how completely the stored data covers the query. State is
 // usage.CoveragePartial when a tracked file of the queried projects is
 // unreadable, lines were skipped, or the range starts before the collection
@@ -122,7 +129,7 @@ func (s *Store) Coverage(ctx context.Context, q usage.Query) (usage.Coverage, er
 	if out.LinesSkipped > 0 {
 		out.Reasons = append(out.Reasons, usage.ReasonSkippedLines)
 	}
-	if !wholeWindow && q.Range.From.Before(window) {
+	if !wholeWindow && q.Range.From.Before(window.Add(-coverageWindowSlack)) {
 		out.Reasons = append(out.Reasons, usage.ReasonOutsideWindow)
 	}
 	if len(out.Reasons) > 0 {

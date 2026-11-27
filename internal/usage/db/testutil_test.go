@@ -105,8 +105,8 @@ func seedBatch(t *testing.T, s *Store, file usage.FileRef, b usage.Batch) {
 	}
 	if c := b.Cost; c != nil && sess.AgentID == "" {
 		exec(`INSERT INTO cost_state(session_id,project_key,at_ms,total_cost_usd,api_duration_ms,tool_duration_ms,lines_added,lines_removed) VALUES(?,?,?,?,?,?,?,?)
-			ON CONFLICT(session_id) DO UPDATE SET at_ms=excluded.at_ms,total_cost_usd=excluded.total_cost_usd,api_duration_ms=excluded.api_duration_ms,tool_duration_ms=excluded.tool_duration_ms,lines_added=excluded.lines_added,lines_removed=excluded.lines_removed
-			WHERE excluded.at_ms >= cost_state.at_ms`,
+			ON CONFLICT(session_id) DO UPDATE SET at_ms=CASE WHEN excluded.at_ms=0 THEN cost_state.at_ms ELSE excluded.at_ms END,total_cost_usd=excluded.total_cost_usd,api_duration_ms=excluded.api_duration_ms,tool_duration_ms=excluded.tool_duration_ms,lines_added=excluded.lines_added,lines_removed=excluded.lines_removed
+			WHERE excluded.at_ms = 0 OR excluded.at_ms >= cost_state.at_ms`,
 			c.SessionID, p, toMS(c.At), c.TotalCostUSD, c.APIDurationMs, c.ToolDurationMs, c.LinesAdded, c.LinesRemoved)
 	}
 	exec(`UPDATE data_version SET n = n + 1 WHERE singleton = 1`)

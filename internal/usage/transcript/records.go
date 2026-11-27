@@ -63,7 +63,7 @@ type fields struct {
 	title, agentType, skill, plugin                []byte
 	message, attachment                            []byte
 	toolUseResult, sandboxViolations               []byte
-	isMeta, promptSource                           []byte
+	isMeta, promptSource, isCompactSummary         []byte
 	subtype, durationMs, messageCount, compactMeta []byte
 	cost, apiDuration, toolDuration                []byte
 	linesAdded, linesRemoved                       []byte
@@ -108,6 +108,8 @@ func (f *fields) set(key, value []byte) {
 		f.isMeta = value
 	case "promptSource":
 		f.promptSource = value
+	case "isCompactSummary":
+		f.isCompactSummary = value
 	case "subtype":
 		f.subtype = value
 	case "durationMs":
@@ -331,11 +333,16 @@ func (s *scanner) toolResult(f *fields, at time.Time, block *userBlock) usage.To
 	return result
 }
 
+// promptSourceSystem marks a user line the client wrote on its own, such as
+// a notification or a queued reminder.
+const promptSourceSystem = "system"
+
 // promptLine reports whether a user line may be a prompt at all: only the
-// root transcript has user-authored turns, and meta lines are written by the
-// client.
+// root transcript has user-authored turns, and meta lines, client-written
+// turns and compaction summaries are not started by a person.
 func (s *scanner) promptLine(f *fields) bool {
-	return s.in.AgentID == "" && string(f.isMeta) != jsonTrue
+	return s.in.AgentID == "" && string(f.isMeta) != jsonTrue &&
+		string(f.isCompactSummary) != jsonTrue && jsonString(f.promptSource) != promptSourceSystem
 }
 
 func (s *scanner) prompt(f *fields, at time.Time, chars int) bool {

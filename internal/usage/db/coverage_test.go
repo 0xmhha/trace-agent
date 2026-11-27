@@ -75,10 +75,21 @@ func TestCoverageReasons(t *testing.T) {
 		{
 			name:  "range starts before the window",
 			seed:  func(t *testing.T, s *Store) { coverageSeedFile(t, s, "alpha/a.jsonl", "alpha", 0) },
-			query: usage.Query{Range: usage.Range{From: defaultWindow.Add(-time.Millisecond), Until: testNow}},
+			query: usage.Query{Range: usage.Range{From: defaultWindow.Add(-coverageWindowSlack - time.Millisecond), Until: testNow}},
 			want: usage.Coverage{
 				State: usage.CoveragePartial, FilesTracked: 1, WindowFrom: defaultWindow, LastScanAt: testNow,
 				Reasons: []string{usage.ReasonOutsideWindow},
+			},
+		},
+		{
+			// A page computes "the last N days" from its own clock a little
+			// earlier than the store reads its clock.
+			name:  "range starting within the slack before the window is inside",
+			seed:  func(t *testing.T, s *Store) { coverageSeedFile(t, s, "alpha/a.jsonl", "alpha", 0) },
+			query: usage.Query{Range: usage.Range{From: defaultWindow.Add(-coverageWindowSlack), Until: testNow}},
+			want: usage.Coverage{
+				State: usage.CoverageComplete, FilesTracked: 1, WindowFrom: defaultWindow, LastScanAt: testNow,
+				Reasons: []string{},
 			},
 		},
 		{

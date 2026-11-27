@@ -121,8 +121,9 @@ type ToolResult struct {
 	SandboxViolations int
 }
 
-// Prompt is one user-authored turn start. Chars is the text length; the text
-// itself is not stored.
+// Prompt is one turn a person started. Lines the client wrote on its own
+// (prompt source "system"), meta lines and compaction summaries are not
+// prompts. Chars is the text length; the text itself is not stored.
 type Prompt struct {
 	Key       string
 	SessionID string
