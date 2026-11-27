@@ -1,0 +1,249 @@
+/* Session list. Every class starts with u-sess-. */
+.u-sess-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+}
+.u-sess-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.u-sess-field label {
+  color: var(--u-muted);
+  font-size: 0.86rem;
+}
+.u-sess-search {
+  width: 17rem;
+  max-width: 100%;
+}
+.u-sess-count {
+  margin: 0 0 0 auto;
+  min-height: 1.4em;
+  color: var(--u-muted);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+.u-sess-count b {
+  color: var(--u-ink);
+  font-weight: 600;
+}
+
+.u-sess-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.9rem;
+  margin-bottom: 0.6rem;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+}
+.u-sess-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--u-ink);
+}
+.u-sess-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Series colours of the token bar and its legend, in assignment order. */
+.u-sess-part-input {
+  fill: var(--u-s1);
+}
+.u-sess-part-output {
+  fill: var(--u-s2);
+}
+.u-sess-part-cache-read {
+  fill: var(--u-s3);
+}
+.u-sess-part-cache-create {
+  fill: var(--u-s4);
+}
+.u-sess-part-none {
+  fill: var(--u-soft);
+}
+.u-sess-tokenbar {
+  display: block;
+  flex: none;
+}
+
+.u-sess-busy {
+  opacity: 0.55;
+}
+.u-sess-table th {
+  /* Two-word headers may break between the words instead of widening the table. */
+  white-space: normal;
+  word-break: keep-all;
+  vertical-align: bottom;
+}
+.u-sess-table td,
+.u-sess-table th {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.u-sess-table td {
+  white-space: nowrap;
+}
+.u-sess-sorted {
+  color: var(--u-teal);
+  font-size: 0.7em;
+}
+.u-sess-table th[aria-sort] {
+  color: var(--u-ink);
+  font-weight: 600;
+}
+
+/* Row header: the session cell. It undoes the column-header look of .u-table th. */
+.u-sess-table tbody th.u-sess-main {
+  min-width: 13rem;
+  max-width: 24rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--u-soft);
+  color: var(--u-ink);
+  font-size: inherit;
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+  background: var(--u-surface);
+}
+.u-sess-table tbody .u-sess-row:hover > th.u-sess-main,
+.u-sess-table tbody .u-sess-row:focus-within > th.u-sess-main,
+.u-sess-row:focus-within > td {
+  background: var(--u-soft);
+}
+.u-sess-open {
+  display: block;
+  max-width: 100%;
+  border: 0;
+  border-radius: 3px;
+  padding: 0;
+  background: none;
+  color: var(--u-ink);
+  font-weight: 600;
+  text-align: left;
+}
+.u-sess-open:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+.u-sess-title {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.u-sess-untitled {
+  color: var(--u-muted);
+  font-weight: 400;
+}
+.u-sess-project {
+  display: block;
+  max-width: 100%;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  color: var(--u-muted);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u-sess-models {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+.u-sess-models .u-pill {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.u-sess-sub {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--u-muted);
+  font-size: 0.78rem;
+}
+.u-sess-ink {
+  color: var(--u-ink);
+}
+.u-sess-zero {
+  color: var(--u-muted);
+}
+.u-sess-when {
+  font-variant-numeric: tabular-nums;
+}
+.u-sess-when > span {
+  display: block;
+}
+.u-sess-tokens > span {
+  display: block;
+}
+.u-sess-tokens .u-sess-tokenbar {
+  margin: 0.3rem 0 0 auto;
+}
+.u-sess-tools .u-pill {
+  display: block;
+  width: fit-content;
+  margin: 0.2rem 0 0 auto;
+}
+
+/* Only while the table scrolls sideways: keep the session column in view. */
+.u-sess-scrolls .u-sess-main {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--u-surface);
+}
+/* Edge of the fixed column, drawn as an element: a border or shadow on a
+   cell of a collapsed table does not move with the cell. */
+.u-sess-scrolls .u-sess-main::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -7px;
+  width: 7px;
+  border-left: 1px solid var(--u-line);
+  background: linear-gradient(to right, rgb(29 52 49 / 10%), transparent);
+  pointer-events: none;
+}
+.u-sess-scrolls tbody th.u-sess-main {
+  min-width: 11rem;
+  max-width: 15rem;
+}
+
+.u-sess-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.9rem;
+  margin-top: 0.8rem;
+  color: var(--u-muted);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+.u-sess-pager + .u-note {
+  margin-top: 0.6rem;
+}
+@media (max-width: 760px) {
+  .u-sess-search {
+    width: 12rem;
+  }
+  .u-sess-scrolls tbody th.u-sess-main {
+    min-width: 9.5rem;
+    max-width: 11rem;
+  }
+}
