@@ -1,4 +1,5 @@
 import { obj, str, type Row } from './data'
+import { t } from './i18n'
 const files = import.meta.glob<string>(
   '../../../internal/transport/operations/*.graphql',
   { eager: true, query: '?raw', import: 'default' },
@@ -24,7 +25,7 @@ declare global {
 }
 export function native() {
   const b = window.go?.main?.Bridge
-  if (!b) throw Error('설치한 앱에서 열어 주세요.')
+  if (!b) throw Error(t('shell.openInApp'))
   return b
 }
 function watchFields(value: unknown): unknown {
@@ -61,7 +62,7 @@ export class Connection {
       target.hash ||
       !ticket
     )
-      throw Error('로컬 연결 정보를 확인할 수 없습니다.')
+      throw Error(t('shell.badConnectionInfo'))
     // Narrow the static loopback policy to this app instance's listener.
     if (!document.getElementById('trace-connection-policy')) {
       const policy = document.createElement('meta')
@@ -100,7 +101,7 @@ export class Connection {
             const message = Array.isArray(errors)
               ? str(obj(errors[0]).message)
               : ''
-            handler.fail(message || '요청을 처리할 수 없습니다.')
+            handler.fail(message || t('shell.requestFailed'))
             connection.requests.delete(str(m.id))
             return
           }
@@ -120,8 +121,8 @@ export class Connection {
       }
       ws.onclose = () => {
         clearTimeout(timer)
-        if (!ready) reject(Error('로컬 저장소에 연결하지 못했습니다.'))
-        connection.requests.forEach((h) => h.fail('연결이 끊겼습니다.'))
+        if (!ready) reject(Error(t('shell.connectFailed')))
+        connection.requests.forEach((h) => h.fail(t('shell.connectionLost')))
         connection.requests.clear()
         if (ready) closed()
       }
@@ -137,7 +138,7 @@ export class Connection {
   ): () => void {
     const query = docs[name]
     if (!query || this.socket.readyState !== WebSocket.OPEN) {
-      fail('사용할 수 없는 연산입니다.')
+      fail(t('shell.unknownOperation'))
       return () => {}
     }
     const id = String(++this.id)
@@ -160,7 +161,7 @@ export class Connection {
       let cancel = () => {}
       const timer = setTimeout(() => {
         cancel()
-        reject(Error('응답 시간이 초과됐습니다.'))
+        reject(Error(t('shell.responseTimeout')))
       }, 15000)
       cancel = this.subscribe(
         name,
@@ -176,7 +177,7 @@ export class Connection {
         },
         () => {
           clearTimeout(timer)
-          if (!received) reject(Error('빈 응답입니다.'))
+          if (!received) reject(Error(t('shell.emptyResponse')))
         },
       )
     })

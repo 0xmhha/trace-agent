@@ -21,6 +21,7 @@ import {
   type UsageView,
 } from './usage'
 import { nativeApi } from './usage/api'
+import { LanguageSelect, t } from './i18n'
 
 const LANDING_VIEW: UsageView = 'dashboard'
 // The session page has no sidebar entry of its own. It belongs to the list.
@@ -28,6 +29,7 @@ const SESSION_VIEW: UsageView = 'session'
 const SESSION_LIST_VIEW: UsageView = 'sessions'
 const USAGE_CAPTION_ID = 'nav-usage'
 const TRACE_CAPTION_ID = 'nav-trace'
+const LANGUAGE_SELECT_ID = 'language-select'
 
 // History state of a usage entry. Trace entries keep the bare Route, which
 // initial() in nav.ts tells apart by its selection.
@@ -62,7 +64,7 @@ function Sidebar(p: {
           aria-labelledby={USAGE_CAPTION_ID}
         >
           <div className="navCaption" id={USAGE_CAPTION_ID}>
-            사용 분석
+            {t('shell.captionUsage')}
           </div>
           {usageNav.map((n) => (
             <button
@@ -81,7 +83,7 @@ function Sidebar(p: {
           aria-labelledby={TRACE_CAPTION_ID}
         >
           <div className="navCaption" id={TRACE_CAPTION_ID}>
-            추적
+            {t('shell.captionTrace')}
           </div>
           {traceNav.map((n) => (
             <button
@@ -97,6 +99,10 @@ function Sidebar(p: {
           ))}
         </div>
       </nav>
+      <div className="language">
+        <label htmlFor={LANGUAGE_SELECT_ID}>{t('common.language')}</label>
+        <LanguageSelect id={LANGUAGE_SELECT_ID} />
+      </div>
       {p.trace && (
         <div className="connection">
           <i className={p.trace.connected ? 'lamp on' : 'lamp'} />
