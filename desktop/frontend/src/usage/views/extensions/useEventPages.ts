@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UsageApi } from '../../api'
 import type { ExtEvent, ExtPage, ExtQuery, Range } from '../../types'
-import { EVENT_PAGE_MAX, EVENT_PAGE_SIZE, errorText, type EventFilter } from './model'
+import { EVENT_PAGE_MAX, EVENT_PAGE_SIZE, type EventFilter } from './model'
+import { errorText } from '../../../i18n'
 
 export interface EventPages {
   items: ExtEvent[]
@@ -34,7 +35,7 @@ function appendPage(shown: Loaded, page: ExtPage): Loaded {
 }
 
 /**
- * Event list that grows with 더 보기. Rows already on screen stay while a
+ * Event list that grows with the show-more button. Rows already on screen stay while a
  * newer request is in flight. A refresh of the same filter reloads as many
  * rows as were shown (up to the page cap) so the list does not collapse under
  * the reader; a changed filter starts again from one page.
@@ -89,7 +90,7 @@ export function useEventPages(
       })
       .catch((reason: unknown) => {
         if (id !== generation.current) return
-        setError(errorText(reason, '이벤트를 읽지 못했습니다.'))
+        setError(errorText(reason, 'extensions.events.loadFailed'))
       })
       .finally(() => {
         if (id === generation.current) setLoading(false)
@@ -110,7 +111,7 @@ export function useEventPages(
       })
       .catch((reason: unknown) => {
         if (id !== generation.current) return
-        setError(errorText(reason, '이벤트를 더 읽지 못했습니다.'))
+        setError(errorText(reason, 'extensions.events.moreFailed'))
       })
       .finally(() => {
         if (id === generation.current) setLoadingMore(false)

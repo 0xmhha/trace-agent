@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Card, fmtDay } from '../../ui'
 import { ACTION, type CardProps } from './actions'
 import { Feedback } from './parts'
+import { t } from '../../../i18n'
 
 /** Collection windows offered, in days. The widest is usage.MaxWindowDays. */
 const WINDOW_OPTIONS: readonly number[] = [7, 30, 90, 365]
 
 const SELECT_ID = 'u-set-window-days'
 
-/** 기간: how far back transcripts are read. */
+/** Collection window: how far back transcripts are read. */
 export function WindowCard({ api, status, actions, apply }: CardProps) {
   // The stored value stays the truth; the choice is shown only while its
   // request is in flight, so a declined confirmation falls back by itself.
@@ -28,10 +29,10 @@ export function WindowCard({ api, status, actions, apply }: CardProps) {
         const next = await api.setWindowDays(days)
         apply(next)
         if (next.windowDays !== days)
-          return '기간을 그대로 두었습니다. 확인 창에서 취소하면 바꾸지 않습니다.'
+          return t('settings.window.unchanged')
         return days > current
-          ? `수집 기간을 최근 ${days}일로 늘렸습니다. 늘어난 기간의 기록을 다시 읽습니다.`
-          : `수집 기간을 최근 ${days}일로 줄였습니다.`
+          ? t('settings.window.widened', { count: days })
+          : t('settings.window.narrowed', { count: days })
       } finally {
         setChosen(null)
       }
@@ -40,9 +41,9 @@ export function WindowCard({ api, status, actions, apply }: CardProps) {
 
   const windowFrom = fmtDay(status.coverage.windowFrom)
   return (
-    <Card title="기간" hint="얼마나 오래된 세션 기록까지 읽을지 정합니다." className="u-span-6">
+    <Card title={t('settings.window.title')} hint={t('settings.window.hint')} className="u-span-6">
       <div className="u-set-field">
-        <label htmlFor={SELECT_ID}>수집 기간</label>
+        <label htmlFor={SELECT_ID}>{t('settings.window.label')}</label>
         <select
           id={SELECT_ID}
           value={busy && chosen !== null ? chosen : current}
@@ -52,22 +53,21 @@ export function WindowCard({ api, status, actions, apply }: CardProps) {
         >
           {options.map((days) => (
             <option key={days} value={days}>
-              최근 {days}일
+              {t('settings.window.option', { count: days })}
             </option>
           ))}
         </select>
         {busy && (
           <span className="u-hint" role="status">
-            기간을 바꾸는 중입니다…
+            {t('settings.window.busy')}
           </span>
         )}
       </div>
-      {windowFrom && <p className="u-set-line">지금은 {windowFrom} 이후의 기록을 읽습니다.</p>}
+      {windowFrom && (
+        <p className="u-set-line">{t('settings.window.from', { from: windowFrom })}</p>
+      )}
       <Feedback actions={actions} scope="window" />
-      <p className="u-hint">
-        기간을 늘리면 확인 창이 뜨고, 허락하면 늘어난 기간의 세션 기록을 다시 읽습니다. 줄일
-        때는 묻지 않습니다.
-      </p>
+      <p className="u-hint">{t('settings.window.note')}</p>
     </Card>
   )
 }

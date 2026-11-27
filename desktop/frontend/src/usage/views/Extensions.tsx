@@ -9,7 +9,7 @@ import { useEventPages } from './extensions/useEventPages'
 import './extensions.css'
 
 /**
- * 확장 이벤트 page: the local event endpoint, who sends to it, what arrived
+ * Extension events page: the local event endpoint, who sends to it, what arrived
  * and how to connect a tool. It works before transcript collection is
  * allowed, so it reads nothing that depends on consent.
  */

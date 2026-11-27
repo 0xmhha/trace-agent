@@ -11,8 +11,9 @@ import {
   ratio,
   type Loaded,
 } from '../../ui'
+import { t } from '../../../i18n'
 
-const count = (n: number) => fmtInt(n) + '건'
+const count = (n: number) => t('extensions.amount', { n: fmtInt(n) })
 
 function sum(rows: ExtSourceRow[], pick: (row: ExtSourceRow) => number): number {
   return rows.reduce((total, row) => total + pick(row), 0)
@@ -37,65 +38,70 @@ export function SourcesCard(p: {
     rejected = data?.rejected ?? 0
 
   return (
-    <Card title="출처별 현황" hint="선택한 기간에 이벤트를 보낸 도구입니다.">
+    <Card title={t('extensions.sources.title')} hint={t('extensions.sources.hint')}>
       <ErrorNote error={overview.error} retry={overview.reload} />
       {data && (
         <div className="u-stats u-ext-stats">
-          <Stat label="출처" value={fmtInt(rows.length) + '개'} />
-          <Stat label="이벤트" value={count(events)} />
           <Stat
-            label="오류"
+            label={t('extensions.stat.sources')}
+            value={t('extensions.stat.sourcesValue', { n: fmtInt(rows.length) })}
+          />
+          <Stat label={t('extensions.stat.events')} value={count(events)} />
+          <Stat
+            label={t('extensions.stat.errors')}
             value={count(errors)}
-            hint={'오류율 ' + fmtPct(ratio(errors, events))}
+            hint={t('extensions.stat.errorRate', { rate: fmtPct(ratio(errors, events)) })}
             tone={errors > 0 ? 'bad' : 'plain'}
           />
-          <Stat label="미연계" value={count(unlinked)} hint="세션 ID 없이 온 이벤트" />
           <Stat
-            label="거부된 입력"
+            label={t('extensions.stat.unlinked')}
+            value={count(unlinked)}
+            hint={t('extensions.stat.unlinkedHint')}
+          />
+          <Stat
+            label={t('extensions.stat.rejected')}
             value={count(rejected)}
-            hint="기간과 무관한 누적"
+            hint={t('extensions.stat.rejectedHint')}
             tone={rejected > 0 ? 'warn' : 'plain'}
           />
         </div>
       )}
       {rejected > 0 && (
         <div className="u-note u-note-warn">
-          받지 않고 거부한 입력이 {count(rejected)} 있습니다. 대개 전송 형식이 맞지 않을 때
-          생깁니다. 필수 필드와 값의 형식을 확인해 주세요. 출처를 알 수 없는 입력도 이 수에
-          들어갑니다.
+          {t('extensions.rejectedNote', { count: rejected, n: fmtInt(rejected) })}
         </div>
       )}
       {!data ? (
         !overview.error && (
           <Empty>
-            <span role="status">출처를 읽는 중입니다.</span>
+            <span role="status">{t('extensions.sources.loading')}</span>
           </Empty>
         )
       ) : rows.length === 0 ? (
         <Empty>
           {p.endpointOn
-            ? '이 기간에 받은 이벤트가 없습니다. 아래 연결 방법대로 보내면 여기에 나타납니다.'
-            : '이 기간에 받은 이벤트가 없습니다. 수신기가 꺼져 있어 새 이벤트를 받지 않습니다.'}
+            ? t('extensions.sources.none')
+            : t('extensions.events.noneOff')}
         </Empty>
       ) : (
         <div className="u-table-wrap">
-          <table className="u-table u-ext-sources" aria-label="출처별 현황">
+          <table className="u-table u-ext-sources" aria-label={t('extensions.sources.title')}>
             <thead>
               <tr>
-                <th scope="col">출처</th>
+                <th scope="col">{t('extensions.col.source')}</th>
                 <th scope="col" className="num">
-                  이벤트
+                  {t('extensions.col.events')}
                 </th>
                 <th scope="col" className="num">
-                  오류
+                  {t('extensions.col.errors')}
                 </th>
                 <th scope="col" className="num">
-                  연계 / 미연계
+                  {t('extensions.col.linked')}
                 </th>
                 <th scope="col" className="num">
-                  거부된 입력
+                  {t('extensions.col.rejected')}
                 </th>
-                <th scope="col">마지막 수신</th>
+                <th scope="col">{t('extensions.col.lastAt')}</th>
               </tr>
             </thead>
             <tbody>
@@ -113,11 +119,11 @@ export function SourcesCard(p: {
                         type="button"
                         className="u-ext-rowbtn"
                         aria-pressed={picked}
-                        title={picked ? '이 출처 필터 해제' : '이 출처의 이벤트만 보기'}
+                        title={picked ? t('extensions.source.unpick') : t('extensions.source.pick')}
                       >
                         {row.source}
                       </button>
-                      {picked && <Pill>선택됨</Pill>}
+                      {picked && <Pill>{t('extensions.source.picked')}</Pill>}
                     </td>
                     <td className="num">{count(row.events)}</td>
                     <td className={'num' + (row.errors > 0 ? ' u-tone-bad' : '')}>

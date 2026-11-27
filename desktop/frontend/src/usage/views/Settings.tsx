@@ -9,6 +9,8 @@ import { ReadStateCard } from './settings/ReadStateCard'
 import { ReceiverCard } from './settings/ReceiverCard'
 import { WatchCard } from './settings/WatchCard'
 import { WindowCard } from './settings/WindowCard'
+import { LanguageCard } from './settings/LanguageCard'
+import { t } from '../../i18n'
 import './settings.css'
 
 /**
@@ -17,7 +19,7 @@ import './settings.css'
  */
 const PROJECT_LIST_DAYS = 365
 
-/** 수집 설정: what is collected, how far back, from which projects. */
+/** Collection settings: what is collected, how far back, from which projects. */
 export function Settings({ api, route, navigate, status, refresh, onStatus }: ViewProps) {
   // The range end moves only when stored data changed, as on the other pages.
   const range = useMemo(() => lastDays(PROJECT_LIST_DAYS), [refresh])
@@ -38,9 +40,9 @@ export function Settings({ api, route, navigate, status, refresh, onStatus }: Vi
 
   if (!status)
     return (
-      <Card title="수집 설정">
+      <Card title={t('settings.title')}>
         <p className="u-empty" role="status">
-          수집 상태를 아직 받지 못했습니다.
+          {t('settings.noStatus')}
         </p>
       </Card>
     )
@@ -69,9 +71,10 @@ export function Settings({ api, route, navigate, status, refresh, onStatus }: Vi
           endpoint={status.extension}
           open={() => navigate({ view: 'extensions', days: route.days, project: route.project })}
         />
+        <LanguageCard />
       </div>
       <p className="u-hint u-set-foot">
-        추적 출처(OTel 수신기, 훅)는 추적 → 출처와 설정에서 설정합니다.
+        {t('settings.foot')}
       </p>
     </div>
   )

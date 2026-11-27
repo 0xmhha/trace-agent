@@ -1,5 +1,6 @@
 import type { ExtLevel, ExtStatus } from '../../types'
 import type { Tone } from '../../ui'
+import { formatDate, t, type MessageKey } from '../../../i18n'
 
 /** Environment variables trace-emit and the examples read. */
 export const URL_ENV = 'TRACE_EVENTS_URL'
@@ -13,14 +14,16 @@ export const EVENT_PAGE_MAX = 200
 /** Levels in rising order, as senders write them on the wire. */
 export const levels: readonly ExtLevel[] = ['debug', 'info', 'warn', 'error']
 
-const statusPills: Record<ExtStatus, { label: string; tone: Tone }> = {
-  ok: { label: '성공', tone: 'good' },
-  error: { label: '오류', tone: 'bad' },
-  unknown: { label: '미확인', tone: 'muted' },
+// Message keys, not text, so the labels follow the current locale.
+const statusPills: Record<ExtStatus, { label: MessageKey; tone: Tone }> = {
+  ok: { label: 'extensions.status.ok', tone: 'good' },
+  error: { label: 'extensions.status.error', tone: 'bad' },
+  unknown: { label: 'extensions.status.unknown', tone: 'muted' },
 }
 /** Label and tone of a status; a value this build does not know reads as unknown. */
 export function statusPill(status: ExtStatus): { label: string; tone: Tone } {
-  return statusPills[status] ?? statusPills.unknown
+  const pill = statusPills[status] ?? statusPills.unknown
+  return { label: t(pill.label), tone: pill.tone }
 }
 
 /** Filters of the event list. An empty string means "all". */
@@ -75,16 +78,11 @@ export function displayUrl(raw: string): string {
   }
 }
 
-/** Message of a rejected request, with a fallback for non-Error rejections. */
-export function errorText(reason: unknown, fallback: string): string {
-  return reason instanceof Error && reason.message ? reason.message : fallback
-}
-
 /** Time with seconds and milliseconds, for telling apart events of one minute. */
 export function fmtPrecise(at: string): string {
   const ms = Date.parse(at)
-  if (!Number.isFinite(ms) || ms <= 0) return '시각 미상'
-  return new Date(ms).toLocaleString('ko-KR', {
+  if (!Number.isFinite(ms) || ms <= 0) return t('extensions.unknownTime')
+  return formatDate(ms, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

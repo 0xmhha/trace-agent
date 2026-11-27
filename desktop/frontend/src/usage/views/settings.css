@@ -1,4 +1,4 @@
-/* 수집 설정 view. Every class here starts with u-set-. Colors come from the
+/* Collection settings view. Every class here starts with u-set-. Colors come from the
    variables that usage.css defines on .u-page. */
 .u-set {
   display: flex;
@@ -53,7 +53,7 @@
   overflow-wrap: anywhere;
 }
 
-/* 수집 card: state on the left, what is kept on the right. */
+/* Collection card: state on the left, what is kept on the right. */
 .u-set-watch {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
@@ -139,7 +139,7 @@
   max-width: 20rem;
 }
 
-/* 프로젝트 card. */
+/* Projects card. */
 .u-set-listbar {
   display: flex;
   flex-wrap: wrap;
@@ -261,7 +261,7 @@
   filter: brightness(0.88);
 }
 
-/* 관리 card: a description with its button, then the confirmation. */
+/* Manage card: a description with its button, then the confirmation. */
 .u-set-task {
   display: flex;
   align-items: flex-start;

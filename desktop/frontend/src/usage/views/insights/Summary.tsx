@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import type { InsightReport } from '../../types'
 import { Card, fmtDateTime, fmtInt, fmtPct, ratio } from '../../ui'
+import { t } from '../../../i18n'
 
 type Outcome = 'fired' | 'passed' | 'skipped'
 
@@ -17,22 +18,22 @@ function outcomes(report: InsightReport): OutcomeCount[] {
   return [
     {
       id: 'fired',
-      label: '발견',
-      hint: '개선할 점을 찾은 규칙',
+      label: t('insights.outcome.fired'),
+      hint: t('insights.outcome.fired.hint'),
       glyph: '!',
       count: report.rulesFired,
     },
     {
       id: 'passed',
-      label: '통과',
-      hint: '문제를 찾지 못한 규칙',
+      label: t('insights.outcome.passed'),
+      hint: t('insights.outcome.passed.hint'),
       glyph: '✓',
       count: report.rulesPassed,
     },
     {
       id: 'skipped',
-      label: '판단 보류',
-      hint: '자료가 모자라 판단하지 못한 규칙',
+      label: t('insights.outcome.skipped'),
+      hint: t('insights.outcome.skipped.hint'),
       glyph: '?',
       count: report.rulesSkipped,
     },
@@ -51,9 +52,12 @@ const PERCENT = 100
 function OutcomeBar(p: { parts: OutcomeCount[]; total: number }) {
   // useId may contain characters that are not valid inside url(#...).
   const hatchId = 'u-ins-hatch-' + useId().replace(/[^A-Za-z0-9]/g, '')
-  const summary =
-    `규칙 ${fmtInt(p.total)}개 가운데 ` +
-    p.parts.map((part) => `${part.label} ${fmtInt(part.count)}개`).join(', ')
+  const summary = t('insights.bar.summary', {
+    total: fmtInt(p.total),
+    parts: p.parts
+      .map((part) => t('insights.bar.part', { label: part.label, n: fmtInt(part.count) }))
+      .join(', '),
+  })
   let start = 0
   return (
     <div className="u-ins-bar">
@@ -86,7 +90,11 @@ function OutcomeBar(p: { parts: OutcomeCount[]; total: number }) {
               fill={part.id === 'skipped' ? `url(#${hatchId})` : undefined}
             >
               <title>
-                {part.label} {fmtInt(part.count)}개 ({fmtPct(ratio(part.count, p.total))})
+                {t('insights.bar.segment', {
+                  label: part.label,
+                  n: fmtInt(part.count),
+                  share: fmtPct(ratio(part.count, p.total)),
+                })}
               </title>
             </rect>
           )
@@ -99,12 +107,14 @@ function OutcomeBar(p: { parts: OutcomeCount[]; total: number }) {
 // A skipped rule was not judged, so it must not read as "looked at and fine".
 function leadSentence(report: InsightReport, total: number): string {
   const { rulesFired: fired, rulesPassed: passed, rulesSkipped: skipped } = report
-  if (total === 0) return '이 범위에서 판단한 규칙이 없습니다.'
+  if (total === 0) return t('insights.noneJudged')
   if (fired > 0)
-    return `규칙 ${fmtInt(total)}개 가운데 ${fmtInt(fired)}개에서 개선할 점을 찾았습니다.`
-  if (skipped === 0) return `규칙 ${fmtInt(total)}개를 모두 통과했습니다.`
-  if (passed === 0) return `규칙 ${fmtInt(total)}개 모두 자료가 모자라 판단하지 못했습니다.`
-  return `판단할 수 있었던 규칙 ${fmtInt(passed)}개에서는 개선할 점을 찾지 못했습니다.`
+    return t('insights.lead.fired', { total: fmtInt(total), fired: fmtInt(fired) })
+  if (skipped === 0)
+    return t('insights.lead.allPassed', { count: total, total: fmtInt(total) })
+  if (passed === 0)
+    return t('insights.lead.allSkipped', { count: total, total: fmtInt(total) })
+  return t('insights.lead.passedRest', { count: passed, passed: fmtInt(passed) })
 }
 
 /** How many rules fired, passed and could not be judged, and when. */
@@ -114,10 +124,12 @@ export function Summary({ report }: { report: InsightReport }) {
   const lead = leadSentence(report, total)
   return (
     <Card
-      title="규칙 판단 결과"
+      title={t('insights.summary.title')}
       hint={lead}
       action={
-        <span className="u-ins-generated">분석 시각 {fmtDateTime(report.generatedAt)}</span>
+        <span className="u-ins-generated">
+          {t('insights.summary.generated', { at: fmtDateTime(report.generatedAt) })}
+        </span>
       }
     >
       <ul className="u-ins-counts">
@@ -131,7 +143,9 @@ export function Summary({ report }: { report: InsightReport }) {
             </span>
             <strong className="u-ins-count-value">
               {fmtInt(part.count)}
-              <span className="u-ins-count-unit">개</span>
+              <span className="u-ins-count-unit">
+                {t('insights.summary.unit', { count: part.count })}
+              </span>
             </strong>
             <span className="u-hint">{part.hint}</span>
           </li>

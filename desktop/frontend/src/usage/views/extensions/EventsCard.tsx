@@ -10,6 +10,7 @@ import {
   type EventFilter,
 } from './model'
 import type { EventPages } from './useEventPages'
+import { t } from '../../../i18n'
 
 const COLUMN_COUNT = 7
 // Row positions make a valid element ID whatever characters an event ID holds.
@@ -17,15 +18,18 @@ const DETAIL_ID_PREFIX = 'u-ext-detail-'
 
 function detailFields(event: ExtEvent): [label: string, value: string][] {
   const fields: [string, string | undefined][] = [
-    ['발생 시각', fmtPrecise(event.at)],
-    ['받은 시각', fmtPrecise(event.receivedAt)],
-    ['수준', event.level],
-    ['값', event.value == null ? undefined : event.value + (event.unit ? ' ' + event.unit : '')],
-    ['세션 ID', event.sessionId],
-    ['도구 호출 ID', event.toolUseId],
-    ['trace ID', event.traceId],
-    ['span ID', event.spanId],
-    ['상위 span ID', event.parentSpanId],
+    [t('extensions.field.at'), fmtPrecise(event.at)],
+    [t('extensions.field.receivedAt'), fmtPrecise(event.receivedAt)],
+    [t('extensions.field.level'), event.level],
+    [
+      t('extensions.field.value'),
+      event.value == null ? undefined : event.value + (event.unit ? ' ' + event.unit : ''),
+    ],
+    [t('extensions.field.sessionId'), event.sessionId],
+    [t('extensions.field.toolUseId'), event.toolUseId],
+    [t('extensions.field.traceId'), event.traceId],
+    [t('extensions.field.spanId'), event.spanId],
+    [t('extensions.field.parentSpanId'), event.parentSpanId],
   ]
   return fields.filter((field): field is [string, string] => Boolean(field[1]))
 }
@@ -36,15 +40,15 @@ function EventDetail({ event }: { event: ExtEvent }) {
   return (
     <div className="u-ext-detail-body">
       <section>
-        <h3>메시지</h3>
+        <h3>{t('extensions.detail.message')}</h3>
         {event.message ? (
           <pre className="u-ext-text">{event.message}</pre>
         ) : (
-          <p className="u-tone-muted">메시지가 없습니다.</p>
+          <p className="u-tone-muted">{t('extensions.detail.noMessage')}</p>
         )}
       </section>
       <section>
-        <h3>속성</h3>
+        <h3>{t('extensions.detail.attributes')}</h3>
         {attributes.length ? (
           <dl className="u-ext-fields">
             {attributes.map(([key, value]) => (
@@ -55,11 +59,11 @@ function EventDetail({ event }: { event: ExtEvent }) {
             ))}
           </dl>
         ) : (
-          <p className="u-tone-muted">속성이 없습니다.</p>
+          <p className="u-tone-muted">{t('extensions.detail.noAttributes')}</p>
         )}
       </section>
       <section>
-        <h3>식별 정보</h3>
+        <h3>{t('extensions.detail.ids')}</h3>
         <dl className="u-ext-fields">
           {detailFields(event).map(([label, value]) => (
             <Fragment key={label}>
@@ -97,15 +101,15 @@ export function EventsCard(p: {
     filter.source && !p.sources.includes(filter.source) ? [filter.source, ...p.sources] : p.sources
 
   return (
-    <Card title="이벤트" hint="최근 것부터 보여 줍니다. 이름을 누르면 메시지와 속성을 펼칩니다.">
+    <Card title={t('extensions.events.title')} hint={t('extensions.events.hint')}>
       <div className="u-ext-filters">
         <label>
-          출처
+          {t('extensions.filter.source')}
           <select
             value={filter.source}
             onChange={(e) => onFilter({ ...filter, source: e.target.value })}
           >
-            <option value="">전체</option>
+            <option value="">{t('extensions.filter.all')}</option>
             {sources.map((source) => (
               <option key={source} value={source}>
                 {source}
@@ -114,12 +118,12 @@ export function EventsCard(p: {
           </select>
         </label>
         <label>
-          수준
+          {t('extensions.filter.level')}
           <select
             value={filter.level}
             onChange={(e) => onFilter({ ...filter, level: e.target.value as ExtLevel | '' })}
           >
-            <option value="">전체</option>
+            <option value="">{t('extensions.filter.all')}</option>
             {levels.map((level) => (
               <option key={level} value={level}>
                 {level}
@@ -129,54 +133,57 @@ export function EventsCard(p: {
         </label>
         {filtered && (
           <button type="button" onClick={() => onFilter(noFilter)}>
-            필터 지우기
+            {t('extensions.filter.clear')}
           </button>
         )}
         <span className="u-ext-count" role="status">
           {!pages.loaded
             ? pages.error
               ? ''
-              : '읽는 중'
+              : t('extensions.count.loading')
             : pages.items.length < pages.total
-              ? `${fmtInt(pages.total)}건 중 ${fmtInt(pages.items.length)}건`
-              : `${fmtInt(pages.total)}건`}
+              ? t('extensions.count.partial', {
+                  total: fmtInt(pages.total),
+                  shown: fmtInt(pages.items.length),
+                })
+              : t('extensions.count.total', { count: pages.total, total: fmtInt(pages.total) })}
         </span>
       </div>
       <ErrorNote error={pages.error} retry={pages.reload} />
       {!pages.loaded ? (
         !pages.error && (
           <Empty>
-            <span role="status">이벤트를 읽는 중입니다.</span>
+            <span role="status">{t('extensions.events.loading')}</span>
           </Empty>
         )
       ) : pages.items.length === 0 ? (
         <Empty>
           {filtered
-            ? '조건에 맞는 이벤트가 없습니다. 필터를 지우면 전체를 볼 수 있습니다.'
+            ? t('extensions.events.noMatch')
             : p.endpointOn
-              ? '이 기간에 받은 이벤트가 없습니다.'
-              : '이 기간에 받은 이벤트가 없습니다. 수신기가 꺼져 있어 새 이벤트를 받지 않습니다.'}
+              ? t('extensions.events.none')
+              : t('extensions.events.noneOff')}
         </Empty>
       ) : (
         <div className="u-table-wrap">
           <table
             className={'u-table u-ext-events' + (pages.loading ? ' u-ext-stale' : '')}
-            aria-label="이벤트 목록"
+            aria-label={t('extensions.events.aria')}
             aria-busy={pages.loading}
           >
             <thead>
               <tr>
-                <th scope="col">시각</th>
-                <th scope="col">출처</th>
+                <th scope="col">{t('extensions.col.time')}</th>
+                <th scope="col">{t('extensions.col.source')}</th>
                 <th scope="col" className="u-ext-col-kind">
-                  종류
+                  {t('extensions.col.kind')}
                 </th>
-                <th scope="col">이름</th>
-                <th scope="col">상태</th>
+                <th scope="col">{t('extensions.col.name')}</th>
+                <th scope="col">{t('extensions.col.status')}</th>
                 <th scope="col" className="num">
-                  소요
+                  {t('extensions.col.duration')}
                 </th>
-                <th scope="col">세션</th>
+                <th scope="col">{t('extensions.col.session')}</th>
               </tr>
             </thead>
             <tbody>
@@ -220,12 +227,12 @@ export function EventsCard(p: {
                             title={sessionId}
                             onClick={() => p.onSession(sessionId)}
                           >
-                            세션 보기
+                            {t('extensions.session.open')}
                           </button>
                         ) : event.sessionId ? (
-                          <span title={event.sessionId}>연계됨</span>
+                          <span title={event.sessionId}>{t('extensions.session.linked')}</span>
                         ) : (
-                          <span className="u-tone-muted">미연계</span>
+                          <span className="u-tone-muted">{t('extensions.session.unlinked')}</span>
                         )}
                       </td>
                     </tr>
@@ -246,7 +253,7 @@ export function EventsCard(p: {
       {pages.hasMore && (
         <div className="u-ext-more">
           <button type="button" disabled={pages.loadingMore} onClick={pages.more}>
-            {pages.loadingMore ? '읽는 중…' : '더 보기'}
+            {pages.loadingMore ? t('extensions.more.loading') : t('extensions.more')}
           </button>
         </div>
       )}

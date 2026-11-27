@@ -1,6 +1,7 @@
 import type { Coverage, ToolUsage } from '../../types'
 import { Empty, Stat, fmtInt, fmtPct, ratio } from '../../ui'
 import { categories, failureTone, type CategoryMeta } from './model'
+import { t } from '../../../i18n'
 
 const SHARE_BAR_HEIGHT = 8
 const SHARE_GAP_PX = 2
@@ -20,7 +21,7 @@ interface Share {
 
 function sharesOf(tools: readonly ToolUsage[], total: number): Share[] {
   return categories.map((meta) => {
-    const calls = tools.reduce((n, t) => (t.category === meta.id ? n + t.calls : n), 0)
+    const calls = tools.reduce((n, tool) => (tool.category === meta.id ? n + tool.calls : n), 0)
     return { meta, calls, share: ratio(calls, total) }
   })
 }
@@ -38,9 +39,9 @@ const pct = (part: number) => part * 100 + '%'
 function ShareBar({ shares }: { shares: readonly Share[] }) {
   const widths = drawnWidths(shares)
   const starts = widths.map((_, i) => widths.slice(0, i).reduce((a, b) => a + b, 0))
-  const label =
-    '분류별 호출 비중: ' +
-    shares.map((s) => `${s.meta.label} ${fmtPct(s.share)}`).join(', ')
+  const label = t('tools.summary.shareAria', {
+    parts: shares.map((s) => `${t(s.meta.labelKey)} ${fmtPct(s.share)}`).join(', '),
+  })
   return (
     <svg
       className="u-tools-share-bar"
@@ -59,7 +60,14 @@ function ShareBar({ shares }: { shares: readonly Share[] }) {
             height={SHARE_BAR_HEIGHT}
             style={{ fill: s.meta.color }}
           >
-            <title>{`${s.meta.label} ${fmtInt(s.calls)}회 (${fmtPct(s.share)})`}</title>
+            <title>
+              {t('tools.summary.shareTitle', {
+                count: s.calls,
+                n: fmtInt(s.calls),
+                label: t(s.meta.labelKey),
+                share: fmtPct(s.share),
+              })}
+            </title>
           </rect>
         ) : null,
       )}
@@ -83,22 +91,26 @@ function ShareBar({ shares }: { shares: readonly Share[] }) {
 
 /** Totals of the tool list and the share of calls by category. */
 export function Summary({ tools, coverage }: { tools: readonly ToolUsage[]; coverage: Coverage }) {
-  const calls = tools.reduce((n, t) => n + t.calls, 0)
-  const errors = tools.reduce((n, t) => n + t.errors, 0)
-  const pending = tools.reduce((n, t) => n + t.pending, 0)
+  const calls = tools.reduce((n, tool) => n + tool.calls, 0)
+  const errors = tools.reduce((n, tool) => n + tool.errors, 0)
+  const pending = tools.reduce((n, tool) => n + tool.pending, 0)
   const rate = ratio(errors, calls)
   const shares = sharesOf(tools, calls)
   return (
     <div className="u-tools-summary">
-      <Stat label="도구 호출" value={fmtInt(calls) + '회'} hint={`도구 ${fmtInt(tools.length)}개`} />
       <Stat
-        label="전체 실패율"
+        label={t('tools.summary.calls')}
+        value={t('tools.summary.callsValue', { count: calls, n: fmtInt(calls) })}
+        hint={t('tools.summary.tools', { count: tools.length, n: fmtInt(tools.length) })}
+      />
+      <Stat
+        label={t('tools.summary.rate')}
         value={fmtPct(rate)}
         tone={failureTone(rate)}
-        hint={`실패 ${fmtInt(errors)}회 · 미완료 ${fmtInt(pending)}회`}
+        hint={t('tools.summary.rateHint', { failed: fmtInt(errors), pending: fmtInt(pending) })}
       />
       <div className="u-stat u-tools-share">
-        <span className="u-stat-label">분류별 호출 비중</span>
+        <span className="u-stat-label">{t('tools.summary.share')}</span>
         {calls > 0 ? (
           <>
             <ShareBar shares={shares} />
@@ -110,8 +122,8 @@ export function Summary({ tools, coverage }: { tools: readonly ToolUsage[]; cove
                     style={{ background: s.meta.color }}
                     aria-hidden="true"
                   />
-                  <span>{s.meta.label}</span>
-                  <b>{fmtInt(s.calls)}회</b>
+                  <span>{t(s.meta.labelKey)}</span>
+                  <b>{t('tools.summary.legendCalls', { count: s.calls, n: fmtInt(s.calls) })}</b>
                   <span className="u-tools-legend-share">{fmtPct(s.share)}</span>
                 </li>
               ))}

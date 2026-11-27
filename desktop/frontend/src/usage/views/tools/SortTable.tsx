@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { Coverage } from '../../types'
 import { Empty } from '../../ui'
+import { intlTag, t, type MessageKey } from '../../../i18n'
 
 export type SortDir = 'asc' | 'desc'
 export type SortValue = number | string | null
@@ -19,7 +20,7 @@ export interface SortState {
   dir: SortDir
 }
 
-const sortLabels: Record<SortDir, string> = { asc: '오름차순', desc: '내림차순' }
+const sortLabels: Record<SortDir, MessageKey> = { asc: 'tools.sort.asc', desc: 'tools.sort.desc' }
 const ariaSort: Record<SortDir, 'ascending' | 'descending'> = {
   asc: 'ascending',
   desc: 'descending',
@@ -28,7 +29,7 @@ const sortMarks: Record<SortDir, string> = { asc: '▲', desc: '▼' }
 
 function compare(a: SortValue, b: SortValue): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b
-  return String(a).localeCompare(String(b), 'ko-KR', { numeric: true, sensitivity: 'base' })
+  return String(a).localeCompare(String(b), intlTag(), { numeric: true, sensitivity: 'base' })
 }
 
 /**
@@ -119,8 +120,8 @@ export function SortTable<T>(p: {
                     className={'u-tools-sort' + (active ? ' u-tools-sort-active' : '')}
                     title={
                       active
-                        ? `${c.label}: ${sortLabels[sort.dir]}으로 정렬됨. 누르면 순서를 뒤집습니다.`
-                        : `${c.label} 기준으로 정렬`
+                        ? t('tools.sort.active', { column: c.label, dir: t(sortLabels[sort.dir]) })
+                        : t('tools.sort.by', { column: c.label })
                     }
                     onClick={() => toggle(c)}
                   >

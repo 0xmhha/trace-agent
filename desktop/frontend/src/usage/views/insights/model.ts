@@ -8,6 +8,7 @@ import type {
   Severity,
 } from '../../types'
 import { fmtInt, fmtMs, ratio, type Tone } from '../../ui'
+import { formatNumber, t, type MessageKey } from '../../../i18n'
 
 /** Most severe first; the order insights are listed in within a category. */
 export const severityOrder: readonly Severity[] = ['critical', 'warn', 'info']
@@ -19,35 +20,36 @@ export const categoryOrder: readonly InsightCategory[] = [
   'extension',
 ]
 
-const severityLabels: Record<Severity, string> = {
-  critical: '심각',
-  warn: '주의',
-  info: '참고',
+// Message keys, not text, so the labels follow the current locale.
+const severityLabels: Record<Severity, MessageKey> = {
+  critical: 'insights.severity.critical',
+  warn: 'insights.severity.warn',
+  info: 'insights.severity.info',
 }
 const severityTones: Record<Severity, Tone> = {
   critical: 'bad',
   warn: 'warn',
   info: 'muted',
 }
-const categoryLabels: Record<InsightCategory, string> = {
-  cost: '비용',
-  reliability: '안정성',
-  workflow: '작업 방식',
-  extension: '확장',
+const categoryLabels: Record<InsightCategory, MessageKey> = {
+  cost: 'insights.category.cost',
+  reliability: 'insights.category.reliability',
+  workflow: 'insights.category.workflow',
+  extension: 'insights.category.extension',
 }
-const categoryHints: Record<InsightCategory, string> = {
-  cost: '토큰과 캐시 사용',
-  reliability: '도구, MCP 서버, 훅의 실패',
-  workflow: '도구 선택과 세션 운영',
-  extension: '스킬, 플러그인, 확장 이벤트',
+const categoryHints: Record<InsightCategory, MessageKey> = {
+  cost: 'insights.categoryHint.cost',
+  reliability: 'insights.categoryHint.reliability',
+  workflow: 'insights.categoryHint.workflow',
+  extension: 'insights.categoryHint.extension',
 }
-const kindLabels: Record<RecommendationKind, string> = {
-  skill: '스킬',
-  plugin: '플러그인',
-  mcp: 'MCP',
-  hook: '훅',
-  setting: '설정',
-  habit: '습관',
+const kindLabels: Record<RecommendationKind, MessageKey> = {
+  skill: 'insights.kind.skill',
+  plugin: 'insights.kind.plugin',
+  mcp: 'insights.kind.mcp',
+  hook: 'insights.kind.hook',
+  setting: 'insights.kind.setting',
+  habit: 'insights.kind.habit',
 }
 
 // The Go side may gain a value before this file learns its label. An unknown
@@ -55,8 +57,12 @@ const kindLabels: Record<RecommendationKind, string> = {
 function lookup<T>(table: Record<string, T>, key: string): T | undefined {
   return Object.hasOwn(table, key) ? table[key] : undefined
 }
+function labelOf(table: Record<string, MessageKey>, key: string): string {
+  const message = lookup(table, key)
+  return message ? t(message) : key
+}
 export function severityLabel(severity: string): string {
-  return lookup(severityLabels, severity) ?? severity
+  return labelOf(severityLabels, severity)
 }
 export function severityTone(severity: string): Tone {
   return lookup(severityTones, severity) ?? 'muted'
@@ -66,10 +72,10 @@ export function knownSeverity(severity: string): Severity {
   return lookup(severityLabels, severity) ? (severity as Severity) : 'info'
 }
 export function categoryLabel(category: string): string {
-  return lookup(categoryLabels, category) ?? category
+  return labelOf(categoryLabels, category)
 }
 export function kindLabel(kind: string): string {
-  return lookup(kindLabels, kind) ?? kind
+  return labelOf(kindLabels, kind)
 }
 
 function severityRank(severity: string): number {
@@ -146,7 +152,7 @@ export function groupInsights(items: Insight[]): InsightGroup[] {
     groups.push({
       category,
       label: categoryLabel(category),
-      hint: lookup(categoryHints, category) ?? '',
+      hint: Object.hasOwn(categoryHints, category) ? labelOf(categoryHints, category) : '',
       // Array.prototype.sort is stable, so ties keep the report order.
       items: [...list].sort((a, b) => severityRank(a.severity) - severityRank(b.severity)),
     })
@@ -161,10 +167,11 @@ function plainNumber(value: number): string {
   if (!Number.isFinite(value)) return '—'
   return Number.isInteger(value)
     ? fmtInt(value)
-    : value.toLocaleString('ko-KR', { maximumFractionDigits: MAX_FRACTION_DIGITS })
+    : formatNumber(value, { maximumFractionDigits: MAX_FRACTION_DIGITS })
 }
 
-// Korean counters and "%" attach to the number; a Latin word needs a space.
+// Units come from Go in the page's language. Hangul counters and "%" attach
+// to the number; a Latin word needs a space.
 function withUnit(text: string, unit: string): string {
   if (!unit) return text
   return /^[A-Za-z]/.test(unit) ? text + ' ' + unit : text + unit
@@ -176,7 +183,7 @@ function amount(value: number, unit: string): string {
 }
 
 export interface EvidenceFigure {
-  /** "126 / 900회" or "1.2초". */
+  /** "126 / 900 calls" or "1.2 s"; the unit comes from Go in the page language. */
   text: string
   /** Value as a share of its denominator in [0, 1]; null without one. */
   share: number | null

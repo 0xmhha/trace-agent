@@ -8,8 +8,7 @@ import {
   severityOrder,
   type InsightFilter,
 } from './model'
-
-const ALL_LABEL = '전체'
+import { t } from '../../../i18n'
 
 function Chips<T extends string>(p: {
   legend: string
@@ -52,7 +51,7 @@ export function Filters(p: {
   const { items, value } = p
   const count = (filter: InsightFilter) => applyFilter(items, filter).length
   const severities = [
-    { id: 'all' as const, label: ALL_LABEL, count: count({ ...value, severity: 'all' }) },
+    { id: 'all' as const, label: t('insights.filter.all'), count: count({ ...value, severity: 'all' }) },
     ...severityOrder.map((severity) => ({
       id: severity,
       label: severityLabel(severity),
@@ -60,7 +59,7 @@ export function Filters(p: {
     })),
   ]
   const categories = [
-    { id: 'all' as const, label: ALL_LABEL, count: count({ ...value, category: 'all' }) },
+    { id: 'all' as const, label: t('insights.filter.all'), count: count({ ...value, category: 'all' }) },
     ...categoryOrder.map((category) => ({
       id: category,
       label: categoryLabel(category),
@@ -70,13 +69,13 @@ export function Filters(p: {
   return (
     <div className="u-ins-filters">
       <Chips
-        legend="심각도"
+        legend={t('insights.filter.severity')}
         options={severities}
         value={value.severity}
         onChange={(severity) => p.onChange({ ...value, severity })}
       />
       <Chips
-        legend="분류"
+        legend={t('insights.filter.category')}
         options={categories}
         value={value.category}
         onChange={(category) => p.onChange({ ...value, category })}
