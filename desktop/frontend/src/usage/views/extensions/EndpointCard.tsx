@@ -64,7 +64,7 @@ export function EndpointCard(p: {
       .then(() =>
         setNotice({
           tone: 'good',
-          text: '설정을 클립보드에 복사했습니다. 토큰이 들어 있으니 붙여 넣는 곳을 확인해 주세요.',
+          text: '설정을 클립보드에 복사했습니다. 토큰 자체는 들어 있지 않고, 키체인에서 읽어 오는 명령이 들어 있습니다.',
         }),
       )
       .catch((reason: unknown) => setError(errorText(reason, '설정을 복사하지 못했습니다.')))
@@ -111,8 +111,8 @@ export function EndpointCard(p: {
         </button>
       </div>
       <p className="u-hint u-ext-endpoint-hint">
-        설정 복사는 <code>{URL_ENV}</code> 와 <code>{TOKEN_ENV}</code> 에 넣을 주소와 토큰을
-        클립보드에 넣습니다. 토큰은 이 화면에 표시하지 않습니다.
+        설정 복사는 <code>{URL_ENV}</code> 와 <code>{TOKEN_ENV}</code> 를 정하는 셸 설정을
+        클립보드에 넣습니다. 토큰은 키체인에 두고, 설정에는 키체인에서 읽어 오는 명령만 들어갑니다.
         {!enabled && endpoint !== null && ' 수신기를 켠 뒤에 복사할 수 있습니다.'}
       </p>
       {pending === 'on' && (

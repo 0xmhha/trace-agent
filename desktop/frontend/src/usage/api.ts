@@ -82,7 +82,8 @@ export const nativeApi: UsageApi = {
   rescan: () => call('rescan'),
   clearData: () => call('clearData'),
   setExtensionEnabled: (enabled) => call('setExtensionEnabled', { enabled }),
-  enableWatch: () => bridge().EnableUsageWatch(),
-  disableWatch: () => bridge().DisableUsageWatch(),
-  copyExtensionSettings: () => bridge().CopyExtensionSettings(),
+  // async, so that a missing bridge rejects instead of throwing synchronously.
+  enableWatch: async () => bridge().EnableUsageWatch(),
+  disableWatch: async () => bridge().DisableUsageWatch(),
+  copyExtensionSettings: async () => bridge().CopyExtensionSettings(),
 }
