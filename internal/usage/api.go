@@ -138,6 +138,35 @@ type Query struct {
 	Range    Range  `json:"range"`
 	Project  string `json:"project,omitempty"`
 	BinHours int    `json:"binHours,omitempty"`
+	// Locale selects the language of generated text (insight titles,
+	// details and recommendations). Empty or unknown means LocaleDefault.
+	Locale Locale `json:"locale,omitempty"`
+}
+
+// Locale is a user-interface language code.
+type Locale string
+
+// Supported locales. Adding one means a column in every message table that
+// produces user-facing text (internal/usage/insight, desktop dialogs) and a
+// row in the frontend LOCALES list.
+const (
+	LocaleEnglish Locale = "en"
+	LocaleKorean  Locale = "ko"
+	// LocaleDefault is used for an empty or unsupported code.
+	LocaleDefault = LocaleEnglish
+)
+
+// Locales lists the supported locales, default first.
+func Locales() []Locale { return []Locale{LocaleEnglish, LocaleKorean} }
+
+// NormalizeLocale returns l when it is supported and LocaleDefault otherwise.
+func NormalizeLocale(l Locale) Locale {
+	for _, known := range Locales() {
+		if l == known {
+			return l
+		}
+	}
+	return LocaleDefault
 }
 
 // TokenTotals splits token counts the way the model API reports them.
@@ -442,6 +471,26 @@ type TimelineItem struct {
 	Tool      *TimelineTool `json:"tool,omitempty"`
 	Hook      *TimelineHook `json:"hook,omitempty"`
 	Ext       *ExtEvent     `json:"ext,omitempty"`
+	// System describes a system item in structured form so that the page can
+	// word it in the user's language. Label carries an English fallback.
+	System *TimelineSystem `json:"system,omitempty"`
+}
+
+// SystemKind names what a system timeline item marks.
+type SystemKind string
+
+// System item kinds.
+const (
+	SystemTurnEnd    SystemKind = "turn_end"
+	SystemCompaction SystemKind = "compaction"
+)
+
+// TimelineSystem is the structured form of a system item. DurationMs is set
+// for a turn end that reported one; Trigger for a compaction that named one.
+type TimelineSystem struct {
+	Kind       SystemKind `json:"kind"`
+	DurationMs *int64     `json:"durationMs,omitempty"`
+	Trigger    string     `json:"trigger,omitempty"`
 }
 
 // TimelinePage is one page of a session timeline. Skipped counts lines in the
@@ -522,6 +571,8 @@ type Insight struct {
 // the total number of refused extension inputs, including those that could
 // not be attributed to a sender.
 type InsightInput struct {
+	// Locale selects the language of the generated text.
+	Locale      Locale
 	Range       Range
 	Overview    Overview
 	Tools       Tools

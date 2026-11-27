@@ -48,6 +48,8 @@ export interface Query {
   range: Range
   project?: string
   binHours?: number
+  /** Language of generated text such as insights; see i18n LOCALES. */
+  locale?: string
 }
 export interface TokenTotals {
   input: number
@@ -252,7 +254,15 @@ export interface ExtEvent {
   value?: number
   unit?: string
 }
+export type SystemKind = 'turn_end' | 'compaction'
+export interface TimelineSystem {
+  kind: SystemKind
+  durationMs?: number
+  trigger?: string
+}
 export interface TimelineItem {
+  /** Structured form of a system item; label is an English fallback. */
+  system?: TimelineSystem
   id: string
   at: Instant
   kind: TimelineKind
