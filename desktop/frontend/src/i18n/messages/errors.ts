@@ -27,6 +27,7 @@ export const en = {
   'receiver.clipboard': 'Could not copy to the clipboard.',
 
   'usage.unavailable': 'Usage analytics could not start.',
+  'bridge.missing': 'Open this page in the installed app.',
   'usage.failed': 'The usage request could not be completed.',
   'usage.bad_request': 'Check the request.',
   'usage.not_found': 'Session not found.',
@@ -58,6 +59,7 @@ export const ko: Record<keyof typeof en, string> = {
   'receiver.clipboard': '클립보드에 복사할 수 없습니다.',
 
   'usage.unavailable': '사용 분석을 시작하지 못했습니다.',
+  'bridge.missing': '설치한 앱에서 열어 주세요.',
   'usage.failed': '사용 분석 요청을 처리하지 못했습니다.',
   'usage.bad_request': '요청을 확인해 주세요.',
   'usage.not_found': '세션을 찾을 수 없습니다.',

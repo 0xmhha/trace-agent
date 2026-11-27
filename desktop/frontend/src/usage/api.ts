@@ -57,7 +57,7 @@ function bridge(): UsageBridge {
     window as unknown as { go?: { main?: { Bridge?: Partial<UsageBridge> } } }
   ).go?.main?.Bridge
   if (!b?.Usage || !b.EnableUsageWatch || !b.DisableUsageWatch || !b.CopyExtensionSettings)
-    throw Error('설치한 앱에서 열어 주세요.')
+    throw Error('bridge.missing')
   return b as UsageBridge
 }
 
