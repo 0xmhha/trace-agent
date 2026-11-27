@@ -1,4 +1,5 @@
 import type { Filter, Fixed, Row } from './data'
+import { t, type MessageKey } from './i18n'
 export type Selection = {
   kind: string
   task?: { taskId: string }
@@ -16,7 +17,11 @@ export type Route = {
   scene?: string
   lane?: string
   explicit?: boolean
-  notice?: string
+  /**
+   * Notice above the screen. It is a message key, so that an entry kept in
+   * the browser history is shown in the locale of the moment.
+   */
+  notice?: MessageKey
   play?: boolean
   after?: string
   caption?: string
@@ -30,13 +35,47 @@ export interface TraceNavEntry {
   /** The entry that follows the tasks in progress instead of a fixed list. */
   live?: boolean
 }
-/** Sidebar entries of the trace group, in display order. */
+/**
+ * Sidebar entries of the trace group, in display order. The labels are
+ * getters so that they follow the current locale.
+ */
 export const traceNav: readonly TraceNavEntry[] = [
-  { kind: 'TASKS', label: '실시간', icon: '⌁', live: true },
-  { kind: 'OVERVIEW', label: '개요', icon: '▥' },
-  { kind: 'TASKS', label: '작업', icon: '☷' },
-  { kind: 'MODULE_GROUPS', label: '모듈', icon: '◫' },
-  { kind: 'SOURCES', label: '출처와 설정', icon: '⚙' },
+  {
+    kind: 'TASKS',
+    get label() {
+      return t('shell.navLive')
+    },
+    icon: '⌁',
+    live: true,
+  },
+  {
+    kind: 'OVERVIEW',
+    get label() {
+      return t('shell.navOverview')
+    },
+    icon: '▥',
+  },
+  {
+    kind: 'TASKS',
+    get label() {
+      return t('shell.navTasks')
+    },
+    icon: '☷',
+  },
+  {
+    kind: 'MODULE_GROUPS',
+    get label() {
+      return t('shell.navModules')
+    },
+    icon: '◫',
+  },
+  {
+    kind: 'SOURCES',
+    get label() {
+      return t('shell.navSources')
+    },
+    icon: '⚙',
+  },
 ]
 /** A task sequence belongs to the live entry even though its kind differs. */
 export function isLive(s: Selection): boolean {
@@ -50,6 +89,7 @@ export function navSelection(e: TraceNavEntry): Selection {
 export function navSelected(e: TraceNavEntry, s: Selection): boolean {
   return e.live ? isLive(s) : !isLive(s) && s.kind === e.kind
 }
+const BAD_TASK_ADDRESS_NOTICE: MessageKey = 'shell.badTaskAddress'
 export const task = (taskId: string) => ({ taskId })
 export const entity = (taskId: string, id: string) => ({ taskId, id })
 export function interval(hours: number): Filter {
@@ -65,8 +105,7 @@ export function initial(): Route {
     if (!/^[a-zA-Z0-9._-]{1,128}$/.test(id)) {
       return {
         selection: { kind: 'TASKS', activeTasksOnly: true },
-        notice:
-          '작업 주소를 확인할 수 없습니다. 진행 중인 작업을 선택해 주세요.',
+        notice: BAD_TASK_ADDRESS_NOTICE,
       }
     }
     return {

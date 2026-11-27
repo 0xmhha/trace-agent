@@ -25,6 +25,7 @@ import {
   type Selection,
 } from '../nav'
 import { Screen } from './views/Screen'
+import { t, type MessageKey } from '../i18n'
 
 type Snapshot = { stamp: Stamp; screen: Row }
 // Changing the inspector or reselecting an open view keeps the same subscription.
@@ -32,28 +33,35 @@ function subscriptionKey(r: Route, defaultFilter: Filter) {
   return JSON.stringify([r.selection, r.fixed, r.filter ?? defaultFilter])
 }
 // Page title of every selection kind.
-const names: Record<string, string> = {
-  OVERVIEW: '개요',
-  TASKS: '작업',
-  TASK: '작업 상세',
-  AGENTS: '하위 에이전트',
-  AGENT: '에이전트 상세',
-  ATTEMPTS: '호출 시도',
-  ATTEMPT: '호출 상세',
-  MODULES: '모듈',
-  MODULE: '모듈 상세',
-  MODULE_GROUPS: '모듈',
-  MODULE_GROUP: '모듈 그룹',
-  SOURCES: '출처와 설정',
-  SOURCE: '출처 상세',
-  UNLINKED: '미연계 근거',
-  UNLINKED_DETAIL: '근거 상세',
-  PLAN: '계획',
-  STEP_ACTIVITIES: '단계 활동',
-  SEQUENCE: '작업 시퀀스',
-  IDENTITIES: '에이전트 식별',
-  IDENTITY: '식별 상세',
+const names: Record<string, MessageKey> = {
+  OVERVIEW: 'shell.titleOverview',
+  TASKS: 'shell.titleTasks',
+  TASK: 'shell.titleTask',
+  AGENTS: 'shell.titleAgents',
+  AGENT: 'shell.titleAgent',
+  ATTEMPTS: 'shell.titleAttempts',
+  ATTEMPT: 'shell.titleAttempt',
+  MODULES: 'shell.titleModules',
+  MODULE: 'shell.titleModule',
+  MODULE_GROUPS: 'shell.titleModuleGroups',
+  MODULE_GROUP: 'shell.titleModuleGroup',
+  SOURCES: 'shell.titleSources',
+  SOURCE: 'shell.titleSource',
+  UNLINKED: 'shell.titleUnlinked',
+  UNLINKED_DETAIL: 'shell.titleUnlinkedDetail',
+  PLAN: 'shell.titlePlan',
+  STEP_ACTIVITIES: 'shell.titleStepActivities',
+  SEQUENCE: 'shell.titleSequence',
+  IDENTITIES: 'shell.titleIdentities',
+  IDENTITY: 'shell.titleIdentity',
 }
+// State of the connection to the local collector, worded at render.
+const connectionText = {
+  connecting: 'shell.connecting',
+  connected: 'shell.connected',
+  lost: 'shell.disconnected',
+} as const satisfies Record<string, MessageKey>
+type ConnectionState = keyof typeof connectionText
 /** What the shell's sidebar needs from the mounted trace workspace. */
 export interface TraceNav {
   selection: Selection
@@ -79,7 +87,8 @@ export function TraceWorkspace(p: {
   owned: () => boolean
 }) {
   const [connection, setConn] = useState<Connection | null>(null),
-    [connectionState, setConnectionState] = useState('연결 중')
+    [connectionState, setConnectionState] =
+      useState<ConnectionState>('connecting')
   const [route, setRoute] = useState<Route>(initial),
     [defaultFilter] = useState<Filter>(() => interval(24))
   const filter = route.filter ?? defaultFilter,
@@ -186,7 +195,7 @@ export function TraceWorkspace(p: {
     const retry = () => {
       if (stop) return
       setConn(null)
-      setConnectionState('연결 끊김')
+      setConnectionState('lost')
       setPrivacyGeneration((n) => n + 1)
       setSnapshot((s) =>
         s ? { ...s, screen: obj(withoutBodies(s.screen)) } : null,
@@ -205,7 +214,7 @@ export function TraceWorkspace(p: {
           conn = c
           delay = 250
           setConn(c)
-          setConnectionState('연결됨')
+          setConnectionState('connected')
           setError('')
         })
         .catch(retry)
@@ -229,7 +238,7 @@ export function TraceWorkspace(p: {
     connection
       ?.query('acknowledgeEpoch', { epoch: e })
       .then(() => reload((n) => n + 1))
-      .catch(() => setError('조회 권한을 다시 확인하지 못했습니다.'))
+      .catch(() => setError(t('shell.recheckFailed')))
   }
   useEffect(() => {
     if (!connection) return
@@ -279,7 +288,7 @@ export function TraceWorkspace(p: {
               { selection: { kind: 'TASKS', activeTasksOnly: true } },
               true,
             )
-            setError('고정한 조회 시점이 만료됐습니다.')
+            setError(t('shell.frozenExpired'))
           } else reload((n) => n + 1)
           return
         }
@@ -305,7 +314,7 @@ export function TraceWorkspace(p: {
         epoch.current = s.point.epoch
         const v = { stamp: s, screen: obj(value.screen) }
         if (!str(v.screen.__typename)) {
-          setError('화면 응답이 올바르지 않습니다.')
+          setError(t('shell.badScreen'))
           return
         }
         resume.current = { key: watchKey, value: s.resume }
@@ -357,8 +366,7 @@ export function TraceWorkspace(p: {
             navigate(
               {
                 selection: { kind: 'TASKS', activeTasksOnly: true },
-                notice:
-                  '해당 작업을 현재 범위에서 찾지 못했습니다. 진행 중인 작업을 선택해 주세요.',
+                notice: 'shell.taskNotFound',
               },
               true,
             )
@@ -382,8 +390,8 @@ export function TraceWorkspace(p: {
     src = rows(status.sources)
   const title =
     isLive(route.selection) && !route.selection.task
-      ? '실시간 작업'
-      : names[route.selection.kind] || '활동'
+      ? t('shell.titleLiveTasks')
+      : t(names[route.selection.kind] ?? 'shell.titleActivity')
   function filters(h: number, client: string) {
     navigate({
       selection: { kind: 'OVERVIEW' },
@@ -402,7 +410,7 @@ export function TraceWorkspace(p: {
       {p.sidebar({
         selection: route.selection,
         connected: !!connection,
-        connectionState,
+        connectionState: t(connectionText[connectionState]),
         go,
         leave,
       })}
@@ -410,39 +418,39 @@ export function TraceWorkspace(p: {
         <header>
           <div className="filters">
             <button
-              aria-label="이전 화면"
+              aria-label={t('shell.back')}
               disabled={history.length <= 1}
               onClick={() => history.back()}
             >
               ←
             </button>
             <label>
-              기간{' '}
+              {t('shell.period')}{' '}
               <select
                 value={hours}
                 onChange={(e) =>
                   filters(Number(e.target.value), filter.clients?.[0] ?? '')
                 }
               >
-                <option value={1}>최근 1시간</option>
-                <option value={24}>최근 24시간</option>
-                <option value={168}>최근 7일</option>
+                <option value={1}>{t('shell.lastHour')}</option>
+                <option value={24}>{t('shell.last24Hours')}</option>
+                <option value={168}>{t('shell.last7Days')}</option>
               </select>
             </label>
             <label>
-              클라이언트{' '}
+              {t('shell.client')}{' '}
               <select
                 value={filter.clients?.[0] ?? ''}
                 onChange={(e) => filters(hours, e.target.value)}
               >
-                <option value="">전체</option>
+                <option value="">{t('shell.all')}</option>
                 <option value="CODEX">Codex</option>
                 <option value="CLAUDE">Claude Code</option>
               </select>
             </label>
             {src.length > 0 && (
               <label>
-                출처{' '}
+                {t('shell.source')}{' '}
                 <select
                   value={filter.sources?.[0] ?? ''}
                   onChange={(e) => {
@@ -455,7 +463,7 @@ export function TraceWorkspace(p: {
                     })
                   }}
                 >
-                  <option value="">전체</option>
+                  <option value="">{t('shell.all')}</option>
                   {src.map((s) => (
                     <option key={str(s.sourceId)} value={str(s.sourceId)}>
                       {short(s.sourceId)}
@@ -473,7 +481,7 @@ export function TraceWorkspace(p: {
                   })
                 }
               >
-                이 작업의 통계 보기
+                {t('shell.taskStats')}
               </button>
             )}
             {filter.tasks?.length ? (
@@ -485,7 +493,7 @@ export function TraceWorkspace(p: {
                   })
                 }
               >
-                작업 필터 해제 · {short(filter.tasks[0])}
+                {t('shell.clearTaskFilter', { task: short(filter.tasks[0]) })}
               </button>
             ) : null}
           </div>
@@ -497,13 +505,13 @@ export function TraceWorkspace(p: {
               else go(route.selection)
             }}
           >
-            {route.fixed ? '고정 해제' : '시점 고정'}
+            {route.fixed ? t('shell.unfreeze') : t('shell.freeze')}
           </button>
         </header>
         <main ref={scroll}>
           <div className="heading">
             <div className="eyebrow">
-              {route.fixed ? '고정' : '실시간'}{' '}
+              {route.fixed ? t('shell.modeFrozen') : t('shell.modeLive')}{' '}
               {snapshot && ' / #' + snapshot.stamp.point.revision}
             </div>
             <h1>{title}</h1>
@@ -517,14 +525,14 @@ export function TraceWorkspace(p: {
           </div>
           {route.notice && (
             <div role="status" className="notice">
-              {route.notice}
+              {t(route.notice)}
             </div>
           )}
           {route.caption && (
             <div className="notice">
               {route.caption}
               <button onClick={() => go(route.selection, { all: true })}>
-                같은 시점 전체 보기
+                {t('shell.showAllAtPoint')}
               </button>
             </div>
           )}
@@ -532,16 +540,18 @@ export function TraceWorkspace(p: {
             current &&
             current.revision !== route.fixed.point.revision && (
               <div className="notice">
-                새 자료가 있습니다.
+                {t('shell.newData')}
                 <button onClick={() => go(route.selection, { live: true })}>
-                  최신으로
+                  {t('shell.toLatest')}
                 </button>
               </div>
             )}
           {error && (
             <div role="alert" className="notice error">
               {error}
-              <button onClick={() => reload((n) => n + 1)}>다시 읽기</button>
+              <button onClick={() => reload((n) => n + 1)}>
+                {t('shell.reload')}
+              </button>
             </div>
           )}
           {snapshot ? (
@@ -556,7 +566,7 @@ export function TraceWorkspace(p: {
               query={(n, v) =>
                 connection
                   ? connection.query(n, v)
-                  : Promise.reject(Error('연결이 끊겼습니다.'))
+                  : Promise.reject(Error(t('shell.connectionLost')))
               }
               refresh={() => reload((n) => n + 1)}
               sources={src}
@@ -565,20 +575,29 @@ export function TraceWorkspace(p: {
             !error && (
               <div role="status" className="empty">
                 {connection
-                  ? '자료를 읽는 중입니다.'
-                  : '로컬 수집기 연결을 기다립니다.'}
+                  ? t('shell.loading')
+                  : t('shell.waitingCollector')}
               </div>
             )
           )}
         </main>
         <footer>
-          <span>현재 출처 {src.length}개</span>
+          <span>{t('shell.sourceCount', { count: src.length })}</span>
           <span>
             {src
-              .map((s) => code(s.health) + ' · 점검 ' + date(s.checkedAt))
+              .map((s) =>
+                t('shell.sourceHealth', {
+                  health: code(s.health),
+                  time: date(s.checkedAt),
+                }),
+              )
               .join(' / ')}
           </span>
-          <span>{current ? '저장 리비전 ' + current.revision : ''}</span>
+          <span>
+            {current
+              ? t('shell.storedRevision', { revision: current.revision })
+              : ''}
+          </span>
         </footer>
       </div>
     </>
