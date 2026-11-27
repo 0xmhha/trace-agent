@@ -1,0 +1,367 @@
+/* Styles of the 인사이트 view. Every class starts with u-ins-. */
+.u-ins {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  container: u-ins / inline-size;
+  /* Korean reads better when a line does not end inside a word; a token too
+     long for its line may still break anywhere. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* Summary: three outcome counts and the bar that shows their shares. */
+.u-ins-generated {
+  color: var(--u-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.u-ins-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.u-ins-count {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px solid var(--u-line);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  min-width: 0;
+}
+.u-ins-count-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.u-ins-count-value {
+  font-size: 1.55rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.u-ins-count-unit {
+  margin-left: 0.15rem;
+  color: var(--u-muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+/* With the sidebar open the page can be narrower than three tiles. Each
+   count then becomes one row instead of leaving a lone tile on a second row. */
+@container u-ins (max-width: 32rem) {
+  .u-ins-counts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+  .u-ins-count {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.1rem 0.75rem;
+    padding: 0.55rem 0.8rem;
+  }
+  .u-ins-count-value {
+    font-size: 1.25rem;
+  }
+  .u-ins-count .u-hint {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+}
+.u-ins-key {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.u-ins-key-fired {
+  background: var(--u-warn);
+}
+.u-ins-key-passed {
+  background: var(--u-good);
+}
+/* Hatched, like its bar segment: "not judged" is not a third result. */
+.u-ins-key-skipped {
+  border: 1px solid var(--u-line);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--u-soft) 0 3px,
+    var(--u-line) 3px 5px
+  );
+  color: var(--u-ink);
+}
+.u-ins-bar {
+  margin-top: 0.85rem;
+  border-radius: 999px;
+  overflow: hidden;
+  line-height: 0;
+}
+.u-ins-bar svg {
+  display: block;
+}
+/* The stroke in the surface color leaves a 2px gap between neighbors. */
+.u-ins-seg {
+  stroke: var(--u-surface);
+  stroke-width: 2;
+}
+.u-ins-seg-fired {
+  fill: var(--u-warn);
+}
+.u-ins-seg-passed {
+  fill: var(--u-good);
+}
+.u-ins-hatch-ground {
+  fill: var(--u-soft);
+}
+.u-ins-hatch-ink {
+  fill: var(--u-muted);
+  fill-opacity: 0.55;
+}
+
+/* Filters. */
+.u-ins-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.5rem;
+}
+.u-ins-filter {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.u-ins-filter-name {
+  flex: none;
+  color: var(--u-muted);
+  font-size: 0.82rem;
+}
+.u-ins-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.u-ins-chip {
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-size: 0.84rem;
+}
+.u-ins-chip.u-ins-chip-on,
+.u-ins-chip.u-ins-chip-on:hover:not(:disabled) {
+  border-color: var(--u-ink);
+  background: var(--u-ink);
+  color: #fff;
+  font-weight: 600;
+}
+.u-ins-chip-on .u-count {
+  color: inherit;
+  opacity: 0.8;
+}
+.u-ins-clear {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.86rem;
+}
+.u-ins-shown {
+  margin: 0;
+  color: var(--u-muted);
+  font-size: 0.84rem;
+}
+
+/* Category sections. */
+.u-ins-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.u-ins-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+}
+.u-ins-group-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.u-ins-group-head .u-count {
+  margin-left: 0;
+}
+.u-ins-group-head .u-hint {
+  margin: 0 0 0 0.25rem;
+}
+.u-ins-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+  gap: 0.75rem;
+}
+
+/* One insight. --u-ins-accent follows the severity. */
+.u-ins-item {
+  --u-ins-accent: var(--u-s1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border-left-width: 3px;
+  overflow-wrap: anywhere;
+}
+.u-ins-sev-critical {
+  --u-ins-accent: var(--u-bad);
+  border-left-color: var(--u-bad);
+}
+.u-ins-sev-warn {
+  --u-ins-accent: var(--u-warn);
+  border-left-color: var(--u-warn);
+}
+.u-ins-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.u-ins-item-head .u-pill {
+  flex: none;
+  font-weight: 600;
+}
+.u-ins-item-head h3 {
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.u-ins-detail {
+  margin: 0;
+  color: var(--u-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.u-ins-label {
+  color: var(--u-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.u-ins-evs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.u-ins-ev {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.86rem;
+}
+.u-ins-ev-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+.u-ins-ev-share {
+  color: var(--u-muted);
+  font-weight: 400;
+}
+.u-ins-meter {
+  display: block;
+  grid-column: 1 / -1;
+}
+/* The track is the fill color at low strength, so severity reads along the
+   whole meter. */
+.u-ins-meter-track {
+  fill: var(--u-ins-accent);
+  fill-opacity: 0.16;
+}
+.u-ins-meter-fill {
+  fill: var(--u-ins-accent);
+}
+.u-ins-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.u-ins-session-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.u-ins-session,
+.u-ins-more {
+  padding: 0.15rem 0.55rem;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.u-ins-more {
+  border-style: dashed;
+  color: var(--u-muted);
+}
+
+/* The recommendation sits in its own box at the bottom of the card. */
+.u-ins-rec {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: auto;
+  border: 1px solid var(--u-line);
+  border-radius: 6px;
+  background: var(--u-soft);
+  padding: 0.65rem 0.8rem;
+}
+.u-ins-rec-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.u-ins-kind {
+  border-radius: 4px;
+  background: var(--u-ink);
+  color: #fff;
+  padding: 0.02rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.u-ins-rec-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.u-ins-rec-action {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.u-ins-rec-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.1rem 0 0;
+}
+.u-ins-rec-target code {
+  border: 1px solid var(--u-line);
+  border-radius: 4px;
+  background: var(--u-surface);
+  padding: 0.02rem 0.35rem;
+}
