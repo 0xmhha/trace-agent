@@ -5,9 +5,9 @@ go 1.25
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.44
-	github.com/vektah/gqlparser/v2 v2.5.30
+	github.com/vektah/gqlparser/v2 v2.5.64
 	go.opentelemetry.io/proto/otlp v1.9.0
 	google.golang.org/protobuf v1.36.10
 )
 
-require github.com/agnivade/levenshtein v1.2.1 // indirect
+require github.com/agnivade/levenshtein v1.2.2 // indirect
