@@ -1,0 +1,306 @@
+/* 확장 이벤트 view. Every class starts with u-ext-. */
+.u-ext-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+/* Korean reads badly when a line breaks inside a word. */
+.u-ext-page p,
+.u-ext-page .u-note {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.u-ext-page h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.u-ext-lead {
+  margin: 0 0 0.9rem;
+  max-width: 48rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* Endpoint card */
+.u-ext-endpoint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+}
+.u-ext-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+}
+.u-ext-toggle strong {
+  min-width: 2.6rem;
+  font-weight: 600;
+}
+.u-ext-switch {
+  position: relative;
+  flex: none;
+  width: 2.5rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--u-muted);
+  border-radius: 999px;
+  background: var(--u-line);
+}
+.u-ext-switch:hover:not(:disabled) {
+  border-color: var(--u-ink);
+  background: var(--u-line);
+}
+.u-ext-switch[aria-checked='true'],
+.u-ext-switch[aria-checked='true']:hover:not(:disabled) {
+  border-color: var(--u-good);
+  background: var(--u-good);
+}
+.u-ext-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.4rem - 6px);
+  height: calc(1.4rem - 6px);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--u-muted);
+  transition: left 0.12s ease;
+}
+.u-ext-switch[aria-checked='true'] .u-ext-switch-thumb {
+  left: calc(100% - 1.4rem + 2px);
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .u-ext-switch-thumb {
+    transition: none;
+  }
+}
+.u-ext-url {
+  display: flex;
+  flex: 1 1 18rem;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+.u-ext-url-label {
+  flex: none;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+}
+.u-ext-url code {
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--u-soft);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.u-ext-endpoint-hint {
+  margin-top: 0.8rem;
+  line-height: 1.55;
+}
+.u-ext-feedback {
+  margin: 0.6rem 0 0;
+  font-size: 0.86rem;
+}
+.u-ext-page .u-note {
+  margin-top: 0.75rem;
+}
+
+/* Sources */
+.u-ext-stats {
+  margin-bottom: 0.25rem;
+}
+.u-ext-stats .u-stat-value {
+  font-size: 1.3rem;
+}
+.u-ext-sources,
+.u-ext-events {
+  margin-top: 0.75rem;
+}
+.u-ext-sources td,
+.u-ext-events td {
+  vertical-align: middle;
+}
+.u-ext-sources td:first-child {
+  white-space: nowrap;
+}
+.u-ext-sources .u-pill {
+  margin-left: 0.5rem;
+}
+.u-ext-picked td {
+  background: var(--u-soft);
+}
+.u-ext-picked td:first-child {
+  box-shadow: inset 3px 0 0 var(--u-s1);
+}
+.u-ext-sub {
+  display: inline-block;
+  min-width: 3.4rem;
+  margin-left: 0.4rem;
+  color: var(--u-muted);
+  font-size: 0.78rem;
+}
+
+/* Buttons that read as text inside a table cell. */
+.u-ext-rowbtn,
+.u-ext-link,
+.u-ext-expander {
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.u-ext-rowbtn:hover:not(:disabled),
+.u-ext-link:hover:not(:disabled),
+.u-ext-expander:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+.u-ext-rowbtn {
+  font-weight: 600;
+}
+.u-ext-link {
+  color: var(--u-s1);
+  text-decoration: underline;
+}
+.u-ext-expander {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  /* A long name wraps, but the column never shrinks to a letter per line. */
+  min-width: 9rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.u-ext-chevron {
+  flex: none;
+  width: 0.8rem;
+  color: var(--u-muted);
+}
+
+/* Event list */
+.u-ext-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+}
+.u-ext-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.u-ext-count {
+  margin-left: auto;
+  color: var(--u-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.u-ext-nowrap {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.u-ext-stale {
+  opacity: 0.6;
+}
+.u-ext-inline-kind {
+  display: none;
+  color: var(--u-muted);
+  font-weight: 400;
+}
+.u-ext-open td {
+  border-bottom-color: transparent;
+  background: var(--u-soft);
+}
+.u-ext-detail td {
+  padding: 0.2rem 0.9rem 0.9rem;
+  background: var(--u-soft);
+}
+.u-ext-detail-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem 1.5rem;
+  font-size: 0.84rem;
+}
+.u-ext-detail-body p {
+  margin: 0;
+}
+.u-ext-text {
+  margin: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.u-ext-fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.2rem 0.9rem;
+  margin: 0;
+}
+.u-ext-fields dt {
+  color: var(--u-muted);
+}
+.u-ext-fields dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.u-ext-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.8rem;
+}
+
+/* Connection guide */
+.u-ext-examples {
+  margin: 0 0 0.8rem;
+  padding: 0;
+  list-style: none;
+}
+.u-ext-example {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem 1.5rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--u-line);
+}
+.u-ext-example .u-hint {
+  line-height: 1.55;
+}
+.u-ext-code {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--u-line);
+  border-radius: 6px;
+  background: var(--u-soft);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  /* Wrapping is visual only: a copy keeps the original line breaks. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+@media (max-width: 900px) {
+  .u-ext-col-kind {
+    display: none;
+  }
+  .u-ext-inline-kind {
+    display: inline;
+  }
+  .u-ext-detail-body,
+  .u-ext-example {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
