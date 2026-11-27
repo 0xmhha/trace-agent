@@ -13,10 +13,8 @@ import {
   sumTokens,
   type Tone,
 } from '../../ui'
+import { formatNumber, t, type MessageKey } from '../../../i18n'
 import { SplitBar, splitSummary } from './SplitBar'
-
-const UNTITLED = '제목 없는 세션'
-const NO_PROJECT = '프로젝트 미상'
 
 /** Fewer tool calls than this say too little about a session's failure rate to flag it. */
 const FAILURE_MIN_CALLS = 10
@@ -36,18 +34,18 @@ type ColumnId =
   | 'cost'
   | 'models'
 
-const columns: readonly { id: ColumnId; label: string; numeric: boolean }[] = [
-  { id: 'session', label: '세션', numeric: false },
-  { id: 'activity', label: '마지막 활동', numeric: false },
-  { id: 'duration', label: '길이', numeric: true },
-  { id: 'prompts', label: '프롬프트', numeric: true },
-  { id: 'modelCalls', label: '모델 호출', numeric: true },
-  { id: 'tokens', label: '토큰', numeric: true },
-  { id: 'tools', label: '도구 호출', numeric: true },
-  { id: 'subagents', label: '하위 에이전트', numeric: true },
-  { id: 'compactions', label: '압축', numeric: true },
-  { id: 'cost', label: '비용', numeric: true },
-  { id: 'models', label: '모델', numeric: false },
+const columns: readonly { id: ColumnId; label: MessageKey; numeric: boolean }[] = [
+  { id: 'session', label: 'sessions.colSession', numeric: false },
+  { id: 'activity', label: 'sessions.colActivity', numeric: false },
+  { id: 'duration', label: 'sessions.colDuration', numeric: true },
+  { id: 'prompts', label: 'sessions.colPrompts', numeric: true },
+  { id: 'modelCalls', label: 'sessions.colModelCalls', numeric: true },
+  { id: 'tokens', label: 'sessions.colTokens', numeric: true },
+  { id: 'tools', label: 'sessions.colTools', numeric: true },
+  { id: 'subagents', label: 'sessions.colSubagents', numeric: true },
+  { id: 'compactions', label: 'sessions.colCompactions', numeric: true },
+  { id: 'cost', label: 'sessions.colCost', numeric: true },
+  { id: 'models', label: 'sessions.colModels', numeric: false },
 ]
 
 /** The column each order sorts by, so the header can say which one is in effect. */
@@ -69,23 +67,23 @@ function Failures({ calls, errors }: { calls: number; errors: number }) {
   const tone = failureTone(calls, errors)
   const text =
     errors > 0
-      ? `실패 ${fmtInt(errors)}건 · ${fmtPct(ratio(errors, calls))}`
-      : '실패 0건'
+      ? t('sessions.failuresSome', { count: errors, n: fmtInt(errors), pct: fmtPct(ratio(errors, calls)) })
+      : t('sessions.failuresNone')
   // A high rate gets a pill, so it stands out by shape as well as colour.
   if (tone === 'warn' || tone === 'bad')
     return (
-      <Pill tone={tone} title="도구 호출 가운데 실패한 비율이 높습니다">
+      <Pill tone={tone} title={t('sessions.failureRateHigh')}>
         {text}
       </Pill>
     )
   return <span className={'u-sess-sub' + (tone === 'plain' ? ' u-sess-ink' : '')}>{text}</span>
 }
 
-function Count({ value, unit }: { value: number; unit: string }) {
+/** A counted cell. unit is the message that puts the locale's unit on the number. */
+function Count({ value, unit }: { value: number; unit: MessageKey }) {
   return (
     <span className={value === 0 ? 'u-sess-zero' : undefined}>
-      {fmtInt(value)}
-      {unit}
+      {t(unit, { count: value, n: formatNumber(Math.round(value)) })}
     </span>
   )
 }
@@ -104,37 +102,37 @@ function Row({ row, onOpen }: { row: SessionRow; onOpen: (id: string) => void })
       <th scope="row" className="u-sess-main">
         <button type="button" className="u-sess-open" title={row.title || undefined}>
           <span className={'u-sess-title' + (row.title ? '' : ' u-sess-untitled')}>
-            {row.title || UNTITLED}
+            {row.title || t('sessions.untitled')}
           </span>
         </button>
         <span className="u-sess-project" title={row.projectPath || row.projectKey || undefined}>
-          {baseName(row.projectPath || row.projectKey) || NO_PROJECT}
+          {baseName(row.projectPath || row.projectKey) || t('sessions.noProject')}
         </span>
       </th>
       <td className="u-sess-when">
         <span>{fmtDateTime(row.lastAt)}</span>
-        <span className="u-sess-sub">시작 {fmtDateTime(row.startedAt)}</span>
+        <span className="u-sess-sub">{t('sessions.started', { time: fmtDateTime(row.startedAt) })}</span>
       </td>
       <td className="num">{duration(row)}</td>
       <td className="num">
-        <Count value={row.prompts} unit="회" />
+        <Count value={row.prompts} unit="sessions.times" />
       </td>
       <td className="num">
-        <Count value={row.modelCalls} unit="회" />
+        <Count value={row.modelCalls} unit="sessions.times" />
       </td>
       <td className="num u-sess-tokens" title={splitSummary(row.tokens)}>
         <span className={total === 0 ? 'u-sess-zero' : undefined}>{fmtCompact(total)}</span>
         <SplitBar tokens={row.tokens} />
       </td>
       <td className="num u-sess-tools">
-        <Count value={row.toolCalls} unit="회" />
+        <Count value={row.toolCalls} unit="sessions.times" />
         <Failures calls={row.toolCalls} errors={row.toolErrors} />
       </td>
       <td className="num">
-        <Count value={row.subagents} unit="개" />
+        <Count value={row.subagents} unit="sessions.items" />
       </td>
       <td className="num">
-        <Count value={row.compactions} unit="회" />
+        <Count value={row.compactions} unit="sessions.times" />
       </td>
       <td className="num">
         <span className={row.costUsd == null ? 'u-sess-zero' : undefined}>
@@ -207,7 +205,7 @@ export function SessionTable(p: {
                 className={(c.numeric ? 'num' : '') + (c.id === 'session' ? ' u-sess-main' : '')}
                 aria-sort={c.id === sorted ? 'descending' : undefined}
               >
-                {c.label}
+                {t(c.label)}
                 {c.id === sorted && (
                   <span className="u-sess-sorted" aria-hidden="true">
                     {' '}

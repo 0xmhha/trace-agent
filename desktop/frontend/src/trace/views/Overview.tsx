@@ -1,8 +1,21 @@
 import { useState } from 'react'
 import { obj, rows, str, num, date } from '../../data'
+import { formatNumber, t, type MessageKey } from '../../i18n'
 import { Group, Items, type Props } from './shared'
+
+// The time-bin tabs: the bin kind the service reports and the tab's label.
+const BIN_TABS = [
+  { kind: 'ATTEMPT_COUNT', label: 'trace.overview.attemptCount' },
+  { kind: 'FAILURE_RATE', label: 'trace.overview.failureRate' },
+  { kind: 'LATENCY_P95_MS', label: 'trace.overview.latencyP95' },
+] as const satisfies readonly { kind: string; label: MessageKey }[]
+type BinKind = (typeof BIN_TABS)[number]['kind']
+
 export function Overview({ screen: s, go }: Props) {
-  const [tab, setTab] = useState('시도 수')
+  const [tab, setTab] = useState<BinKind>(BIN_TABS[0].kind)
+  const tabLabel = t(
+    BIN_TABS.find((b) => b.kind === tab)?.label ?? BIN_TABS[0].label,
+  )
   const measure = (
     name: string,
     v: unknown,
@@ -17,7 +30,10 @@ export function Overview({ screen: s, go }: Props) {
         onClick={() =>
           go(
             { kind: target, metric },
-            { cohort: str(m.cohort), caption: name + ' 표본' },
+            {
+              cohort: str(m.cohort),
+              caption: t('trace.overview.sampleCaption', { name }),
+            },
           )
         }
       >
@@ -26,18 +42,16 @@ export function Overview({ screen: s, go }: Props) {
           {metric === 'FAILURES'
             ? m.value == null
               ? '—'
-              : Number(
-                  (num(m.value) <= 1
-                    ? num(m.value) * 100
-                    : num(m.value)
-                  ).toFixed(1),
+              : formatNumber(
+                  num(m.value) <= 1 ? num(m.value) * 100 : num(m.value),
+                  { maximumFractionDigits: 1 },
                 ) + '%'
             : num(m.count)}
         </strong>
         <small>
           {metric === 'FAILURES'
-            ? '확인된 결과 ' + num(m.eligible) + '회'
-            : '같은 표본 열기'}{' '}
+            ? t('trace.overview.confirmedResults', { count: num(m.eligible) })
+            : t('trace.overview.openSample')}{' '}
           ↗
         </small>
       </button>
@@ -47,41 +61,48 @@ export function Overview({ screen: s, go }: Props) {
   return (
     <>
       <div className="metrics">
-        {measure('작업', s.tasks, 'TASKS', 'ALL')}
-        {measure('하위 에이전트', a.total, 'TASKS', 'AGENTS')}
-        {measure('도구 시도', s.attempts, 'TASKS', 'ATTEMPTS')}
-        {measure('응답 대기', s.waiting, 'TASKS', 'WAITING')}
-        {measure('실패율', s.failureRate, 'TASKS', 'FAILURES')}
+        {measure(t('trace.overview.tasks'), s.tasks, 'TASKS', 'ALL')}
+        {measure(t('trace.subagents'), a.total, 'TASKS', 'AGENTS')}
+        {measure(
+          t('trace.overview.toolAttempts'),
+          s.attempts,
+          'TASKS',
+          'ATTEMPTS',
+        )}
+        {measure(t('trace.waiting'), s.waiting, 'TASKS', 'WAITING')}
+        {measure(
+          t('trace.overview.failureRate'),
+          s.failureRate,
+          'TASKS',
+          'FAILURES',
+        )}
       </div>
-      <Group title="하위 에이전트 상태">
+      <Group title={t('trace.overview.subagentState')}>
         <div className="metrics">
-          {measure('실행 중', a.running, 'TASKS', 'AGENTS_RUNNING')}
-          {measure('종료', a.ended, 'TASKS', 'AGENTS_ENDED')}
-          {measure('불명', a.unknown, 'TASKS', 'AGENTS_UNKNOWN')}
+          {measure(t('trace.running'), a.running, 'TASKS', 'AGENTS_RUNNING')}
+          {measure(t('trace.overview.ended'), a.ended, 'TASKS', 'AGENTS_ENDED')}
+          {measure(
+            t('trace.overview.unknown'),
+            a.unknown,
+            'TASKS',
+            'AGENTS_UNKNOWN',
+          )}
         </div>
       </Group>
-      <Group title="시간별 활동">
+      <Group title={t('trace.overview.overTime')}>
         <div className="tabs">
-          {['시도 수', '실패율', 'p95 지연'].map((t) => (
+          {BIN_TABS.map((b) => (
             <button
-              className={t === tab ? 'active' : ''}
-              key={t}
-              onClick={() => setTab(t)}
+              className={b.kind === tab ? 'active' : ''}
+              key={b.kind}
+              onClick={() => setTab(b.kind)}
             >
-              {t}
+              {t(b.label)}
             </button>
           ))}
         </div>
         <Items
-          items={rows(s.bins).filter(
-            (b) =>
-              b.kind ===
-              {
-                '시도 수': 'ATTEMPT_COUNT',
-                실패율: 'FAILURE_RATE',
-                'p95 지연': 'LATENCY_P95_MS',
-              }[tab],
-          )}
+          items={rows(s.bins).filter((b) => b.kind === tab)}
           render={(b) => (
             <>
               <time>{date(b.from)}</time>
@@ -91,14 +112,18 @@ export function Overview({ screen: s, go }: Props) {
                     { kind: 'TASKS' },
                     {
                       cohort: str(obj(b.measure).cohort),
-                      caption: tab + ' · ' + date(b.from),
+                      caption: tabLabel + ' · ' + date(b.from),
                     },
                   )
                 }
               >
-                {String(obj(b.measure).value ?? '표본 없음')}
+                {String(obj(b.measure).value ?? t('trace.overview.noSample'))}
               </button>
-              <small>표본 {num(obj(b.measure).eligible)}건</small>
+              <small>
+                {t('trace.overview.sampleSize', {
+                  count: num(obj(b.measure).eligible),
+                })}
+              </small>
             </>
           )}
         />

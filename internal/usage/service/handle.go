@@ -415,6 +415,7 @@ func (s *Service) handleInsights(ctx context.Context, params json.RawMessage) (a
 		return nil, fmt.Errorf("read extension sources: %w", err)
 	}
 	report := s.cfg.Evaluate(usage.InsightInput{
+		Locale:      q.Locale,
 		Range:       q.Range,
 		Overview:    overview,
 		Tools:       tools,

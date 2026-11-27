@@ -14,8 +14,9 @@ import {
   type InsightFilter,
 } from './insights/model'
 import './insights.css'
+import { t } from '../../i18n'
 
-/** The 인사이트 view: what the local rules found and what they recommend. */
+/** The insights view: what the local rules found and what they recommend. */
 export function Insights({ api, route, navigate, range, refresh }: ViewProps) {
   const report = useLoad(
     () => api.insights({ range, project: route.project }),
@@ -34,7 +35,7 @@ export function Insights({ api, route, navigate, range, refresh }: ViewProps) {
       <ErrorNote error={report.error} retry={report.reload} />
       {!data && report.loading && (
         <p className="u-empty" role="status">
-          인사이트를 읽는 중입니다.
+          {t('insights.loading')}
         </p>
       )}
       {data && (
@@ -48,20 +49,30 @@ export function Insights({ api, route, navigate, range, refresh }: ViewProps) {
               <Filters items={data.items} value={filter} onChange={setFilter} />
               <p className="u-ins-shown" role="status">
                 {isFiltered(filter)
-                  ? `인사이트 ${fmtInt(data.items.length)}건 가운데 ${fmtInt(shown.length)}건을 보고 있습니다.`
-                  : `인사이트 ${fmtInt(data.items.length)}건을 찾았습니다.`}
+                  ? t('insights.shown.filtered', {
+                      total: fmtInt(data.items.length),
+                      shown: fmtInt(shown.length),
+                    })
+                  : t('insights.shown.all', {
+                      count: data.items.length,
+                      total: fmtInt(data.items.length),
+                    })}
                 {data.rulesSkipped > 0 &&
-                  ` 규칙 ${fmtInt(data.rulesSkipped)}개는 자료가 모자라 아직 판단하지 못했습니다.`}
+                  ' ' +
+                    t('insights.shown.skipped', {
+                      count: data.rulesSkipped,
+                      n: fmtInt(data.rulesSkipped),
+                    })}
               </p>
               {groups.length === 0 && (
                 <Card>
-                  <p className="u-empty">선택한 조건에 맞는 인사이트가 없습니다.</p>
+                  <p className="u-empty">{t('insights.noMatch')}</p>
                   <button
                     type="button"
                     className="u-ins-clear"
                     onClick={() => setFilter(noFilter)}
                   >
-                    필터 지우기
+                    {t('insights.clearFilters')}
                   </button>
                 </Card>
               )}
@@ -69,11 +80,16 @@ export function Insights({ api, route, navigate, range, refresh }: ViewProps) {
                 <section
                   key={group.category}
                   className="u-ins-group"
-                  aria-label={group.label + ' 인사이트'}
+                  aria-label={t('insights.group.aria', { label: group.label })}
                 >
                   <div className="u-ins-group-head">
                     <h2>{group.label}</h2>
-                    <span className="u-count">{fmtInt(group.items.length)}건</span>
+                    <span className="u-count">
+                      {t('insights.group.count', {
+                        count: group.items.length,
+                        n: fmtInt(group.items.length),
+                      })}
+                    </span>
                     {group.hint && <span className="u-hint">{group.hint}</span>}
                   </div>
                   <div className="u-ins-list">

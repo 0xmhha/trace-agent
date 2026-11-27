@@ -1,5 +1,6 @@
 import { obj, rows, str, num, short, code, label, date } from '../../data'
 import { task } from '../../nav'
+import { t } from '../../i18n'
 import {
   Badge,
   EvidenceLinks,
@@ -14,14 +15,16 @@ export function TaskPage({ screen: s, go, route, sources }: Props) {
   const selection = route.selection
   return (
     <Group
-      title={selection.activeTasksOnly ? '진행 중인 작업' : '작업 목록'}
+      title={
+        selection.activeTasksOnly ? t('trace.tasks.active') : t('trace.tasks.list')
+      }
     >
       <Items
         items={rows(s.items)}
         empty={
           sources.length
-            ? '조건에 맞는 작업이 없습니다.'
-            : '연결한 출처가 없습니다.'
+            ? t('trace.tasks.noMatch')
+            : t('trace.tasks.noSources')
         }
         render={(v) => (
           <>
@@ -50,40 +53,41 @@ export function TaskPage({ screen: s, go, route, sources }: Props) {
       />
       {!rows(s.items).length && (
         <button onClick={() => go({ kind: 'SOURCES' }, { live: true })}>
-          출처 관리
+          {t('trace.tasks.manageSources')}
         </button>
       )}
     </Group>
   )
 }
 export function TaskDetail({ screen: s, go, route }: Props) {
-  const t = taskOf(route),
+  const id = taskOf(route),
     a = obj(s.agents)
   return (
     <>
       <Group
         title={
-          str(obj(obj(s.task).title).text) || '작업 ' + short(obj(s.task).id)
+          str(obj(obj(s.task).title).text) ||
+          t('trace.task.title', { id: short(obj(s.task).id) })
         }
       >
         <Badge value={obj(s.task).state} />
         <p>
-          세션 <ID value={obj(s.task).sessionId} />
+          {t('trace.task.session')} <ID value={obj(s.task).sessionId} />
         </p>
         <EvidenceLinks ids={obj(s.task).stateEvidenceIds} go={go} />
         <div className="actions">
           {[
-            ['AGENTS', '에이전트'],
-            ['ATTEMPTS', '도구 시도'],
-            ['PLAN', '계획'],
-            ['SEQUENCE', '분기 시퀀스'],
+            ['AGENTS', t('trace.task.agents')],
+            ['ATTEMPTS', t('trace.overview.toolAttempts')],
+            ['PLAN', t('trace.task.plan')],
+            ['SEQUENCE', t('trace.task.sequence')],
           ].map(([k, l]) => (
             <button
               key={k}
               onClick={() =>
                 go({
                   kind: k!,
-                  task: task(t),
+                  task: task(id),
                   ...(k === 'SEQUENCE' ? { sequenceWindow: 'LATEST' } : {}),
                 })
               }
@@ -93,7 +97,7 @@ export function TaskDetail({ screen: s, go, route }: Props) {
           ))}
         </div>
       </Group>
-      <Group title="하위 에이전트">
+      <Group title={t('trace.subagents')}>
         <div className="actions">
           {[
             ['RUNNING', 'running'],
@@ -103,15 +107,18 @@ export function TaskDetail({ screen: s, go, route }: Props) {
             <button
               key={state}
               onClick={() =>
-                go({ kind: 'AGENTS', task: task(t), agentState: state })
+                go({ kind: 'AGENTS', task: task(id), agentState: state })
               }
             >
-              {code(state)} {num(obj(a[key!]).count)}개
+              {t('trace.task.agentState', {
+                state: code(state),
+                count: num(obj(a[key!]).count),
+              })}
             </button>
           ))}
         </div>
       </Group>
-      <Group title="진행 중인 단계">
+      <Group title={t('trace.task.currentSteps')}>
         <Items
           items={rows(s.currentSteps)}
           render={(step) => (
@@ -123,9 +130,11 @@ export function TaskDetail({ screen: s, go, route }: Props) {
           )}
         />
       </Group>
-      <Group title="활동">{activityRows(s.activities, go, t)}</Group>
+      <Group title={t('trace.activity')}>
+        {activityRows(s.activities, go, id)}
+      </Group>
       <button onClick={() => go({ kind: 'MODULES' })}>
-        작업 표본의 모듈
+        {t('trace.task.modules')}
       </button>
     </>
   )

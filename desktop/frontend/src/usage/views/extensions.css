@@ -1,4 +1,4 @@
-/* 확장 이벤트 view. Every class starts with u-ext-. */
+/* Extension events view. Every class starts with u-ext-. */
 .u-ext-page {
   display: flex;
   flex-direction: column;

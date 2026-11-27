@@ -427,7 +427,7 @@ func TestHandleInsights(t *testing.T) {
 		f.extRejected = 3
 		f.sessionQueries = nil
 	})
-	report := call[usage.InsightReport](t, h.svc, usage.MethodInsights, `{`+testRange+`,"project":"alpha"}`)
+	report := call[usage.InsightReport](t, h.svc, usage.MethodInsights, `{`+testRange+`,"project":"alpha","locale":"ko"}`)
 	if report.Coverage.State != usage.CoveragePartial || report.Coverage.LinesSkipped != 2 {
 		t.Errorf("report coverage = %+v; want the partial coverage of the range", report.Coverage)
 	}
@@ -440,6 +440,9 @@ func TestHandleInsights(t *testing.T) {
 	in := h.insights.inputs[0]
 	if !in.Range.From.Equal(rangeFrom) || !in.Range.Until.Equal(rangeUntil) {
 		t.Errorf("input range = %+v", in.Range)
+	}
+	if in.Locale != usage.LocaleKorean {
+		t.Errorf("input locale = %q; want the query's %q", in.Locale, usage.LocaleKorean)
 	}
 	if in.Overview.ModelCalls != 60 || in.Overview.Coverage.State != usage.CoveragePartial {
 		t.Errorf("input overview = %+v; want the numbers with coverage filled in", in.Overview)
@@ -459,6 +462,29 @@ func TestHandleInsights(t *testing.T) {
 			t.Errorf("heaviest-session query = %+v; want tokens order, limit %d", q, usage.MaxInsightSessions)
 		}
 	})
+}
+
+func TestHandleInsightsPassesLocale(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		params string
+		want   usage.Locale
+	}{
+		{"English", `{` + testRange + `,"locale":"en"}`, usage.LocaleEnglish},
+		{"Korean", `{` + testRange + `,"locale":"ko"}`, usage.LocaleKorean},
+		{"absent is left to the evaluator", `{` + testRange + `}`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := settled(t)
+			call[usage.InsightReport](t, h.svc, usage.MethodInsights, tc.params)
+			if len(h.insights.inputs) != 1 {
+				t.Fatalf("evaluate calls = %d, want 1", len(h.insights.inputs))
+			}
+			if got := h.insights.inputs[0].Locale; got != tc.want {
+				t.Errorf("input locale = %q, want %q", got, tc.want)
+			}
+		})
+	}
 }
 
 func TestHandleChangesReturnFreshStatus(t *testing.T) {

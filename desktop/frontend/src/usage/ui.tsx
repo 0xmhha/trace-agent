@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { errorText, formatDate, formatNumber, t, type MessageKey } from '../i18n'
 import type { Coverage, Range, TokenTotals } from './types'
 import './usage.css'
 
@@ -17,37 +18,53 @@ export function sumTokens(t: TokenTotals): number {
   return t.input + t.output + t.cacheRead + t.cacheCreate
 }
 export function fmtInt(n: number): string {
-  return Math.round(n).toLocaleString('ko-KR')
+  return formatNumber(Math.round(n))
 }
+
+const ONE_DECIMAL: Intl.NumberFormatOptions = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+/** Scale suffixes stay Latin in every locale so that axis ticks keep one width. */
+const COMPACT_STEPS: readonly { size: number; suffix: string }[] = [
+  { size: 1e9, suffix: 'B' },
+  { size: 1e6, suffix: 'M' },
+  { size: 1e3, suffix: 'K' },
+]
 /** 1234 → 1.2K, 3400000 → 3.4M. */
 export function fmtCompact(n: number): string {
   const abs = Math.abs(n)
-  if (abs >= 1e9) return (n / 1e9).toFixed(1) + 'B'
-  if (abs >= 1e6) return (n / 1e6).toFixed(1) + 'M'
-  if (abs >= 1e3) return (n / 1e3).toFixed(1) + 'K'
-  return String(Math.round(n))
+  const step = COMPACT_STEPS.find((s) => abs >= s.size)
+  if (!step) return formatNumber(Math.round(n), { useGrouping: false })
+  return formatNumber(n / step.size, { ...ONE_DECIMAL, useGrouping: false }) + step.suffix
 }
 export function fmtMs(ms: number | null | undefined): string {
   if (ms == null) return '—'
-  if (ms < 1000) return Math.round(ms) + 'ms'
-  if (ms < 60_000) return (ms / 1000).toFixed(1) + '초'
-  if (ms < HOUR_MS) return Math.round(ms / 60_000) + '분'
-  return (ms / HOUR_MS).toFixed(1) + '시간'
+  if (ms < 1000) return t('usage.durationMs', { value: formatNumber(Math.round(ms)) })
+  if (ms < 60_000) return t('usage.durationSeconds', { value: formatNumber(ms / 1000, ONE_DECIMAL) })
+  if (ms < HOUR_MS) return t('usage.durationMinutes', { value: formatNumber(Math.round(ms / 60_000)) })
+  return t('usage.durationHours', { value: formatNumber(ms / HOUR_MS, ONE_DECIMAL) })
 }
+/** Cost in US dollars, two decimals below $10. The symbol is "$" in every locale. */
 export function fmtCost(usd: number | null | undefined): string {
-  return usd == null ? '미확인' : '$' + usd.toFixed(usd < 10 ? 2 : 0)
+  if (usd == null) return t('usage.costUnknown')
+  const digits = usd < 10 ? 2 : 0
+  return formatNumber(usd, {
+    style: 'currency',
+    currency: 'USD',
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
 }
 /** Ratio in [0, 1] → "42.0%". */
 export function fmtPct(ratio: number | null | undefined): string {
-  return ratio == null ? '—' : (ratio * 100).toFixed(1) + '%'
+  return ratio == null ? '—' : formatNumber(ratio, { ...ONE_DECIMAL, style: 'percent' })
 }
 export function ratio(part: number, whole: number): number | null {
   return whole > 0 ? part / whole : null
 }
 export function fmtDateTime(at: string): string {
   const ms = Date.parse(at)
-  if (!Number.isFinite(ms) || ms <= 0) return '시각 미상'
-  return new Date(ms).toLocaleString('ko-KR', {
+  if (!Number.isFinite(ms) || ms <= 0) return t('usage.timeUnknown')
+  return formatDate(ms, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -57,7 +74,7 @@ export function fmtDateTime(at: string): string {
 export function fmtDay(at: string): string {
   const ms = Date.parse(at)
   if (!Number.isFinite(ms) || ms <= 0) return ''
-  return new Date(ms).toLocaleDateString('ko-KR', {
+  return formatDate(ms, {
     month: '2-digit',
     day: '2-digit',
   })
@@ -95,7 +112,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[]): Loaded<T> {
       })
       .catch((reason: unknown) => {
         if (id !== latest.current) return
-        setError(reason instanceof Error ? reason.message : '요청을 처리하지 못했습니다.')
+        setError(errorText(reason))
       })
       .finally(() => {
         if (id === latest.current) setLoading(false)
@@ -164,31 +181,48 @@ export function Pill(p: { tone?: Tone; children: ReactNode; title?: string }) {
   )
 }
 
-const coverageReasons: Record<string, string> = {
-  unreadable_files: '읽지 못한 파일이 있습니다',
-  skipped_lines: '해석하지 못해 건너뛴 줄이 있습니다',
-  outside_window: '수집 기간보다 앞선 구간이 포함됐습니다',
+/** Message of each coverage reason code sent by the store. */
+const coverageReasons: Record<string, MessageKey> = {
+  unreadable_files: 'usage.coverageUnreadableFiles',
+  skipped_lines: 'usage.coverageSkippedLines',
+  outside_window: 'usage.coverageOutsideWindow',
 }
 
 /** Explains why the numbers on a page may be incomplete. Renders nothing when complete. */
 export function CoverageNote({ coverage }: { coverage: Coverage | undefined }) {
   if (!coverage || coverage.state === 'complete') return null
   if (coverage.state === 'disabled')
-    return <div className="u-note">수집이 꺼져 있습니다. 수집 설정에서 켤 수 있습니다.</div>
+    return <div className="u-note">{t('usage.coverageDisabled')}</div>
   if (coverage.state === 'scanning')
     return (
       <div className="u-note" role="status">
-        세션 기록을 읽는 중입니다. 수치가 계속 늘어날 수 있습니다.
+        {t('usage.coverageScanning')}
       </div>
     )
-  const reasons = coverage.reasons.map((r) => coverageReasons[r] ?? r)
+  const reasons = coverage.reasons.map((r) => {
+    const key = coverageReasons[r]
+    return key ? t(key) : r
+  })
+  const files = coverage.filesUnreadable
+  const lines = coverage.linesSkipped
   return (
     <div className="u-note u-note-warn" role="status">
-      <b>부분 집계</b> {reasons.join(', ') || '일부 기록을 읽지 못했습니다'}.
-      {coverage.filesUnreadable > 0 && ` 파일 ${fmtInt(coverage.filesUnreadable)}개`}
-      {coverage.linesSkipped > 0 && ` 줄 ${fmtInt(coverage.linesSkipped)}개`}
+      <b>{t('usage.coveragePartial')}</b>{' '}
+      {t('usage.coverageReasons', {
+        reasons: reasons.join(t('usage.listSeparator')) || t('usage.coverageSomeUnread'),
+      })}
+      {files > 0 && ' ' + t('usage.coverageFiles', { count: files, value: fmtInt(files) })}
+      {lines > 0 && ' ' + t('usage.coverageLines', { count: lines, value: fmtInt(lines) })}
     </div>
   )
+}
+
+/** Empty-state message for each coverage state. */
+const emptyText: Record<Coverage['state'], MessageKey> = {
+  scanning: 'usage.emptyScanning',
+  disabled: 'usage.emptyDisabled',
+  partial: 'usage.emptyPartial',
+  complete: 'usage.emptyComplete',
 }
 
 /**
@@ -197,15 +231,7 @@ export function CoverageNote({ coverage }: { coverage: Coverage | undefined }) {
  */
 export function Empty(p: { coverage?: Coverage; children?: ReactNode }) {
   const state = p.coverage?.state ?? 'complete'
-  const text =
-    state === 'scanning'
-      ? '아직 읽는 중입니다. 잠시 뒤 채워집니다.'
-      : state === 'disabled'
-        ? '수집이 꺼져 있어 보여 줄 기록이 없습니다.'
-        : state === 'partial'
-          ? '이 범위에서 읽은 기록이 없습니다. 읽지 못한 부분이 있어 실제로는 있을 수 있습니다.'
-          : '이 범위에는 기록이 없습니다.'
-  return <p className="u-empty">{p.children ?? text}</p>
+  return <p className="u-empty">{p.children ?? t(emptyText[state] ?? 'usage.emptyComplete')}</p>
 }
 
 export function ErrorNote(p: { error: string; retry?: () => void }) {
@@ -213,7 +239,7 @@ export function ErrorNote(p: { error: string; retry?: () => void }) {
   return (
     <div className="u-note u-note-bad" role="alert">
       {p.error}
-      {p.retry && <button onClick={p.retry}>다시 읽기</button>}
+      {p.retry && <button onClick={p.retry}>{t('usage.retry')}</button>}
     </div>
   )
 }

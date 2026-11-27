@@ -1,4 +1,5 @@
 // Number, unit and time helpers shared by the dashboard cards.
+import { formatDate, t, type MessageKey } from '../../../i18n'
 import type { Bin } from '../../types'
 import { fmtCompact, fmtInt } from '../../ui'
 
@@ -7,16 +8,40 @@ export const DAY_MS = 24 * HOUR_MS
 /** A local day is 23 to 25 hours long around a DST change, so "daily" starts below 24. */
 const DAY_BIN_MIN_MS = 20 * HOUR_MS
 
-/** Korean counters used next to numbers on the dashboard. */
+/** Counters printed next to numbers on the dashboard. */
 export const UNIT = {
-  items: '개',
-  times: '회',
-  days: '일',
-  tokens: '토큰',
+  items: 'items',
+  times: 'times',
+  days: 'days',
+  tokens: 'tokens',
 } as const
+export type Unit = (typeof UNIT)[keyof typeof UNIT]
 
-export function withUnit(n: number, unit: string): string {
-  return fmtInt(n) + unit
+/** Message of a number with its counter, e.g. "12 days". */
+const UNIT_TEXT: Record<Unit, MessageKey> = {
+  items: 'dashboard.unitItems',
+  times: 'dashboard.unitTimes',
+  days: 'dashboard.unitDays',
+  tokens: 'dashboard.unitTokens',
+}
+/** Name of a counter alone, for table column heads. */
+const UNIT_NAME: Record<Unit, MessageKey> = {
+  items: 'dashboard.unitNameItems',
+  times: 'dashboard.unitNameTimes',
+  days: 'dashboard.unitNameDays',
+  tokens: 'dashboard.unitNameTokens',
+}
+
+/** n with its counter. value is the printed figure; it defaults to the whole number. */
+export function withUnit(n: number, unit: Unit, value: string = fmtInt(n)): string {
+  return t(UNIT_TEXT[unit], { count: n, value })
+}
+/** n in short form (1.2K) with its counter. */
+export function compactWithUnit(n: number, unit: Unit): string {
+  return withUnit(n, unit, fmtCompact(n))
+}
+export function unitName(unit: Unit): string {
+  return t(UNIT_NAME[unit])
 }
 
 /** Axis tick text: compact, without a trailing ".0" so round ticks stay short. */
@@ -59,46 +84,58 @@ export function isDailyBin(widthMs: number): boolean {
   return widthMs >= DAY_BIN_MIN_MS
 }
 
-/** "일별", "시간별" or "6시간 단위", for chart subtitles. */
+/** "Daily", "Hourly" or "Every 6 hours", for chart subtitles. */
 export function binWord(widthMs: number): string {
   if (isDailyBin(widthMs)) {
     const days = Math.round(widthMs / DAY_MS)
-    return days <= 1 ? '일별' : days + '일 단위'
+    return days <= 1 ? t('dashboard.binDaily') : t('dashboard.binDays', { count: days })
   }
   const hours = Math.round(widthMs / HOUR_MS)
-  return hours <= 1 ? '시간별' : hours + '시간 단위'
+  return hours <= 1 ? t('dashboard.binHourly') : t('dashboard.binHours', { count: hours })
 }
 
 /** Short axis label of a day: "11/27". */
 export function dayTick(ms: number): string {
   const d = new Date(ms)
-  return d.getMonth() + 1 + '/' + d.getDate()
+  return t('dashboard.dayTick', { month: d.getMonth() + 1, day: d.getDate() })
 }
 
-/** Short axis label of an hour: "14시". */
+/** Short label of an hour of the day, e.g. "14:00". */
+export function hourLabel(hour: number): string {
+  return t('dashboard.hourTick', { hour })
+}
+/** Short axis label of the hour an instant falls in. */
 export function hourTick(ms: number): string {
-  return new Date(ms).getHours() + '시'
+  return hourLabel(new Date(ms).getHours())
 }
 
-const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const
+/** A local date that fell on a Sunday; weekday i is this date plus i days. */
+const SUNDAY = { year: 2026, month: 0, day: 4 } as const
+
+function weekdayDate(weekday: number): Date {
+  return new Date(SUNDAY.year, SUNDAY.month, SUNDAY.day + weekday)
+}
 
 /** Weekday name for the store's index, where 0 is Sunday. */
 export function weekdayName(weekday: number): string {
-  return (WEEKDAYS[weekday] ?? '') + '요일'
+  return formatDate(weekdayDate(weekday), { weekday: 'long' })
 }
 export function weekdayShort(weekday: number): string {
-  return WEEKDAYS[weekday] ?? ''
+  return formatDate(weekdayDate(weekday), { weekday: 'short' })
 }
 
 /** Full name of a bucket for tooltips and the table view. */
 export function binName(fromMs: number, widthMs: number): string {
-  if (!Number.isFinite(fromMs)) return '시각 미상'
+  if (!Number.isFinite(fromMs)) return t('usage.timeUnknown')
   const d = new Date(fromMs)
-  const day = `${d.getMonth() + 1}월 ${d.getDate()}일 (${weekdayShort(d.getDay())})`
+  const day = formatDate(d, { month: 'long', day: 'numeric', weekday: 'short' })
+  const hour = d.getHours()
   if (isDailyBin(widthMs)) {
     const days = Math.round(widthMs / DAY_MS)
-    return days <= 1 ? day : `${day}부터 ${days}일`
+    return days <= 1 ? day : t('dashboard.binNameDays', { day, count: days })
   }
   const hours = Math.round(widthMs / HOUR_MS)
-  return hours <= 1 ? `${day} ${d.getHours()}시` : `${day} ${d.getHours()}시부터 ${hours}시간`
+  return hours <= 1
+    ? t('dashboard.binNameHour', { day, hour })
+    : t('dashboard.binNameHours', { day, hour, count: hours })
 }

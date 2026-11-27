@@ -1,4 +1,5 @@
 import { SourcePanel } from '../../SourcePanel'
+import { t } from '../../i18n'
 import type { Props } from './shared'
 /** Source list and source detail: the panel tells them apart itself. */
 export function Sources(p: Props) {
@@ -6,7 +7,7 @@ export function Sources(p: Props) {
     <>
       <SourcePanel {...p} />
       <button onClick={() => p.go({ kind: 'IDENTITIES' })}>
-        에이전트 식별 목록
+        {t('trace.identities.list')}
       </button>
     </>
   )

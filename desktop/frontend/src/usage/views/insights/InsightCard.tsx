@@ -9,6 +9,7 @@ import {
   severityTone,
   shortId,
 } from './model'
+import { t } from '../../../i18n'
 
 const METER_HEIGHT = 6
 const METER_RADIUS = METER_HEIGHT / 2
@@ -59,7 +60,9 @@ function SessionLinks(p: { ids: string[]; onOpen: (sessionId: string) => void })
   const hidden = p.ids.length - shown.length
   return (
     <div className="u-ins-sessions">
-      <span className="u-ins-label">관련 세션 {fmtInt(p.ids.length)}개</span>
+      <span className="u-ins-label">
+        {t('insights.card.sessions', { count: p.ids.length, n: fmtInt(p.ids.length) })}
+      </span>
       <ul className="u-ins-session-list">
         {shown.map((id) => (
           <li key={id}>
@@ -67,7 +70,7 @@ function SessionLinks(p: { ids: string[]; onOpen: (sessionId: string) => void })
               type="button"
               className="u-ins-session"
               title={id}
-              aria-label={`세션 ${id} 열기`}
+              aria-label={t('insights.card.openSession', { id })}
               onClick={() => p.onOpen(id)}
             >
               {shortId(id)}
@@ -83,7 +86,7 @@ function SessionLinks(p: { ids: string[]; onOpen: (sessionId: string) => void })
               aria-expanded={expanded}
               onClick={() => setExpanded((open) => !open)}
             >
-              {expanded ? '접기' : `${fmtInt(hidden)}개 더 보기`}
+              {expanded ? t('insights.card.less') : t('insights.card.more', { n: fmtInt(hidden) })}
             </button>
           </li>
         )}
@@ -96,14 +99,14 @@ function RecommendationBox({ recommendation }: { recommendation: Recommendation 
   return (
     <div className="u-ins-rec">
       <div className="u-ins-rec-head">
-        <span className="u-ins-label">추천</span>
+        <span className="u-ins-label">{t('insights.card.recommendation')}</span>
         <span className="u-ins-kind">{kindLabel(recommendation.kind)}</span>
       </div>
       <p className="u-ins-rec-title">{recommendation.title}</p>
       {recommendation.action && <p className="u-ins-rec-action">{recommendation.action}</p>}
       {recommendation.target && (
         <p className="u-ins-rec-target">
-          <span className="u-ins-label">대상</span>
+          <span className="u-ins-label">{t('insights.card.target')}</span>
           <code>{recommendation.target}</code>
         </p>
       )}
@@ -124,7 +127,7 @@ export function InsightCard(p: { insight: Insight; onOpenSession: (sessionId: st
       {insight.detail && <p className="u-ins-detail">{insight.detail}</p>}
       {insight.evidence.length > 0 && (
         <div>
-          <span className="u-ins-label">근거</span>
+          <span className="u-ins-label">{t('insights.card.evidence')}</span>
           <ul className="u-ins-evs">
             {insight.evidence.map((evidence, index) => (
               // Labels are not guaranteed unique within one insight.

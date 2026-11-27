@@ -1,5 +1,6 @@
 import { rows, str, num, label, date } from '../../data'
 import { task } from '../../nav'
+import { t } from '../../i18n'
 import {
   Badge,
   EvidenceLinks,
@@ -10,9 +11,9 @@ import {
   type Props,
 } from './shared'
 export function PlanPage({ screen: s, go, route }: Props) {
-  const t = taskOf(route)
+  const id = taskOf(route)
   return (
-    <Group title="계획 버전">
+    <Group title={t('trace.plan.versions')}>
       {rows(s.versions).length ? (
         rows(s.versions).map((v) => (
           <div key={str(v.id)}>
@@ -25,7 +26,7 @@ export function PlanPage({ screen: s, go, route }: Props) {
                     onClick={() =>
                       go({
                         kind: 'STEP_ACTIVITIES',
-                        task: task(t),
+                        task: task(id),
                         planId: str(v.id),
                         stepId: str(step.key),
                       })
@@ -41,13 +42,17 @@ export function PlanPage({ screen: s, go, route }: Props) {
           </div>
         ))
       ) : (
-        <p className="empty">계획을 제공하지 않았습니다.</p>
+        <p className="empty">{t('trace.plan.none')}</p>
       )}
     </Group>
   )
 }
 /** Activities of one plan step. */
 export function ActivityPage({ screen: s, go, route }: Props) {
-  const t = taskOf(route)
-  return <Group title="단계 활동">{activityRows(s, go, t)}</Group>
+  const id = taskOf(route)
+  return (
+    <Group title={t('trace.plan.stepActivity')}>
+      {activityRows(s, go, id)}
+    </Group>
+  )
 }

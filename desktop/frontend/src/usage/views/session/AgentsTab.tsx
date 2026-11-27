@@ -1,17 +1,18 @@
+import { t } from '../../../i18n'
 import type { AgentRow } from '../../types'
 import { Card, DataTable, Empty, fmtCompact, fmtDateTime, fmtInt, fmtMs, sumTokens, type Column } from '../../ui'
-import { ROOT_AGENT_LABEL, elapsedMs, tokenParts } from './format'
+import { elapsedMs, rootAgentLabel, tokenParts } from './format'
 
 function typeLabel(agent: AgentRow): string {
-  return agent.agentId ? agent.agentType || '종류 미상' : ROOT_AGENT_LABEL
+  return agent.agentId ? agent.agentType || t('session.unknownType') : rootAgentLabel()
 }
 
-/** The 하위 에이전트 tab. Choosing a row opens that agent's transcript in the 대화 tab. */
+/** The sub-agents tab. Choosing a row opens that agent's transcript in the conversation tab. */
 export function AgentsTab(p: { agents: AgentRow[]; onOpen: (agentId: string) => void }) {
   const columns: Column<AgentRow>[] = [
     {
       key: 'agent',
-      label: '에이전트',
+      label: t('session.colAgent'),
       render: (a) => (
         <span className="u-sd-stack">
           <span>{typeLabel(a)}</span>
@@ -19,24 +20,24 @@ export function AgentsTab(p: { agents: AgentRow[]; onOpen: (agentId: string) => 
         </span>
       ),
     },
-    { key: 'calls', label: '모델 호출', align: 'right', render: (a) => fmtInt(a.modelCalls) },
-    { key: 'tools', label: '도구 호출', align: 'right', render: (a) => fmtInt(a.toolCalls) },
+    { key: 'calls', label: t('session.colModelCalls'), align: 'right', render: (a) => fmtInt(a.modelCalls) },
+    { key: 'tools', label: t('session.colToolCalls'), align: 'right', render: (a) => fmtInt(a.toolCalls) },
     {
       key: 'errors',
-      label: '도구 실패',
+      label: t('session.colToolFailures'),
       align: 'right',
       render: (a) =>
         a.toolErrors > 0 ? <b className="u-tone-bad">{fmtInt(a.toolErrors)}</b> : fmtInt(a.toolErrors),
     },
     {
       key: 'tokens',
-      label: '토큰',
+      label: t('session.colTokens'),
       align: 'right',
       render: (a) => <span title={tokenParts(a.tokens)}>{fmtCompact(sumTokens(a.tokens))}</span>,
     },
     {
       key: 'span',
-      label: '시간 범위',
+      label: t('session.colSpan'),
       render: (a) => (
         <span className="u-sd-stack u-sd-num">
           <span>{fmtDateTime(a.startedAt)} ~</span>
@@ -47,25 +48,27 @@ export function AgentsTab(p: { agents: AgentRow[]; onOpen: (agentId: string) => 
     },
     {
       key: 'open',
-      label: '대화',
+      label: t('session.colOpen'),
       render: (a) => (
         <button
           className="u-sd-small"
-          aria-label={typeLabel(a) + (a.agentId ? ' ' + a.agentId : '') + ' 대화 보기'}
+          aria-label={t('session.openConversationOf', {
+            agent: a.agentId ? typeLabel(a) + ' ' + a.agentId : typeLabel(a),
+          })}
           onClick={(e) => {
             // The row has the same action; one navigation is enough.
             e.stopPropagation()
             p.onOpen(a.agentId)
           }}
         >
-          대화 보기
+          {t('session.openConversation')}
         </button>
       ),
     },
   ]
   const hasSubagents = p.agents.some((a) => a.agentId)
   return (
-    <Card title="에이전트별 사용" hint="행을 고르면 그 에이전트의 대화를 엽니다.">
+    <Card title={t('session.agentsTitle')} hint={t('session.agentsHint')}>
       {p.agents.length > 0 && (
         <DataTable
           columns={columns}
@@ -74,7 +77,7 @@ export function AgentsTab(p: { agents: AgentRow[]; onOpen: (agentId: string) => 
           onRow={(a) => p.onOpen(a.agentId)}
         />
       )}
-      {!hasSubagents && <Empty>이 세션은 하위 에이전트를 쓰지 않았습니다.</Empty>}
+      {!hasSubagents && <Empty>{t('session.noSubagents')}</Empty>}
     </Card>
   )
 }

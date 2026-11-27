@@ -52,12 +52,13 @@ const (
 	hookMarkBlockingFail = "blocking_error"
 )
 
-// Labels of system items. They are user-facing text.
+// Labels of system items. They are the English fallback; the page words a
+// system item from its structured System field in the user's language.
 const (
-	labelTurnEnd         = "턴 종료"
-	labelTurnEndSeconds  = "턴 종료 · %.1f초"
-	labelCompact         = "맥락 압축"
-	labelCompactTrigger  = "맥락 압축 (%s)"
+	labelTurnEnd         = "Turn ended"
+	labelTurnEndSeconds  = "Turn ended · %.1f s"
+	labelCompact         = "Context compacted"
+	labelCompactTrigger  = "Context compacted (%s)"
 	millisecondsInSecond = 1000
 )
 
@@ -395,21 +396,31 @@ func hookStatus(attachmentType string) usage.HookStatus {
 
 // systemItems returns the turn end or the compaction marker of a system line.
 func systemItems(ctx lineContext, raw rawLine) []usage.TimelineItem {
-	var text string
+	var (
+		text   string
+		system usage.TimelineSystem
+	)
 	switch systemSubtype(rawString(raw.Subtype)) {
 	case subtypeTurnDuration:
+		system.Kind = usage.SystemTurnEnd
 		text = labelTurnEnd
 		if ms, ok := rawFloat(raw.DurationMs); ok {
-			text = fmt.Sprintf(labelTurnEndSeconds, clampFloat(ms, 0, maxDurationMs)/millisecondsInSecond)
+			clamped := clampFloat(ms, 0, maxDurationMs)
+			// maxDurationMs is 2^53, so the rounded value fits an int64.
+			duration := int64(math.Round(clamped))
+			system.DurationMs = &duration
+			text = fmt.Sprintf(labelTurnEndSeconds, clamped/millisecondsInSecond)
 		}
 	case subtypeCompactBoundary:
+		system.Kind = usage.SystemCompaction
 		text = labelCompact
 		var meta struct {
 			Trigger json.RawMessage `json:"trigger"`
 		}
 		if len(raw.CompactMetadata) > 0 && json.Unmarshal(raw.CompactMetadata, &meta) == nil {
 			if trigger := rawString(meta.Trigger); trigger != "" {
-				text = fmt.Sprintf(labelCompactTrigger, label(trigger))
+				system.Trigger = label(trigger)
+				text = fmt.Sprintf(labelCompactTrigger, system.Trigger)
 			}
 		}
 	default:
@@ -417,6 +428,7 @@ func systemItems(ctx lineContext, raw rawLine) []usage.TimelineItem {
 	}
 	it := ctx.item(usage.ItemSystem, 0)
 	it.Label = text
+	it.System = &system
 	return []usage.TimelineItem{it}
 }
 

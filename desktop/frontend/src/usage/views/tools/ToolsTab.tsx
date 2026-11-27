@@ -4,16 +4,20 @@ import { Pill, fmtInt, fmtMs } from '../../ui'
 import { CountBar, NameCell, RateCell, failureRate, maxOf } from './cells'
 import { categories, categoryMeta } from './model'
 import { SortTable, type SortColumn } from './SortTable'
+import { t } from '../../../i18n'
 
 const ALL_CATEGORIES = ''
 
-function origin(t: ToolUsage): string | undefined {
-  const parts = [t.mcpServer && `서버 ${t.mcpServer}`, t.plugin && `플러그인 ${t.plugin}`]
+function origin(tool: ToolUsage): string | undefined {
+  const parts = [
+    tool.mcpServer && t('tools.origin.server', { name: tool.mcpServer }),
+    tool.plugin && t('tools.origin.plugin', { name: tool.plugin }),
+  ]
   return parts.filter(Boolean).join(' · ') || undefined
 }
 
-function matches(t: ToolUsage, needle: string): boolean {
-  return [t.name, t.mcpServer ?? '', t.plugin ?? ''].some((s) => s.toLowerCase().includes(needle))
+function matches(tool: ToolUsage, needle: string): boolean {
+  return [tool.name, tool.mcpServer ?? '', tool.plugin ?? ''].some((s) => s.toLowerCase().includes(needle))
 }
 
 function CategoryPill({ id }: { id: ToolCategory }) {
@@ -21,7 +25,7 @@ function CategoryPill({ id }: { id: ToolCategory }) {
   return (
     <Pill>
       <i className="u-tools-swatch" style={{ background: meta.color }} aria-hidden="true" />
-      {meta.label}
+      {t(meta.labelKey)}
     </Pill>
   )
 }
@@ -30,64 +34,64 @@ function columns(max: number): SortColumn<ToolUsage>[] {
   return [
     {
       key: 'name',
-      label: '이름',
-      render: (t) => <NameCell name={t.name} sub={origin(t)} />,
-      sortValue: (t) => t.name,
+      label: t('tools.col.name'),
+      render: (tool) => <NameCell name={tool.name} sub={origin(tool)} />,
+      sortValue: (tool) => tool.name,
     },
     {
       key: 'category',
-      label: '분류',
-      render: (t) => <CategoryPill id={t.category} />,
-      sortValue: (t) => categories.findIndex((c) => c.id === t.category),
+      label: t('tools.col.category'),
+      render: (tool) => <CategoryPill id={tool.category} />,
+      sortValue: (tool) => categories.findIndex((c) => c.id === tool.category),
     },
     {
       key: 'calls',
-      label: '호출(회)',
+      label: t('tools.col.calls'),
       align: 'right',
-      render: (t) => <CountBar value={t.calls} max={max} />,
-      sortValue: (t) => t.calls,
+      render: (tool) => <CountBar value={tool.calls} max={max} />,
+      sortValue: (tool) => tool.calls,
     },
     {
       key: 'errors',
-      label: '실패(회)',
+      label: t('tools.col.errors'),
       align: 'right',
-      render: (t) => fmtInt(t.errors),
-      sortValue: (t) => t.errors,
+      render: (tool) => fmtInt(tool.errors),
+      sortValue: (tool) => tool.errors,
     },
     {
       key: 'rate',
-      label: '실패율',
+      label: t('tools.col.rate'),
       align: 'right',
-      render: (t) => <RateCell failures={t.errors} total={t.calls} />,
-      sortValue: (t) => failureRate(t.errors, t.calls),
+      render: (tool) => <RateCell failures={tool.errors} total={tool.calls} />,
+      sortValue: (tool) => failureRate(tool.errors, tool.calls),
     },
     {
       key: 'pending',
-      label: '미완료(회)',
+      label: t('tools.col.pending'),
       align: 'right',
-      render: (t) => fmtInt(t.pending),
-      sortValue: (t) => t.pending,
+      render: (tool) => fmtInt(tool.pending),
+      sortValue: (tool) => tool.pending,
     },
     {
       key: 'sessions',
-      label: '세션(개)',
+      label: t('tools.col.sessions'),
       align: 'right',
-      render: (t) => fmtInt(t.sessions),
-      sortValue: (t) => t.sessions,
+      render: (tool) => fmtInt(tool.sessions),
+      sortValue: (tool) => tool.sessions,
     },
     {
       key: 'p50',
       label: 'p50',
       align: 'right',
-      render: (t) => fmtMs(t.p50Ms),
-      sortValue: (t) => t.p50Ms,
+      render: (tool) => fmtMs(tool.p50Ms),
+      sortValue: (tool) => tool.p50Ms,
     },
     {
       key: 'p95',
       label: 'p95',
       align: 'right',
-      render: (t) => fmtMs(t.p95Ms),
-      sortValue: (t) => t.p95Ms,
+      render: (tool) => fmtMs(tool.p95Ms),
+      sortValue: (tool) => tool.p95Ms,
     },
   ]
 }
@@ -106,7 +110,7 @@ export function ToolsTab(p: {
   const [text, setText] = useState('')
   const needle = text.trim().toLowerCase()
   const shown = p.rows.filter(
-    (t) => (!p.category || t.category === p.category) && (!needle || matches(t, needle)),
+    (tool) => (!p.category || tool.category === p.category) && (!needle || matches(tool, needle)),
   )
   const filtered = p.category !== null || needle !== ''
   const clear = () => {
@@ -117,49 +121,52 @@ export function ToolsTab(p: {
     <>
       <div className="u-tools-filters">
         <label>
-          분류
+          {t('tools.filter.category')}
           <select
             value={p.category ?? ALL_CATEGORIES}
             onChange={(e) =>
               p.onCategory(categories.find((c) => c.id === e.target.value)?.id ?? null)
             }
           >
-            <option value={ALL_CATEGORIES}>전체</option>
+            <option value={ALL_CATEGORIES}>{t('tools.filter.all')}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.label}
+                {t(c.labelKey)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          이름
+          {t('tools.filter.name')}
           <input
             type="search"
             value={text}
-            placeholder="이름, 서버, 플러그인"
+            placeholder={t('tools.filter.placeholder')}
             onChange={(e) => setText(e.target.value)}
           />
         </label>
         {filtered && (
           <button type="button" onClick={clear}>
-            조건 지우기
+            {t('tools.filter.clear')}
           </button>
         )}
         <span className="u-hint u-tools-shown" role="status">
           {filtered
-            ? `도구 ${fmtInt(p.rows.length)}개 중 ${fmtInt(shown.length)}개`
-            : `도구 ${fmtInt(p.rows.length)}개`}
+            ? t('tools.filter.shown', {
+                total: fmtInt(p.rows.length),
+                shown: fmtInt(shown.length),
+              })
+            : t('tools.filter.total', { count: p.rows.length, total: fmtInt(p.rows.length) })}
         </span>
       </div>
       <SortTable
-        caption="도구별 호출 수와 실패율, 소요 시간"
-        columns={columns(maxOf(shown, (t) => t.calls))}
+        caption={t('tools.caption.tools')}
+        columns={columns(maxOf(shown, (tool) => tool.calls))}
         rows={shown}
-        rowKey={(t) => t.name}
+        rowKey={(tool) => tool.name}
         initial={{ key: 'calls', dir: 'desc' }}
         coverage={p.coverage}
-        empty={p.rows.length > 0 ? '조건에 맞는 도구가 없습니다.' : undefined}
+        empty={p.rows.length > 0 ? t('tools.noMatch') : undefined}
       />
     </>
   )

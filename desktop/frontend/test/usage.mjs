@@ -4,6 +4,8 @@
 // asserted here are the ones documented in that directory's README.
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import { bridgeState, installUsageBridge } from './bridge.mjs'
+import { KOREAN, pinLocale } from './locale.mjs'
 
 const [origin] = process.argv.slice(2)
 const headers = { 'X-Trace-Test': process.env.TRACE_TEST_TOKEN }
@@ -32,6 +34,8 @@ const USAGE_ENTRIES = [
   '수집 설정',
 ]
 const TRACE_ENTRIES = ['실시간', '개요', '작업', '모듈', '출처와 설정']
+// The root transcript's turn end and context compaction.
+const SYSTEM_ITEMS = ['턴 종료 · 70.0초', '맥락 압축 (auto)']
 // The published trace fixture the harness seeds, as in ia.mjs.
 const TRACE_ATTEMPTS = 5
 
@@ -73,7 +77,7 @@ const card = (name) =>
     has: page.getByRole('heading', { name, exact: true, level: 2 }),
   })
 const hash = () => page.evaluate(() => location.hash)
-const bridge = () => page.evaluate(() => window.__usage)
+const bridge = () => bridgeState(page)
 
 async function openUsage(name, address) {
   await usageEntry(name).click()
@@ -118,44 +122,8 @@ async function traceOverview() {
 }
 
 try {
-  await page.addInitScript(
-    ({ headers }) => {
-      // calls counts Bridge.Usage, last keeps the newest response of each
-      // method, native lists the calls that would open a dialog in the app.
-      const usage = { calls: 0, last: {}, native: [] }
-      window.__usage = usage
-      const native = (name, result) => async () => {
-        usage.native.push(name)
-        return result
-      }
-      window.go = {
-        main: {
-          Bridge: {
-            Bootstrap: () =>
-              fetch('/_ticket', { headers }).then((r) => r.json()),
-            Pick: async () => '',
-            HasReceiver: async () => false,
-            Usage: async (method, params) => {
-              usage.calls++
-              const r = await fetch('/__usage', {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ method, params: JSON.parse(params) }),
-              })
-              const text = await r.text()
-              if (!r.ok) throw new Error(text.trim())
-              usage.last[method] = text
-              return text
-            },
-            EnableUsageWatch: native('EnableUsageWatch', false),
-            DisableUsageWatch: native('DisableUsageWatch'),
-            CopyExtensionSettings: native('CopyExtensionSettings'),
-          },
-        },
-      }
-    },
-    { headers },
-  )
+  await pinLocale(page, KOREAN)
+  await installUsageBridge(page, headers)
 
   // 1. The bare address is the dashboard, with the numbers of the pipeline.
   await page.goto(origin + '/')
@@ -198,6 +166,13 @@ try {
     .getByRole('status')
     .filter({ hasText: '건너뛴 줄이 1개' })
     .waitFor()
+  // System items carry a structured kind that the page words itself.
+  for (const text of SYSTEM_ITEMS)
+    await timeline
+      .getByRole('listitem')
+      .filter({ hasText: '시스템' })
+      .getByText(text, { exact: true })
+      .waitFor()
 
   await page.getByRole('tab', { name: /^도구/ }).click()
   await page
@@ -249,6 +224,11 @@ try {
         outcomes.map(([label, count]) => `${label} ${count}개`).join(', '),
       exact: true,
     })
+    .waitFor()
+  // The insight text is generated in Go in the language the page asks for.
+  assert.equal(JSON.parse((await bridge()).last.insights).items.length, 1)
+  await page
+    .getByRole('heading', { name: seed.InsightTitles[KOREAN], exact: true })
     .waitFor()
 
   await openUsage('확장 이벤트', '#extensions')
@@ -352,6 +332,8 @@ try {
   await stays('#dashboard', SETTLE_MS)
 
   assert.deepEqual((await bridge()).native, [])
+  // The pinned language reaches the desktop process, which words the dialogs.
+  assert.deepEqual([...new Set((await bridge()).locales)], [KOREAN])
   assert.deepEqual(errors, [])
   console.log(
     JSON.stringify({

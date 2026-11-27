@@ -50,14 +50,14 @@ const zero: TokenTotals = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0 }
 const projectNames = ['sample-api', 'sample-web', 'infra-notes', 'data-tools', 'docs-site']
 const modelNames = ['model-large', 'model-medium', 'model-small']
 const titlesPool = [
-  '결제 재시도 로직 정리',
-  '빌드 캐시 문제 조사',
-  '대시보드 차트 추가',
-  '마이그레이션 스크립트 검토',
-  '테스트 실패 원인 찾기',
-  '설정 화면 리팩토링',
-  '로그 수집기 연결',
-  'API 문서 초안',
+  'Clean up payment retry logic',
+  'Investigate build cache issue',
+  'Add dashboard charts',
+  'Review migration script',
+  'Find the cause of test failures',
+  'Refactor the settings screen',
+  'Connect the log collector',
+  'Draft API docs',
 ]
 
 let state = {
@@ -217,14 +217,14 @@ const insightItems: Insight[] = [
     ruleId: 'tool-error-rate',
     severity: 'warn',
     category: 'reliability',
-    title: 'Bash 호출의 14%가 실패했습니다',
-    detail: '같은 기간 다른 도구의 실패율은 6% 이하입니다. 실패가 몰린 세션을 먼저 확인해 보세요.',
-    evidence: [{ label: '실패한 Bash 호출', value: 126, of: 900, unit: '회' }],
+    title: '14% of Bash calls failed',
+    detail: 'Other tools failed at 6% or less in the same period. Check the sessions where the failures cluster first.',
+    evidence: [{ label: 'Failed Bash calls', value: 126, of: 900, unit: 'calls' }],
     sessionIds: ['sess-0001', 'sess-0004'],
     recommendation: {
       kind: 'setting',
-      title: '자주 쓰는 명령을 허용 목록에 추가',
-      action: '권한 거부로 실패한 명령이 많다면 프로젝트 설정의 허용 목록에 읽기 전용 명령을 등록합니다.',
+      title: 'Add frequent commands to the allow list',
+      action: 'If many commands failed on a permission denial, add read-only commands to the allow list in the project settings.',
       target: 'permissions.allow',
     },
   },
@@ -233,16 +233,16 @@ const insightItems: Insight[] = [
     ruleId: 'slow-hook',
     severity: 'warn',
     category: 'workflow',
-    title: 'Stop 훅이 평균 1.2초 걸립니다',
-    detail: '턴이 끝날 때마다 실행되므로 지연이 그대로 대기 시간이 됩니다.',
+    title: 'The Stop hook takes 1.2 s on average',
+    detail: 'It runs at the end of every turn, so its delay adds directly to the wait.',
     evidence: [
-      { label: '평균 실행 시간', value: 1240, unit: 'ms' },
-      { label: '실행 횟수', value: 198, unit: '회' },
+      { label: 'Average run time', value: 1240, unit: 'ms' },
+      { label: 'Runs', value: 198, unit: 'runs' },
     ],
     recommendation: {
       kind: 'hook',
-      title: '훅 명령을 가볍게',
-      action: '무거운 검사는 변경된 파일에만 돌리거나 비동기 작업으로 옮깁니다.',
+      title: 'Make the hook command lighter',
+      action: 'Run heavy checks only on changed files, or move them to an asynchronous job.',
     },
   },
   {
@@ -250,9 +250,9 @@ const insightItems: Insight[] = [
     ruleId: 'low-cache-hit',
     severity: 'info',
     category: 'cost',
-    title: '캐시 적중률이 81%입니다',
-    detail: '긴 세션에서 맥락이 자주 바뀌면 캐시가 다시 만들어집니다.',
-    evidence: [{ label: '캐시에서 읽은 입력 토큰', value: 81, unit: '%' }],
+    title: 'Cache hit ratio is 81%',
+    detail: 'When the context changes often in a long session, the cache is built again.',
+    evidence: [{ label: 'Input tokens read from cache', value: 81, unit: '%' }],
   },
 ]
 
@@ -298,18 +298,18 @@ function timelineItems(sessionId: string): TimelineItem[] {
   const call = { input: 12, output: 420, cacheRead: 48_000, cacheCreate: 2100 }
   return [
     { id: 't0', at: at(0), kind: 'hook', hook: { event: 'SessionStart', name: 'SessionStart:startup', status: 'success', exitCode: 0, durationMs: 180 } },
-    { id: 't1', at: at(1), kind: 'prompt', text: '빌드가 왜 실패하는지 찾아 줘. 로그는 build.log 에 있어.' },
+    { id: 't1', at: at(1), kind: 'prompt', text: 'Find out why the build fails. The log is in build.log.' },
     { id: 't2', at: at(2), kind: 'thinking', model: 'model-large', tokens: { input: 0, output: 150, cacheRead: 0, cacheCreate: 0 } },
-    { id: 't3', at: at(2), kind: 'assistant', model: 'model-large', tokens: call, text: '로그부터 확인하겠습니다.' },
+    { id: 't3', at: at(2), kind: 'assistant', model: 'model-large', tokens: call, text: 'I will check the log first.' },
     { id: 't4', at: at(3), kind: 'tool_call', tool: { useId: 'toolu_mock_0', name: 'Bash', category: 'builtin', input: '{\n  "command": "tail -n 40 build.log",\n  "description": "Show the end of the build log"\n}', isError: false } },
     { id: 't5', at: at(3), kind: 'hook', hook: { event: 'PreToolUse', name: 'PreToolUse:Bash', status: 'success', exitCode: 0, durationMs: 31 } },
     { id: 't6', at: at(4), kind: 'ext', ext: extEvents()[1] },
-    { id: 't7', at: at(4), kind: 'tool_result', text: 'error: cannot find module "config"\nDB_PASSWORD=[가림]', masked: 1, tool: { useId: 'toolu_mock_0', name: 'Bash', category: 'builtin', isError: true, durationMs: 840 } },
-    { id: 't8', at: at(5), kind: 'assistant', model: 'model-large', tokens: { ...call, output: 610 }, text: '`config` 모듈 경로가 바뀐 것이 원인입니다. import 경로를 고치겠습니다.' },
+    { id: 't7', at: at(4), kind: 'tool_result', text: 'error: cannot find module "config"\nDB_PASSWORD=[REDACTED]', masked: 1, tool: { useId: 'toolu_mock_0', name: 'Bash', category: 'builtin', isError: true, durationMs: 840 } },
+    { id: 't8', at: at(5), kind: 'assistant', model: 'model-large', tokens: { ...call, output: 610 }, text: 'The `config` module path changed. I will fix the import path.' },
     { id: 't9', at: at(6), kind: 'tool_call', tool: { useId: 'toolu_mock_1', name: 'mcp__issues__search', category: 'mcp', input: '{\n  "query": "config module path"\n}', isError: false } },
-    { id: 't10', at: at(7), kind: 'tool_result', text: '관련 이슈 2건', tool: { useId: 'toolu_mock_1', name: 'mcp__issues__search', category: 'mcp', isError: false, durationMs: 1320 } },
-    { id: 't11', at: at(8), kind: 'system', label: '턴 종료 · 54.0초' },
-    { id: 't12', at: at(9), kind: 'system', label: '맥락 압축 (auto)' },
+    { id: 't10', at: at(7), kind: 'tool_result', text: '2 related issues', tool: { useId: 'toolu_mock_1', name: 'mcp__issues__search', category: 'mcp', isError: false, durationMs: 1320 } },
+    { id: 't11', at: at(8), kind: 'system', label: 'Turn ended · 54.0 s', system: { kind: 'turn_end', durationMs: 54_000 } },
+    { id: 't12', at: at(9), kind: 'system', label: 'Context compacted (auto)', system: { kind: 'compaction', trigger: 'auto' } },
   ].map((item) => ({ ...item, id: sessionId + ':' + item.id }) as TimelineItem)
 }
 

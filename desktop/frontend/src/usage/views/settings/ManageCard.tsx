@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Card } from '../../ui'
 import { ACTION, type CardProps } from './actions'
 import { Feedback } from './parts'
+import { t } from '../../../i18n'
 
 const CONFIRM_TITLE_ID = 'u-set-clear-title'
 
-/** 관리: read everything again, or delete everything that was stored. */
+/** Manage: read everything again, or delete everything that was stored. */
 export function ManageCard({ api, status, actions, apply }: CardProps) {
   const [confirming, setConfirming] = useState(false)
   const openButton = useRef<HTMLButtonElement>(null)
@@ -32,7 +33,7 @@ export function ManageCard({ api, status, actions, apply }: CardProps) {
   const rescan = () =>
     actions.run('manage', ACTION.rescan, async () => {
       apply(await api.rescan())
-      return '처음부터 다시 읽도록 했습니다. 진행 상황은 위의 수집 카드에 나옵니다.'
+      return t('settings.manage.rescan.done')
     })
 
   const clear = () =>
@@ -44,24 +45,23 @@ export function ManageCard({ api, status, actions, apply }: CardProps) {
         // does clearing an already empty store with collection off.
         const changed =
           next.consent !== status.consent || next.dataVersion !== status.dataVersion
-        if (!changed) return '바뀐 것이 없습니다. 확인 창에서 취소했거나 지울 자료가 없었습니다.'
-        const cleared = '저장한 수치와 확장 이벤트를 모두 지웠습니다.'
-        return next.consent ? cleared : `${cleared} 수집은 꺼져 있습니다.`
+        if (!changed) return t('settings.manage.unchanged')
+        const cleared = t('settings.manage.cleared')
+        return next.consent ? cleared : cleared + ' ' + t('settings.manage.collectionOff')
       } finally {
         setConfirming(false)
       }
     })
 
   return (
-    <Card title="관리" className="u-span-6">
+    <Card title={t('settings.manage.title')} className="u-span-6">
       <Feedback actions={actions} scope="manage" />
       <div className="u-set-task">
         <div>
-          <h3>다시 읽기</h3>
+          <h3>{t('settings.manage.rescan')}</h3>
           <p className="u-hint">
-            모든 세션 기록을 처음부터 다시 읽습니다. 저장한 수치는 그대로 두고, 다시 읽어도
-            중복해서 세지 않습니다.
-            {!status.consent && ' 수집이 꺼져 있으면 읽지 않으므로 쓸 수 없습니다.'}
+            {t('settings.manage.rescan.note')}
+            {!status.consent && ' ' + t('settings.manage.rescan.off')}
           </p>
         </div>
         <button
@@ -70,16 +70,13 @@ export function ManageCard({ api, status, actions, apply }: CardProps) {
           disabled={locked || !status.consent}
           aria-busy={rescanning || undefined}
         >
-          {rescanning ? '요청하는 중…' : '다시 읽기'}
+          {rescanning ? t('settings.manage.rescan.busy') : t('settings.manage.rescan')}
         </button>
       </div>
       <div className="u-set-task">
         <div>
-          <h3>모두 지우기</h3>
-          <p className="u-hint">
-            저장한 수치와 확장 이벤트를 모두 지우고 수집을 멈춥니다. 세션 기록 원본 파일은
-            건드리지 않습니다.
-          </p>
+          <h3>{t('settings.manage.clear')}</h3>
+          <p className="u-hint">{t('settings.manage.clear.note')}</p>
         </div>
         <button
           type="button"
@@ -89,22 +86,20 @@ export function ManageCard({ api, status, actions, apply }: CardProps) {
           disabled={locked || confirming}
           aria-expanded={confirming}
         >
-          모두 지우기
+          {t('settings.manage.clear')}
         </button>
       </div>
       {confirming && (
         <div className="u-set-confirm" role="group" aria-labelledby={CONFIRM_TITLE_ID}>
           <p id={CONFIRM_TITLE_ID} className="u-set-confirm-title">
-            정말 모두 지울까요?
+            {t('settings.manage.confirm.title')}
           </p>
           <ul>
-            <li>저장한 사용 수치를 모두 지웁니다.</li>
-            <li>수집도 함께 멈춥니다. 다시 모으려면 수집 시작을 눌러 새로 허락해야 합니다.</li>
-            <li>
-              확장 이벤트도 영구히 지웁니다. 확장 이벤트는 원본이 없어 되살릴 수 없습니다.
-            </li>
+            <li>{t('settings.manage.confirm.numbers')}</li>
+            <li>{t('settings.manage.confirm.stop')}</li>
+            <li>{t('settings.manage.confirm.events')}</li>
           </ul>
-          <p className="u-hint">지우기를 누르면 확인 창이 한 번 더 뜹니다.</p>
+          <p className="u-hint">{t('settings.manage.confirm.hint')}</p>
           <div className="u-set-confirm-actions">
             <button
               type="button"
@@ -112,7 +107,7 @@ export function ManageCard({ api, status, actions, apply }: CardProps) {
               onClick={() => setConfirming(false)}
               disabled={clearing}
             >
-              취소
+              {t('settings.manage.cancel')}
             </button>
             <button
               type="button"
@@ -121,7 +116,7 @@ export function ManageCard({ api, status, actions, apply }: CardProps) {
               disabled={locked}
               aria-busy={clearing || undefined}
             >
-              {clearing ? '지우는 중…' : '지우고 수집 중지'}
+              {clearing ? t('settings.manage.clearing') : t('settings.manage.confirm.button')}
             </button>
           </div>
         </div>

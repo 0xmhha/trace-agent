@@ -1,5 +1,6 @@
 import { obj, rows, str, code, label } from '../../data'
 import { task } from '../../nav'
+import { t } from '../../i18n'
 import {
   Badge,
   EvidenceLinks,
@@ -11,7 +12,7 @@ import {
 } from './shared'
 export function IdentityPage({ screen: s, go }: Props) {
   return (
-    <Group title="에이전트 식별">
+    <Group title={t('trace.identities.title')}>
       <Items
         items={rows(s.items)}
         render={(i) => (
@@ -23,7 +24,7 @@ export function IdentityPage({ screen: s, go }: Props) {
             </button>
             <span>{code(i.attribution)}</span>
             <span>
-              부모 <ID value={i.parentId} />
+              {t('trace.parent')} <ID value={i.parentId} />
             </span>
           </>
         )}
@@ -34,7 +35,7 @@ export function IdentityPage({ screen: s, go }: Props) {
 export function IdentityDetail({ screen: s, go }: Props) {
   return (
     <>
-      <Group title="작업 배정">
+      <Group title={t('trace.identity.assignments')}>
         <Items
           items={rows(obj(s.assignments).items)}
           render={(a) => (
@@ -42,7 +43,7 @@ export function IdentityDetail({ screen: s, go }: Props) {
               <button
                 onClick={() => go({ kind: 'TASK', task: task(str(a.taskId)) })}
               >
-                작업 <ID value={a.taskId} />
+                {t('trace.task.label')} <ID value={a.taskId} />
               </button>
               <span>{label(a.mission)}</span>
               <Badge value={a.grade} />
@@ -51,7 +52,7 @@ export function IdentityDetail({ screen: s, go }: Props) {
           )}
         />
       </Group>
-      <Group title="식별 근거">{evidenceRows(s.evidence, go)}</Group>
+      <Group title={t('trace.identity.evidence')}>{evidenceRows(s.evidence, go)}</Group>
     </>
   )
 }

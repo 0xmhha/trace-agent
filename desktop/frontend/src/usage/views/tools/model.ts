@@ -1,5 +1,6 @@
 import type { ToolCategory, Tools } from '../../types'
 import type { Tone } from '../../ui'
+import { formatNumber, t, type MessageKey } from '../../../i18n'
 
 /** Tabs whose rows are GroupUsage. */
 export type GroupTabId = 'mcpServers' | 'skills' | 'plugins' | 'subagents' | 'programs'
@@ -22,54 +23,51 @@ export type TabMeta =
       tokens: boolean
     })
 
-/** Every tab of the page, in display order. A new tab is added here only. */
-export const tabs: readonly TabMeta[] = [
-  {
-    id: 'tools',
-    label: '도구',
-    note: '도구 이름별 호출 수입니다. 실패율은 실패한 호출을 전체 호출로 나눈 값이고, p50과 p95는 결과가 돌아온 호출만으로 구한 소요 시간입니다.',
-  },
-  {
-    id: 'mcpServers',
-    label: 'MCP 서버',
-    nameLabel: '서버',
-    tokens: false,
-    note: 'MCP 서버별로 그 서버가 제공한 도구의 호출을 합쳤습니다. 평균 시간은 결과가 돌아온 호출만으로 구합니다.',
-  },
-  {
-    id: 'skills',
-    label: '스킬',
-    nameLabel: '스킬',
-    tokens: true,
-    note: 'Skill 도구로 불러온 스킬별 호출 수입니다. 토큰은 세션 기록이 그 스킬에 귀속한 모델 호출의 합이고, 귀속 기록이 없으면 비어 있습니다.',
-  },
-  {
-    id: 'plugins',
-    label: '플러그인',
-    nameLabel: '플러그인',
-    tokens: true,
-    note: '플러그인이 제공한 스킬과 MCP 도구의 호출을 플러그인별로 합쳤습니다. 토큰은 세션 기록이 그 플러그인에 귀속한 모델 호출의 합입니다.',
-  },
-  {
-    id: 'hooks',
-    label: '훅',
-    note: '훅 이벤트와 이름별 실행 횟수입니다. 훅은 도구 호출이나 턴마다 실행되므로 실행 시간이 그대로 대기 시간이 됩니다.',
-  },
-  {
-    id: 'subagents',
-    label: '하위 에이전트',
-    nameLabel: '종류',
-    tokens: false,
-    note: 'Agent 도구로 시작한 하위 에이전트를 종류별로 센 수치입니다. 실패율은 실패로 끝난 실행의 비율입니다.',
-  },
-  {
-    id: 'programs',
-    label: 'Bash 프로그램',
-    nameLabel: '프로그램',
-    tokens: false,
-    note: 'Bash 명령에서 프로그램 이름만 뽑아 센 수치입니다. 명령의 인자는 저장하지 않으므로 여기에도 나오지 않습니다.',
-  },
-]
+/**
+ * Every tab of the page, in display order. A new tab is added here only.
+ * A function, so the labels follow the current locale.
+ */
+export function tabs(): readonly TabMeta[] {
+  return [
+    { id: 'tools', label: t('tools.tab.tools'), note: t('tools.tab.tools.note') },
+    {
+      id: 'mcpServers',
+      label: t('tools.tab.mcpServers'),
+      nameLabel: t('tools.tab.mcpServers.name'),
+      tokens: false,
+      note: t('tools.tab.mcpServers.note'),
+    },
+    {
+      id: 'skills',
+      label: t('tools.tab.skills'),
+      nameLabel: t('tools.tab.skills.name'),
+      tokens: true,
+      note: t('tools.tab.skills.note'),
+    },
+    {
+      id: 'plugins',
+      label: t('tools.tab.plugins'),
+      nameLabel: t('tools.tab.plugins.name'),
+      tokens: true,
+      note: t('tools.tab.plugins.note'),
+    },
+    { id: 'hooks', label: t('tools.tab.hooks'), note: t('tools.tab.hooks.note') },
+    {
+      id: 'subagents',
+      label: t('tools.tab.subagents'),
+      nameLabel: t('tools.tab.subagents.name'),
+      tokens: false,
+      note: t('tools.tab.subagents.note'),
+    },
+    {
+      id: 'programs',
+      label: t('tools.tab.programs'),
+      nameLabel: t('tools.tab.programs.name'),
+      tokens: false,
+      note: t('tools.tab.programs.note'),
+    },
+  ]
+}
 
 // Fails to compile when a tab id stops being a list of the payload.
 type TabRows = { [K in TabId]: Tools[K] extends unknown[] ? true : never }
@@ -88,16 +86,17 @@ export const DEFAULT_TAB: TabId = 'tools'
 
 export interface CategoryMeta {
   id: ToolCategory
-  label: string
+  /** Message key of the category name; read it with t() at render. */
+  labelKey: MessageKey
   /** Series colour. It follows the category, never its rank, so a filter does not repaint. */
   color: string
 }
 /** Tool categories in the fixed order that assigns the series colours. */
 export const categories: readonly CategoryMeta[] = [
-  { id: 'builtin', label: '기본 도구', color: 'var(--u-s1)' },
-  { id: 'mcp', label: 'MCP', color: 'var(--u-s2)' },
-  { id: 'skill', label: '스킬', color: 'var(--u-s3)' },
-  { id: 'agent', label: '하위 에이전트', color: 'var(--u-s4)' },
+  { id: 'builtin', labelKey: 'tools.category.builtin', color: 'var(--u-s1)' },
+  { id: 'mcp', labelKey: 'tools.category.mcp', color: 'var(--u-s2)' },
+  { id: 'skill', labelKey: 'tools.category.skill', color: 'var(--u-s3)' },
+  { id: 'agent', labelKey: 'tools.category.agent', color: 'var(--u-s4)' },
 ]
 export function categoryMeta(id: ToolCategory): CategoryMeta {
   return categories.find((c) => c.id === id) ?? categories[0]!
@@ -113,7 +112,7 @@ export interface TabState {
 }
 export function parseTab(raw: string | undefined): TabState {
   const [id = '', filter = ''] = (raw ?? '').split(TAB_SEPARATOR)
-  const meta = tabs.find((t) => t.id === id)
+  const meta = tabs().find((tab) => tab.id === id)
   if (!meta) return { tab: DEFAULT_TAB, category: null }
   const category =
     meta.id === 'tools' ? (categories.find((c) => c.id === filter)?.id ?? null) : null
@@ -150,5 +149,5 @@ export function slowTone(ms: number | null, warnAt: number, badAt: number): Tone
 
 /** 0.05 → "5%", for threshold text. */
 export function thresholdPct(ratio: number): string {
-  return Math.round(ratio * 100) + '%'
+  return formatNumber(ratio, { style: 'percent', maximumFractionDigits: 0 })
 }

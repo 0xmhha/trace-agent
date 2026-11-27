@@ -14,6 +14,7 @@ import type {
   TimelineRequest,
   Tools,
 } from './types'
+import { getLocale } from '../i18n'
 
 /**
  * Everything the usage pages may ask the desktop process. Read methods map to
@@ -56,7 +57,7 @@ function bridge(): UsageBridge {
     window as unknown as { go?: { main?: { Bridge?: Partial<UsageBridge> } } }
   ).go?.main?.Bridge
   if (!b?.Usage || !b.EnableUsageWatch || !b.DisableUsageWatch || !b.CopyExtensionSettings)
-    throw Error('설치한 앱에서 열어 주세요.')
+    throw Error('bridge.missing')
   return b as UsageBridge
 }
 
@@ -74,7 +75,8 @@ export const nativeApi: UsageApi = {
   timeline: (r) => call('timeline', r),
   tools: (q) => call('tools', q),
   projects: (q) => call('projects', q),
-  insights: (q) => call('insights', q),
+  // Insight text is generated in Go, so it needs the page's language.
+  insights: (q) => call('insights', { ...q, locale: getLocale() }),
   extensions: (q) => call('extensions', q),
   extEvents: (q) => call('extEvents', q),
   setExcluded: (project, excluded) => call('setExcluded', { project, excluded }),

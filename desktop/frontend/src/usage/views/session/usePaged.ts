@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { errorText } from './errors'
+import { t } from '../../../i18n'
+import { rejectionMessage } from './errors'
 
 interface PageLike {
   nextCursor?: string
@@ -10,6 +11,11 @@ interface Entry<P> {
   page: P
 }
 type FailedStep = 'first' | 'more'
+
+/** Keeps a bridge code as it is, so describeError can still recognise it. */
+function failureText(reason: unknown): string {
+  return rejectionMessage(reason) || t('errors.generic')
+}
 
 /**
  * How a list follows new data without throwing away what the user loaded.
@@ -73,7 +79,7 @@ export function usePaged<P extends PageLike>(
         if (id === generation.current) setEntries([{ cursor: undefined, page }])
       })
       .catch((reason: unknown) => {
-        if (id === generation.current) setFailure({ message: errorText(reason), step: 'first' })
+        if (id === generation.current) setFailure({ message: failureText(reason), step: 'first' })
       })
       .finally(() => {
         if (id === generation.current) setLoading(false)
@@ -101,7 +107,7 @@ export function usePaged<P extends PageLike>(
         if (id === generation.current) setEntries((prev) => [...prev, { cursor, page }])
       })
       .catch((reason: unknown) => {
-        if (id === generation.current) setFailure({ message: errorText(reason), step: 'more' })
+        if (id === generation.current) setFailure({ message: failureText(reason), step: 'more' })
       })
       .finally(() => {
         if (id !== generation.current) return
@@ -132,7 +138,7 @@ export function usePaged<P extends PageLike>(
         )
       })
       .catch((reason: unknown) => {
-        if (id === generation.current) setFailure({ message: errorText(reason), step: 'first' })
+        if (id === generation.current) setFailure({ message: failureText(reason), step: 'first' })
       })
   }, [refresh, follow])
 

@@ -1,3 +1,4 @@
+import { t, type MessageKey } from '../../../i18n'
 import type { GroupUsage, HookUsage, SessionDetail, ToolUsage } from '../../types'
 import {
   Card,
@@ -18,57 +19,58 @@ function failures(errors: number) {
   return errors > 0 ? <b className="u-tone-bad">{fmtInt(errors)}</b> : fmtInt(errors)
 }
 
-const toolColumns: Column<ToolUsage>[] = [
-  { key: 'name', label: '도구', render: (t) => <code className="u-sd-name">{t.name}</code> },
-  {
-    key: 'category',
-    label: '분류',
-    render: (t) => <Pill tone="muted">{labelOf(categoryLabels, t.category)}</Pill>,
-  },
-  { key: 'calls', label: '호출', align: 'right', render: (t) => fmtInt(t.calls) },
-  { key: 'errors', label: '실패', align: 'right', render: (t) => failures(t.errors) },
-  {
-    key: 'rate',
-    label: '실패율',
-    align: 'right',
-    render: (t) => fmtPct(ratio(t.errors, t.calls)),
-  },
-  { key: 'pending', label: '결과 없음', align: 'right', render: (t) => fmtInt(t.pending) },
-  { key: 'p50', label: '중앙값', align: 'right', render: (t) => fmtMs(t.p50Ms) },
-  { key: 'p95', label: 'p95', align: 'right', render: (t) => fmtMs(t.p95Ms) },
-]
+// Column lists are built at render so their headers follow the locale.
+function toolColumns(): Column<ToolUsage>[] {
+  return [
+    { key: 'name', label: t('session.colTool'), render: (u) => <code className="u-sd-name">{u.name}</code> },
+    {
+      key: 'category',
+      label: t('session.colCategory'),
+      render: (u) => <Pill tone="muted">{labelOf(categoryLabels, u.category)}</Pill>,
+    },
+    { key: 'calls', label: t('session.colCalls'), align: 'right', render: (u) => fmtInt(u.calls) },
+    { key: 'errors', label: t('session.colFailures'), align: 'right', render: (u) => failures(u.errors) },
+    {
+      key: 'rate',
+      label: t('session.colFailureRate'),
+      align: 'right',
+      render: (u) => fmtPct(ratio(u.errors, u.calls)),
+    },
+    { key: 'pending', label: t('session.colPending'), align: 'right', render: (u) => fmtInt(u.pending) },
+    { key: 'p50', label: t('session.colMedian'), align: 'right', render: (u) => fmtMs(u.p50Ms) },
+    { key: 'p95', label: t('session.colP95'), align: 'right', render: (u) => fmtMs(u.p95Ms) },
+  ]
+}
 
 /** Columns of a name-keyed group. The session count is left out: it is always one here. */
-function groupColumns(nameLabel: string, withTokens: boolean): Column<GroupUsage>[] {
+function groupColumns(nameLabel: MessageKey, withTokens: boolean): Column<GroupUsage>[] {
   const columns: Column<GroupUsage>[] = [
-    { key: 'name', label: nameLabel, render: (g) => <code className="u-sd-name">{g.name}</code> },
-    { key: 'calls', label: '호출', align: 'right', render: (g) => fmtInt(g.calls) },
-    { key: 'errors', label: '실패', align: 'right', render: (g) => failures(g.errors) },
+    { key: 'name', label: t(nameLabel), render: (g) => <code className="u-sd-name">{g.name}</code> },
+    { key: 'calls', label: t('session.colCalls'), align: 'right', render: (g) => fmtInt(g.calls) },
+    { key: 'errors', label: t('session.colFailures'), align: 'right', render: (g) => failures(g.errors) },
   ]
   if (withTokens)
     columns.push({
       key: 'tokens',
-      label: '토큰',
+      label: t('session.colTokens'),
       align: 'right',
       render: (g) =>
         g.tokens ? <span title={tokenParts(g.tokens)}>{fmtCompact(sumTokens(g.tokens))}</span> : '—',
     })
-  columns.push({ key: 'avg', label: '평균 시간', align: 'right', render: (g) => fmtMs(g.avgMs) })
+  columns.push({ key: 'avg', label: t('session.colAvg'), align: 'right', render: (g) => fmtMs(g.avgMs) })
   return columns
 }
 
-const mcpColumns = groupColumns('서버', false)
-const skillColumns = groupColumns('스킬', true)
-const pluginColumns = groupColumns('플러그인', true)
-
-const hookColumns: Column<HookUsage>[] = [
-  { key: 'event', label: '이벤트', render: (h) => h.event },
-  { key: 'name', label: '훅', render: (h) => <code className="u-sd-name">{h.name}</code> },
-  { key: 'runs', label: '실행', align: 'right', render: (h) => fmtInt(h.runs) },
-  { key: 'failures', label: '실패', align: 'right', render: (h) => failures(h.failures) },
-  { key: 'avg', label: '평균 시간', align: 'right', render: (h) => fmtMs(h.avgMs) },
-  { key: 'max', label: '최대 시간', align: 'right', render: (h) => fmtMs(h.maxMs) },
-]
+function hookColumns(): Column<HookUsage>[] {
+  return [
+    { key: 'event', label: t('session.colEvent'), render: (h) => h.event },
+    { key: 'name', label: t('session.colHook'), render: (h) => <code className="u-sd-name">{h.name}</code> },
+    { key: 'runs', label: t('session.colRuns'), align: 'right', render: (h) => fmtInt(h.runs) },
+    { key: 'failures', label: t('session.colFailures'), align: 'right', render: (h) => failures(h.failures) },
+    { key: 'avg', label: t('session.colAvg'), align: 'right', render: (h) => fmtMs(h.avgMs) },
+    { key: 'max', label: t('session.colMax'), align: 'right', render: (h) => fmtMs(h.maxMs) },
+  ]
+}
 
 function Section<T>(p: {
   title: string
@@ -90,48 +92,48 @@ function Section<T>(p: {
   )
 }
 
-/** The 도구 tab: what the session called, grouped the way the tools page groups it. */
+/** The tools tab: what the session called, grouped the way the tools page groups it. */
 export function ToolsTab({ detail }: { detail: SessionDetail }) {
   return (
     <div className="u-grid">
       <Section
-        title="도구"
-        hint="걸린 시간은 결과가 돌아온 호출만으로 구합니다."
+        title={t('session.toolsTitle')}
+        hint={t('session.toolsHint')}
         className="u-span-12"
-        empty="이 세션은 도구를 호출하지 않았습니다."
-        columns={toolColumns}
+        empty={t('session.noTools')}
+        columns={toolColumns()}
         rows={detail.tools}
-        rowKey={(t) => t.category + ':' + t.name}
+        rowKey={(u) => u.category + ':' + u.name}
       />
       <Section
-        title="MCP 서버"
+        title={t('session.mcpTitle')}
         className="u-span-6"
-        empty="이 세션은 MCP 서버를 쓰지 않았습니다."
-        columns={mcpColumns}
+        empty={t('session.noMcp')}
+        columns={groupColumns('session.colServer', false)}
         rows={detail.mcpServers}
         rowKey={(g) => g.name}
       />
       <Section
-        title="스킬"
+        title={t('session.skillsTitle')}
         className="u-span-6"
-        empty="이 세션은 스킬을 쓰지 않았습니다."
-        columns={skillColumns}
+        empty={t('session.noSkills')}
+        columns={groupColumns('session.colSkill', true)}
         rows={detail.skills}
         rowKey={(g) => g.name}
       />
       <Section
-        title="플러그인"
+        title={t('session.pluginsTitle')}
         className="u-span-6"
-        empty="이 세션은 플러그인을 쓰지 않았습니다."
-        columns={pluginColumns}
+        empty={t('session.noPlugins')}
+        columns={groupColumns('session.colPlugin', true)}
         rows={detail.plugins}
         rowKey={(g) => g.name}
       />
       <Section
-        title="훅"
+        title={t('session.hooksTitle')}
         className="u-span-6"
-        empty="이 세션에서 실행된 훅이 없습니다."
-        columns={hookColumns}
+        empty={t('session.noHooks')}
+        columns={hookColumns()}
         rows={detail.hooks}
         rowKey={(h) => h.event + ':' + h.name}
       />

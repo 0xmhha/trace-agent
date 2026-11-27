@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { list, obj, str, type Range } from './data'
 import type { Query } from './nav'
+import { interleave } from './Screen'
+import { t } from './i18n'
 
 type Target = 'SOURCE' | 'SESSION' | 'TASK'
 type Kind = 'BODY' | 'ALL'
@@ -20,7 +22,7 @@ type Props = {
 const validID = (id: string) => /^[0-9a-f]{64}$/.test(id)
 function count(value: unknown): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
-    throw Error('삭제 건수를 확인하지 못했습니다. 다시 미리보기를 실행하세요.')
+    throw Error(t('trace.delete.badCount'))
   return value
 }
 export function DeletePanel({
@@ -41,7 +43,11 @@ export function DeletePanel({
     validID(sourceId) &&
     (target === 'SOURCE' || (validID(id) && ids.includes(id)))
   const targetLabel =
-    target === 'SESSION' ? '세션' : target === 'TASK' ? '작업' : '출처 전체'
+    target === 'SESSION'
+      ? t('trace.delete.targetSession')
+      : target === 'TASK'
+        ? t('trace.delete.targetTask')
+        : t('trace.delete.targetSource')
   const clear = () => {
     setPreview(null)
     setNotice('')
@@ -52,9 +58,7 @@ export function DeletePanel({
     const timer = window.setTimeout(
       () => {
         setPreview(null)
-        setNotice(
-          '미리보기가 만료됐습니다. 삭제하려면 다시 미리보기를 실행하세요.',
-        )
+        setNotice(t('trace.delete.expiredRetry'))
       },
       Math.max(0, preview.expires - Date.now()),
     )
@@ -75,14 +79,14 @@ export function DeletePanel({
       items.length !== result.ids.length ||
       items.some((v) => !validID(v))
     )
-      throw Error('삭제 대상 목록을 확인하지 못했습니다.')
+      throw Error(t('trace.delete.badTargets'))
     setIds(append ? [...new Set([...ids, ...items])] : items)
     setMore(result.hasNext === true)
     if (!items.length && !append)
       setNotice(
-        '이 기간에 확인된 ' +
-          (mode === 'SESSION' ? '세션' : '작업') +
-          '이 없습니다.',
+        mode === 'SESSION'
+          ? t('trace.delete.noSessions')
+          : t('trace.delete.noTasks'),
       )
   }
 
@@ -112,9 +116,7 @@ export function DeletePanel({
       !Number.isFinite(expires) ||
       expires <= Date.now()
     )
-      throw Error(
-        '서버가 확인한 범위나 유효 시간이 다릅니다. 다시 미리보기를 실행하세요.',
-      )
+      throw Error(t('trace.delete.scopeMismatch'))
     setPreview({
       receipt,
       expires,
@@ -125,27 +127,28 @@ export function DeletePanel({
   async function confirm() {
     if (!preview || !eligible) return
     setPreview(null)
-    if (preview.expires <= Date.now()) throw Error('미리보기가 만료됐습니다.')
+    if (preview.expires <= Date.now()) throw Error(t('trace.delete.expired'))
     const result = await query('confirmDelete', { receipt: preview.receipt })
     setNotice(
-      '근거 ' +
-        count(result.evidenceRemoved) +
-        '건, 본문 ' +
-        count(result.bodiesRemoved) +
-        '건을 삭제했습니다.',
+      t('trace.delete.done', {
+        evidence: count(result.evidenceRemoved),
+        bodies: count(result.bodiesRemoved),
+      }),
     )
     refresh()
   }
   return (
     <section className="panel">
-      <h2>삭제</h2>
+      <h2>{t('trace.delete.title')}</h2>
       <p>
-        삭제 기간 (UTC) <time>{new Date(interval.from).toISOString()}</time>{' '}
-        이상, <time>{new Date(interval.until).toISOString()}</time> 미만
+        {interleave(t('trace.delete.period'), {
+          from: <time>{new Date(interval.from).toISOString()}</time>,
+          until: <time>{new Date(interval.until).toISOString()}</time>,
+        })}
       </p>
       <div className="toolbar">
         <label>
-          삭제 대상{' '}
+          {t('trace.delete.target')}{' '}
           <select
             value={target}
             onChange={(event) => {
@@ -160,14 +163,14 @@ export function DeletePanel({
               if (next !== 'SOURCE') void run(() => loadTargets(next, false))
             }}
           >
-            <option value="SOURCE">출처 전체</option>
-            <option value="SESSION">세션</option>
-            <option value="TASK">작업</option>
+            <option value="SOURCE">{t('trace.delete.targetSource')}</option>
+            <option value="SESSION">{t('trace.delete.targetSession')}</option>
+            <option value="TASK">{t('trace.delete.targetTask')}</option>
           </select>
         </label>
         {target !== 'SOURCE' && (
           <label>
-            {targetLabel} ID{' '}
+            {t('trace.delete.targetId', { target: targetLabel })}{' '}
             <select
               value={id}
               onChange={(event) => {
@@ -175,7 +178,7 @@ export function DeletePanel({
                 setId(event.target.value)
               }}
             >
-              <option value="">선택하세요</option>
+              <option value="">{t('trace.delete.choose')}</option>
               {ids.map((value) => (
                 <option key={value} value={value}>
                   {value}
@@ -186,11 +189,11 @@ export function DeletePanel({
         )}
         {more && (
           <button onClick={() => run(() => loadTargets(target, true))}>
-            대상 더 보기
+            {t('trace.delete.moreTargets')}
           </button>
         )}
         <label>
-          삭제할 자료{' '}
+          {t('trace.delete.kind')}{' '}
           <select
             value={kind}
             onChange={(event) => {
@@ -201,18 +204,18 @@ export function DeletePanel({
               }
             }}
           >
-            <option value="BODY">본문만</option>
-            <option value="ALL">모든 근거</option>
+            <option value="BODY">{t('trace.delete.bodyOnly')}</option>
+            <option value="ALL">{t('trace.delete.allEvidence')}</option>
           </select>
         </label>
         <button disabled={!eligible} onClick={() => run(requestPreview)}>
-          삭제 미리보기
+          {t('trace.delete.preview')}
         </button>
       </div>
       {preview && (
         <div className="notice">
           <p>
-            출처 <code>{sourceId}</code>
+            {t('trace.delete.source')} <code>{sourceId}</code>
             {target !== 'SOURCE' && (
               <>
                 {' '}
@@ -221,20 +224,22 @@ export function DeletePanel({
             )}
           </p>
           <p>
-            범위에 포함된 근거 {preview.evidence}건. 삭제할 근거{' '}
-            {kind === 'BODY' ? 0 : preview.evidence}건, 본문 {preview.bodies}건.
+            {t('trace.delete.counts', {
+              inScope: preview.evidence,
+              evidence: kind === 'BODY' ? 0 : preview.evidence,
+              bodies: preview.bodies,
+            })}
           </p>
           <p>
-            {target !== 'SOURCE' &&
-              '이 출처에서 소속을 확인할 수 없는 기록도 집계에 포함합니다. '}
+            {target !== 'SOURCE' && t('trace.delete.unattributed') + ' '}
             {kind === 'BODY'
-              ? '삭제한 범위의 본문 재수집도 차단합니다.'
-              : '삭제한 범위의 근거 재수집도 차단합니다.'}
+              ? t('trace.delete.blockBodies')
+              : t('trace.delete.blockEvidence')}
           </p>
           <button className="danger" onClick={() => run(confirm)}>
-            이 범위 삭제
+            {t('trace.delete.confirm')}
           </button>
-          <button onClick={clear}>취소</button>
+          <button onClick={clear}>{t('trace.delete.cancel')}</button>
         </div>
       )}
       {notice && <p role="status">{notice}</p>}

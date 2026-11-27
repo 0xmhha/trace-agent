@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { errorText } from '../../../i18n'
 import type { UsageApi } from '../../api'
 import type { Coverage, Range, SessionQuery, SessionRow, SessionSort } from '../../types'
 import { useLoad } from '../../ui'
@@ -161,7 +162,7 @@ export function useSessionPages(
         if (id !== generation.current) return
         setMoreState({
           loading: false,
-          error: reason instanceof Error ? reason.message : '다음 쪽을 읽지 못했습니다.',
+          error: errorText(reason, 'sessions.moreFailed'),
         })
       })
       .finally(() => {

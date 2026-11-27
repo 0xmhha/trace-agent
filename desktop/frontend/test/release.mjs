@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
+import { KOREAN, pinLocale } from './locale.mjs'
 
 const [mode, origin] = process.argv.slice(2)
 const headers = { 'X-Trace-Test': process.env.TRACE_TEST_TOKEN }
@@ -19,6 +20,7 @@ try {
   })
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
+  await pinLocale(page, KOREAN)
   await page.addInitScript(
     ({ headers }) => {
       window.go = {

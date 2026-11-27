@@ -115,11 +115,35 @@ aside nav span {
   min-width: 18px;
   text-align: center;
 }
+/* The language choice sits at the foot of the sidebar, above the
+   connection line when the trace workspace shows one. */
+.language {
+  margin-top: auto;
+  display: grid;
+  gap: 4px;
+  padding: 0 10px 16px;
+}
+.language label {
+  color: #8fa59b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.language select {
+  width: 100%;
+  color: #e8f0ec;
+  background: #233d38;
+  border-color: #496059;
+  font-size: 0.85rem;
+}
 .connection {
   margin-top: auto;
   border-top: 1px solid #496059;
   padding: 20px 10px 0;
   font-size: 0.85rem;
+}
+.language + .connection {
+  margin-top: 0;
 }
 .lamp {
   display: inline-block;
@@ -391,6 +415,9 @@ fieldset {
   }
   .navCaption {
     padding: 0 9px 4px;
+  }
+  .language {
+    padding: 0 4px 12px;
   }
   .pageHeader {
     align-items: center;

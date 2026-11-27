@@ -52,8 +52,28 @@ const (
 	usageIAToolCalls  = 6
 )
 
+// Refused extension inputs recorded before the scan, the way the event
+// receiver records them. The transcripts alone fire no insight rule; refused
+// inputs fire ext-rejected, so the insights page shows a title that Go
+// generated in the page's language.
 const (
-	usageIAScript = "frontend/test/usage.mjs"
+	usageIAExtSender = "sample-tool"
+	usageIARejected  = 3
+	usageIAInsightID = "ext-rejected"
+)
+
+// usageIAInsightTitles is the title Go gives the ext-rejected insight for
+// usageIARejected refused inputs, per locale the page sends.
+var usageIAInsightTitles = map[usage.Locale]string{
+	usage.LocaleEnglish: "3 extension inputs were rejected",
+	usage.LocaleKorean:  "확장 입력 3건이 거부됐습니다",
+}
+
+const (
+	// The Korean script walks every page in depth; the English one checks the
+	// default language and the language selector. They share one pipeline.
+	usageIAScript        = "frontend/test/usage.mjs"
+	usageIAEnglishScript = "frontend/test/english.mjs"
 	// The script reads what the harness laid out from here and reaches the
 	// pipeline through the request path of the installed app's bridge.
 	usageIASeedPath    = "/_seed"
@@ -61,7 +81,7 @@ const (
 	usageIARequestPath = "/__usage"
 	usageIATokenHeader = "X-Trace-Test"
 	usageIATokenEnv    = "TRACE_TEST_TOKEN"
-	usageIATimeout     = 2 * time.Minute
+	usageIATimeout     = 3 * time.Minute
 	usageIAMaxBody     = 1 << 20
 	// The newest fixture record lands this long before the test starts, which
 	// puts the whole session inside the pages' default range.
@@ -83,6 +103,9 @@ type usageIASeed struct {
 	SessionID string
 	AgentID   string
 	RootLabel string
+	// InsightTitles maps a locale code to the title of the insight the
+	// pipeline fires on the presented data.
+	InsightTitles map[usage.Locale]string
 }
 
 // usageIARequest is one call of the fake bridge's Usage method.
@@ -179,6 +202,9 @@ func newUsageIARuntime(ctx context.Context, t *testing.T) *usageRuntime {
 	if err = svc.SetConsent(ctx, true); err != nil {
 		t.Fatal(err)
 	}
+	if err = numbers.CountRejected(ctx, usageIAExtSender, usageIARejected); err != nil {
+		t.Fatal(err)
+	}
 	if err = svc.ScanOnce(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -204,6 +230,40 @@ func checkUsageIAOverview(ctx context.Context, t *testing.T, u *usageRuntime) {
 	if o.Sessions != usageIASessions || o.Prompts != usageIAPrompts || o.ModelCalls != usageIAModelCalls || o.ToolCalls != usageIAToolCalls {
 		t.Fatalf("overview of the presented fixtures = %d sessions, %d prompts, %d model calls, %d tool calls",
 			o.Sessions, o.Prompts, o.ModelCalls, o.ToolCalls)
+	}
+}
+
+// checkUsageIAInsights asks for the insights in every locale the page can
+// send and checks that the title of the fired rule is in that language.
+func checkUsageIAInsights(ctx context.Context, t *testing.T, u *usageRuntime) {
+	t.Helper()
+	until := time.Now()
+	for _, locale := range usage.Locales() {
+		want, ok := usageIAInsightTitles[locale]
+		if !ok {
+			t.Fatalf("no expected insight title for locale %q", locale)
+		}
+		params, err := json.Marshal(usage.Query{Range: usage.Range{From: until.AddDate(0, 0, -usageIARangeDays), Until: until}, Locale: locale})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := u.request(ctx, usage.MethodInsights, string(params))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var report usage.InsightReport
+		if err = json.Unmarshal([]byte(raw), &report); err != nil {
+			t.Fatal(err)
+		}
+		var titles []string
+		for _, item := range report.Items {
+			if item.RuleID == usageIAInsightID {
+				titles = append(titles, item.Title)
+			}
+		}
+		if len(titles) != 1 || titles[0] != want {
+			t.Fatalf("%s insight titles in %s = %q, want [%q]", usageIAInsightID, locale, titles, want)
+		}
 	}
 }
 
@@ -259,6 +319,7 @@ func TestDesktopUsageIA(t *testing.T) {
 
 	pipeline := newUsageIARuntime(ctx, t)
 	checkUsageIAOverview(ctx, t, pipeline)
+	checkUsageIAInsights(ctx, t, pipeline)
 
 	traces, err := store.Open(ctx, filepath.Join(t.TempDir(), "browser.sqlite"))
 	if err != nil {
@@ -300,7 +361,10 @@ func TestDesktopUsageIA(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(BootstrapResult{endpoint, ticket})
 	})
 	api(usageIASeedPath, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(usageIASeed{SessionID: usageIASession, AgentID: usageIAAgent, RootLabel: usageIARootLabel})
+		_ = json.NewEncoder(w).Encode(usageIASeed{
+			SessionID: usageIASession, AgentID: usageIAAgent, RootLabel: usageIARootLabel,
+			InsightTitles: usageIAInsightTitles,
+		})
 	})
 	api(usageIARequestPath, serveUsageIA(pipeline))
 	assets, err := fs.Sub(files, "frontend/dist")
@@ -309,11 +373,20 @@ func TestDesktopUsageIA(t *testing.T) {
 	}
 	mux.Handle("/", http.FileServer(http.FS(assets)))
 
-	cmd := exec.CommandContext(ctx, "node", usageIAScript, web.URL) // #nosec G204 -- fixed checked-in script, program and loopback test origin.
-	cmd.Env = append(os.Environ(), usageIATokenEnv+"="+token)
-	output, err := cmd.CombinedOutput()
-	t.Log(string(output))
-	if err != nil {
-		t.Fatal(err)
+	// The Korean script runs first: it expects the pipeline as the harness left
+	// it, and the English one changes only what the browser stores.
+	for _, script := range []struct{ name, path string }{
+		{"korean", usageIAScript},
+		{"english", usageIAEnglishScript},
+	} {
+		t.Run(script.name, func(t *testing.T) {
+			cmd := exec.CommandContext(ctx, "node", script.path, web.URL) // #nosec G204 -- fixed checked-in script, program and loopback test origin.
+			cmd.Env = append(os.Environ(), usageIATokenEnv+"="+token)
+			output, err := cmd.CombinedOutput()
+			t.Log(string(output))
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

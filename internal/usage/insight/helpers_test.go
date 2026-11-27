@@ -72,14 +72,32 @@ func findRule(t *testing.T, id ruleID) rule {
 	return rule{}
 }
 
-// runRuleCases runs one rule over each case and compares the outcome and the
-// asserted fields of every insight, in the order the rule produced them.
+// Korean evidence units, as the Korean expectations spell them.
+const (
+	koTimes   = "회"
+	koItems   = "개"
+	koCases   = "건"
+	koPercent = "%"
+	koMillis  = "ms"
+)
+
+// runRuleCases runs one rule over each case in Korean, the language the
+// expectations are written in, and compares the outcome and the asserted
+// fields of every insight, in the order the rule produced them.
 func runRuleCases(t *testing.T, id ruleID, cases []ruleCase) {
+	t.Helper()
+	runRuleCasesIn(t, id, usage.LocaleKorean, cases)
+}
+
+// runRuleCasesIn is runRuleCases in the given locale.
+func runRuleCasesIn(t *testing.T, id ruleID, locale usage.Locale, cases []ruleCase) {
 	t.Helper()
 	r := findRule(t, id)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, items := r.run(tc.in)
+			in := tc.in
+			in.Locale = locale
+			got, items := r.run(in)
 			if got != tc.want {
 				t.Fatalf("outcome = %d, want %d (items %+v)", got, tc.want, items)
 			}
@@ -88,7 +106,7 @@ func runRuleCases(t *testing.T, id ruleID, cases []ruleCase) {
 			}
 			for i, want := range tc.items {
 				item := items[i]
-				checkInsightShape(t, item)
+				checkInsightShape(t, item, locale)
 				if item.ID != want.id {
 					t.Errorf("item %d: ID = %q, want %q", i, item.ID, want.id)
 				}
@@ -116,9 +134,9 @@ func runRuleCases(t *testing.T, id ruleID, cases []ruleCase) {
 }
 
 // checkInsightShape asserts what every insight must satisfy regardless of
-// its rule: identity, Korean formal text, evidence and a usable
+// its rule: identity, text in the requested language, evidence and a usable
 // recommendation.
-func checkInsightShape(t *testing.T, item usage.Insight) {
+func checkInsightShape(t *testing.T, item usage.Insight, locale usage.Locale) {
 	t.Helper()
 	if item.ID != item.RuleID && !strings.HasPrefix(item.ID, item.RuleID+subjectSeparator) {
 		t.Errorf("%s: ID does not start with rule ID %q", item.ID, item.RuleID)
@@ -129,12 +147,7 @@ func checkInsightShape(t *testing.T, item usage.Insight) {
 	if severityRank(item.Severity) == rankUnknown {
 		t.Errorf("%s: unknown severity %q", item.ID, item.Severity)
 	}
-	if !hasHangul(item.Title) || !strings.HasSuffix(item.Title, "니다") {
-		t.Errorf("%s: title %q is not a formal Korean sentence", item.ID, item.Title)
-	}
-	if !hasHangul(item.Detail) || !strings.HasSuffix(item.Detail, "니다.") {
-		t.Errorf("%s: detail %q is not a formal Korean sentence", item.ID, item.Detail)
-	}
+	checkText(t, item, locale)
 	if len(item.Evidence) == 0 {
 		t.Errorf("%s: no evidence", item.ID)
 	}
@@ -153,8 +166,59 @@ func checkInsightShape(t *testing.T, item usage.Insight) {
 	if !slices.Contains(validKinds(), rec.Kind) {
 		t.Errorf("%s: unknown recommendation kind %q", item.ID, rec.Kind)
 	}
-	if !hasHangul(rec.Title) || !hasHangul(rec.Action) || !strings.HasSuffix(rec.Action, "니다.") {
-		t.Errorf("%s: recommendation %+v is not formal Korean text", item.ID, *rec)
+}
+
+// Sentence endings the shape checks expect.
+const (
+	koTitleEnding    = "니다"
+	koSentenceEnding = "니다."
+	enSentenceEnding = "."
+)
+
+// checkText asserts that every text of item is in locale: formal Korean
+// sentences for Korean, and English without Hangul for English. It also
+// catches a format whose arguments did not match.
+func checkText(t *testing.T, item usage.Insight, locale usage.Locale) {
+	t.Helper()
+	texts := []string{item.Title, item.Detail}
+	for _, e := range item.Evidence {
+		texts = append(texts, e.Label, e.Unit)
+	}
+	if rec := item.Recommendation; rec != nil {
+		texts = append(texts, rec.Title, rec.Action)
+	}
+	for _, s := range texts {
+		if s == "" || strings.Contains(s, "%!") || strings.Contains(s, "%%") {
+			t.Errorf("%s: text %q is empty or badly formatted", item.ID, s)
+		}
+	}
+	rec := item.Recommendation
+	switch locale {
+	case usage.LocaleKorean:
+		if !hasHangul(item.Title) || !strings.HasSuffix(item.Title, koTitleEnding) {
+			t.Errorf("%s: title %q is not a formal Korean sentence", item.ID, item.Title)
+		}
+		if !hasHangul(item.Detail) || !strings.HasSuffix(item.Detail, koSentenceEnding) {
+			t.Errorf("%s: detail %q is not a formal Korean sentence", item.ID, item.Detail)
+		}
+		if rec != nil && (!hasHangul(rec.Title) || !hasHangul(rec.Action) || !strings.HasSuffix(rec.Action, koSentenceEnding)) {
+			t.Errorf("%s: recommendation %+v is not formal Korean text", item.ID, *rec)
+		}
+	default:
+		for _, s := range texts {
+			if hasHangul(s) {
+				t.Errorf("%s: %s text %q contains Hangul", item.ID, locale, s)
+			}
+		}
+		if strings.HasSuffix(item.Title, enSentenceEnding) {
+			t.Errorf("%s: title %q ends with a period", item.ID, item.Title)
+		}
+		if !strings.HasSuffix(item.Detail, enSentenceEnding) {
+			t.Errorf("%s: detail %q is not a full sentence", item.ID, item.Detail)
+		}
+		if rec != nil && !strings.HasSuffix(rec.Action, enSentenceEnding) {
+			t.Errorf("%s: recommendation action %q is not a full sentence", item.ID, rec.Action)
+		}
 	}
 }
 

@@ -36,6 +36,11 @@ func rootRows() []row {
 	plain := func(id string, kind usage.TimelineKind, text, label string) row {
 		return row{ID: id, Kind: kind, Text: text, Label: label, Tokens: noValue, Duration: noValue, Hook: noValue}
 	}
+	system := func(id, label, structured string) row {
+		r := plain(id, usage.ItemSystem, "", label)
+		r.System = structured
+		return r
+	}
 	const (
 		mcpSearch = "mcp__issues__search"
 		mcpStatus = "mcp__plugin_devkit_chain__status"
@@ -60,9 +65,9 @@ func rootRows() []row {
 		call("u-a5:0", tokens(4, 90, 52000, 60), usage.ToolNameAgent, usage.ToolAgent, "toolu_05"),
 		result("u-r5:0", "3 files import config", usage.ToolNameAgent, usage.ToolAgent, "toolu_05", false, 40000),
 		{ID: "u-a6:0", Kind: usage.ItemAssistant, Text: "The import path of config changed. I fixed it.", Model: fixtureModel, Tokens: tokens(3, 300, 52500, 40), Duration: noValue, Hook: noValue},
-		plain("u-turn-1:0", usage.ItemSystem, "", "턴 종료 · 70.0초"),
+		system("u-turn-1:0", "Turn ended · 70.0 s", systemRow(usage.SystemTurnEnd, "70000", "")),
 		hook("u-hook-4:0", "Stop", "Stop", usage.HookSuccess, 0, 40),
-		plain("u-compact-1:0", usage.ItemSystem, "", "맥락 압축 (auto)"),
+		system("u-compact-1:0", "Context compacted (auto)", systemRow(usage.SystemCompaction, noValue, "auto")),
 		plain("u-prompt-2:0", usage.ItemPrompt, "Thanks.", ""),
 	}
 }
@@ -689,7 +694,10 @@ func TestReadLooseFormatting(t *testing.T) {
 		{ID: "p1:0", Kind: usage.ItemPrompt, Text: "spaced", Tokens: noValue, Duration: noValue, Hook: noValue},
 		{ID: "a1:0", Kind: usage.ItemAssistant, Text: "bare reply", Model: fixtureModel, Tokens: noValue, Duration: noValue, Hook: noValue},
 		{ID: "h1:0", Kind: usage.ItemHook, Tokens: noValue, Duration: noValue, Hook: "|Stop|success|0|0"},
-		{ID: "s1:0", Kind: usage.ItemSystem, Label: "맥락 압축 (manual)", Tokens: noValue, Duration: noValue, Hook: noValue},
+		{
+			ID: "s1:0", Kind: usage.ItemSystem, Label: "Context compacted (manual)", Tokens: noValue, Duration: noValue, Hook: noValue,
+			System: systemRow(usage.SystemCompaction, noValue, "manual"),
+		},
 	})
 	if skipped != 0 {
 		t.Errorf("Skipped = %d; want 0", skipped)
@@ -701,20 +709,23 @@ func TestReadSystemLabels(t *testing.T) {
 		fields["type"], fields["uuid"] = "system", "s1"
 		return fields
 	}
+	turnEnd := func(ms string) string { return systemRow(usage.SystemTurnEnd, ms, "") }
+	compaction := func(trigger string) string { return systemRow(usage.SystemCompaction, noValue, trigger) }
 	for _, tc := range []struct {
-		name string
-		line obj
-		want string
+		name       string
+		line       obj
+		want       string
+		wantSystem string
 	}{
-		{"turn duration", system(obj{"subtype": "turn_duration", "durationMs": 54040}), "턴 종료 · 54.0초"},
-		{"turn duration rounds to one decimal", system(obj{"subtype": "turn_duration", "durationMs": 1250.4}), "턴 종료 · 1.3초"},
-		{"turn duration missing", system(obj{"subtype": "turn_duration"}), "턴 종료"},
-		{"turn duration is text", system(obj{"subtype": "turn_duration", "durationMs": "long"}), "턴 종료"},
-		{"negative turn duration", system(obj{"subtype": "turn_duration", "durationMs": -5}), "턴 종료 · 0.0초"},
-		{"manual compaction", system(obj{"subtype": "compact_boundary", "compactMetadata": obj{"trigger": "manual"}}), "맥락 압축 (manual)"},
-		{"compaction without trigger", system(obj{"subtype": "compact_boundary"}), "맥락 압축"},
-		{"compaction with odd metadata", system(obj{"subtype": "compact_boundary", "compactMetadata": "x"}), "맥락 압축"},
-		{"other subtype", system(obj{"subtype": "informational", "content": "note"}), ""},
+		{"turn duration", system(obj{"subtype": "turn_duration", "durationMs": 54040}), "Turn ended · 54.0 s", turnEnd("54040")},
+		{"turn duration rounds to one decimal", system(obj{"subtype": "turn_duration", "durationMs": 1250.4}), "Turn ended · 1.3 s", turnEnd("1250")},
+		{"turn duration missing", system(obj{"subtype": "turn_duration"}), "Turn ended", turnEnd(noValue)},
+		{"turn duration is text", system(obj{"subtype": "turn_duration", "durationMs": "long"}), "Turn ended", turnEnd(noValue)},
+		{"negative turn duration", system(obj{"subtype": "turn_duration", "durationMs": -5}), "Turn ended · 0.0 s", turnEnd("0")},
+		{"manual compaction", system(obj{"subtype": "compact_boundary", "compactMetadata": obj{"trigger": "manual"}}), "Context compacted (manual)", compaction("manual")},
+		{"compaction without trigger", system(obj{"subtype": "compact_boundary"}), "Context compacted", compaction("")},
+		{"compaction with odd metadata", system(obj{"subtype": "compact_boundary", "compactMetadata": "x"}), "Context compacted", compaction("")},
+		{"other subtype", system(obj{"subtype": "informational", "content": "note"}), "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			page := mustRead(t, transcript(t, tc.line), usage.TimelineRequest{})
@@ -726,6 +737,9 @@ func TestReadSystemLabels(t *testing.T) {
 			}
 			if len(page.Items) != 1 || page.Items[0].Kind != usage.ItemSystem || page.Items[0].Label != tc.want {
 				t.Fatalf("items = %+v; want one system item labelled %q", rowsOf(page.Items), tc.want)
+			}
+			if got := rowOf(page.Items[0]).System; got != tc.wantSystem {
+				t.Errorf("system = %q; want %q", got, tc.wantSystem)
 			}
 		})
 	}

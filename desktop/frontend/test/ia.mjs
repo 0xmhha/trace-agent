@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import { KOREAN, pinLocale } from './locale.mjs'
 
 const [mode, origin] = process.argv.slice(2)
 const headers = { 'X-Trace-Test': process.env.TRACE_TEST_TOKEN }
@@ -74,6 +75,7 @@ async function erase(rev, oldSelector) {
   assert.equal(await heading(oldSelector).count(), 0)
 }
 try {
+  await pinLocale(page, KOREAN)
   await page.addInitScript(
     ({ headers }) => {
       window.go = {

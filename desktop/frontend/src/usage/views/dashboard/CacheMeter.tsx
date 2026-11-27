@@ -1,6 +1,7 @@
+import { t } from '../../../i18n'
 import type { Coverage, TokenTotals } from '../../types'
-import { Empty, Pill, fmtCompact, fmtInt, fmtPct, ratio } from '../../ui'
-import { UNIT } from './format'
+import { Empty, Pill, fmtInt, fmtPct, ratio } from '../../ui'
+import { UNIT, compactWithUnit } from './format'
 import { paintClass } from './parts'
 import { isCacheHitLow } from './tones'
 import { useWidth } from './useWidth'
@@ -50,30 +51,40 @@ export function CacheMeter(p: {
   const input = tokens.input + tokens.cacheRead + tokens.cacheCreate
   const low = isCacheHitLow(hitRatio)
   const parts = [
-    { key: 'read', label: '캐시 읽기', hint: '캐시에서 다시 읽은 입력', value: tokens.cacheRead },
-    { key: 'create', label: '캐시 생성', hint: '캐시에 새로 쓴 입력', value: tokens.cacheCreate },
-    { key: 'input', label: '입력', hint: '캐시를 거치지 않은 입력', value: tokens.input },
+    {
+      key: 'read',
+      label: t('dashboard.cacheRead'),
+      hint: t('dashboard.cacheReadHint'),
+      value: tokens.cacheRead,
+    },
+    {
+      key: 'create',
+      label: t('dashboard.cacheCreate'),
+      hint: t('dashboard.cacheCreateHint'),
+      value: tokens.cacheCreate,
+    },
+    { key: 'input', label: t('dashboard.input'), hint: t('dashboard.inputHint'), value: tokens.input },
   ]
   return (
     <div className="u-dash-cache">
       <div className="u-dash-cache-head">
         <strong className="u-dash-cache-value">{fmtPct(hitRatio)}</strong>
-        {low && <Pill tone="warn">낮음</Pill>}
+        {low && <Pill tone="warn">{t('dashboard.cacheLow')}</Pill>}
         <span className="u-hint">
-          입력 {fmtCompact(input)} {UNIT.tokens} 중 캐시에서 읽은 비율
+          {t('dashboard.cacheShareHint', { input: compactWithUnit(input, UNIT.tokens) })}
         </span>
       </div>
       <Meter value={hitRatio} low={low} />
       <table className="u-table u-dash-cache-parts">
-        <caption className="u-dash-sr">입력 토큰의 구성</caption>
+        <caption className="u-dash-sr">{t('dashboard.cachePartsCaption')}</caption>
         <thead>
           <tr>
-            <th scope="col">입력 구성</th>
+            <th scope="col">{t('dashboard.cachePartsKind')}</th>
             <th scope="col" className="num">
-              토큰
+              {t('dashboard.colTokens')}
             </th>
             <th scope="col" className="num">
-              비율
+              {t('dashboard.cachePartsShare')}
             </th>
           </tr>
         </thead>

@@ -18,6 +18,16 @@ import (
 	"github.com/0xmhha/trace-agent/internal/transport"
 )
 
+// Failures of consuming a pick or reading a source. They stay inside the
+// process: the trace API reports a failed operation without its text, and
+// source health is recorded as lost.
+var (
+	errPickExpired          = errors.New("source selection expired")
+	errPickClientMismatch   = errors.New("source selection belongs to another client")
+	errPickSourceMismatch   = errors.New("source selection names another source")
+	errSourceDirectoryMoved = errors.New("source directory changed")
+)
+
 type selectedSource struct {
 	Parent, Server string
 	Kind           collect.Kind
@@ -84,7 +94,7 @@ func (c *collector) offer(src selectedSource) (string, error) {
 	if !src.receiver() {
 		p, err := filepath.EvalSymlinks(src.Path)
 		if err != nil || !filepath.IsAbs(p) {
-			return "", errors.New("선택한 경로를 확인할 수 없습니다")
+			return "", errSourcePathInvalid
 		}
 		src.Path = p
 	}
@@ -97,7 +107,7 @@ func (c *collector) offer(src selectedSource) (string, error) {
 		}
 	}
 	if len(c.picks) >= 16 {
-		return "", errors.New("열린 출처 선택이 너무 많습니다")
+		return "", errSourceTooManyPicks
 	}
 	ticket := rand.Text()
 	c.picks[ticket] = capability{src, now.Add(time.Minute)}
@@ -109,11 +119,11 @@ func (c *collector) consume(ctx context.Context, p transport.PickerAction) (stor
 	pick, ok := c.picks[p.PickerToken]
 	delete(c.picks, p.PickerToken)
 	if !ok || !pick.expires.After(time.Now()) {
-		return store.Point{}, errors.New("출처 선택이 만료됐습니다")
+		return store.Point{}, errPickExpired
 	}
 	src := pick.selection
 	if p.Operation == "attachSource" && p.Client != src.client() {
-		return store.Point{}, errors.New("클라이언트 종류가 다릅니다")
+		return store.Point{}, errPickClientMismatch
 	}
 	if len(c.config.Key) == 0 {
 		c.config.Key = make([]byte, 32)
@@ -126,7 +136,7 @@ func (c *collector) consume(ctx context.Context, p transport.PickerAction) (stor
 		return store.Point{}, err
 	}
 	if p.Operation == "setHistory" && a.Source() != p.SourceID {
-		return store.Point{}, errors.New("같은 출처를 선택해 주세요")
+		return store.Point{}, errPickSourceMismatch
 	}
 	for _, known := range c.config.Sources {
 		if known.Kind == src.Kind && known.Path == src.Path && known.Folder == src.Folder && known.Parent == src.Parent && known.Server == src.Server {
@@ -267,7 +277,7 @@ func (c *collector) readFiles(a *collect.Adapter, src selectedSource) error {
 	}
 	actual, err := filepath.EvalSymlinks(base)
 	if err != nil || actual != base {
-		return errors.New("출처 디렉터리가 변경됐습니다")
+		return errSourceDirectoryMoved
 	}
 	root, err := os.OpenRoot(base)
 	if err != nil {
