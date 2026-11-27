@@ -14,7 +14,7 @@ type clientCall struct {
 func (d *decoder) observedEdges(records []store.Record) {
 	var observations []store.Record
 	for _, r := range records {
-		if r.Evidence.Kind == collect.ClaudeHook || r.Evidence.Kind == collect.MCPObserver {
+		if collect.IsObserver(r.Evidence.Kind) {
 			at := r.Evidence.OccurredMS
 			if at == nil || d.m.opts.Until.IsZero() || *at < d.m.opts.Until.UnixMilli() {
 				observations = append(observations, r)

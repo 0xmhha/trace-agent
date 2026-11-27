@@ -61,7 +61,7 @@ func Token() (string, error) {
 // Listen starts a source-specific receiver. Pass zero to allocate a port, then
 // save Port and the token in the native credential store for exporter restarts.
 func Listen(db Sink, a *collect.Adapter, port int, token string) (*Receiver, error) {
-	if db == nil || a == nil || (a.Kind() != collect.Telemetry && a.Kind() != collect.CodexTelemetry) || port < 0 || port > 65535 || len(token) < 32 || len(token) > 256 || strings.IndexFunc(token, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
+	if db == nil || a == nil || !collect.IsOTLP(a.Kind()) || port < 0 || port > 65535 || len(token) < 32 || len(token) > 256 || strings.IndexFunc(token, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
 		return nil, errors.New("invalid OTLP receiver configuration")
 	}
 	ln, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))

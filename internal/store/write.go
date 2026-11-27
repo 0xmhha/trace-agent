@@ -41,7 +41,7 @@ func scopes(e collect.Evidence) (string, string) {
 	if collect.HumanPrompt(e) {
 		task = get(m, "promptId")
 	}
-	if e.Kind == collect.MCPObserver || e.Kind == collect.ClaudeHook {
+	if collect.IsObserver(e.Kind) {
 		task = ""
 	}
 	return collect.SessionKey(e.Profile, session), collect.TaskKey(e.Profile, session, task)
@@ -89,7 +89,7 @@ func (s *Store) Append(ctx context.Context, e collect.Evidence) error {
 	return s.write(ctx, e, nil, nil)
 }
 
-func client(kind collect.Kind) string { return strings.ToLower(collect.ClientCode(kind)) }
+func client(kind collect.Kind) string { return collect.StoredClient(kind) }
 
 // AppendBatch atomically ingests up to 100 immutable records at one public revision.
 func (s *Store) AppendBatch(ctx context.Context, es []collect.Evidence) error {
