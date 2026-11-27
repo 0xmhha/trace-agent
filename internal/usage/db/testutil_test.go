@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -166,4 +167,26 @@ func TestOpenCreatesSchema(t *testing.T) {
 	if err := s.db.QueryRowContext(context.Background(), "SELECT count(*) FROM model_call").Scan(&n); err != nil || n != 1 {
 		t.Fatalf("model_call rows = %d, %v; want 1", n, err)
 	}
+}
+
+func TestOpenRefusesSharedWritableDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "shared")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// Chmod, not Mkdir, so that the umask cannot clear the bits under test.
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(context.Background(), filepath.Join(dir, "usage.sqlite"), func() time.Time { return testNow }); err == nil {
+		t.Fatal("Open accepted a directory that other users can write to")
+	}
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(context.Background(), filepath.Join(dir, "usage.sqlite"), func() time.Time { return testNow })
+	if err != nil {
+		t.Fatalf("Open refused a directory others can only read: %v", err)
+	}
+	_ = s.Close()
 }

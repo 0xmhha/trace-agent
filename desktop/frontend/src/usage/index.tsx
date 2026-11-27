@@ -81,7 +81,13 @@ export function parseUsageHash(hash: string): UsageRoute | null {
   if (!views.has(view)) return null
   const route: UsageRoute = { view: view as UsageView }
   if (view === 'session') {
-    const sessionId = decodeURIComponent(id)
+    let sessionId = ''
+    try {
+      sessionId = decodeURIComponent(id)
+    } catch {
+      // A malformed escape in the address must not take the page down.
+      return { view: 'sessions' }
+    }
     if (!sessionIdPattern.test(sessionId)) return { view: 'sessions' }
     route.sessionId = sessionId
   }

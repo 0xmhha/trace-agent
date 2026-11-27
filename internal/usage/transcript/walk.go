@@ -258,11 +258,18 @@ func integer(raw []byte) (int64, bool) {
 	return int64(f), true
 }
 
+// maxCount caps a count read from a transcript. Transcript content is not
+// trusted: a forged token count near the int64 limit would make the store's
+// SUM aggregates overflow and fail every range that covers the session. The
+// cap is far above any real token count or duration in milliseconds.
+const maxCount = 1 << 40
+
 // count reads a JSON number as a non-negative quantity such as a token count
-// or a duration. Anything else, and any negative number, reads as zero.
+// or a duration. Anything else, and any negative number, reads as zero; a
+// larger number reads as maxCount.
 func count(raw []byte) int64 {
 	n, _ := integer(raw)
-	return max(n, 0)
+	return min(max(n, 0), maxCount)
 }
 
 // float reads a finite JSON number. A quoted number is not a number.

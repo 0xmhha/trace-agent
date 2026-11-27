@@ -140,7 +140,7 @@ func TestNumbers(t *testing.T) {
 		{"12.9", 12, true, 12, 12.9, true},
 		{"-12.9", -12, true, 0, -12.9, true},
 		{"1e3", 1000, true, 1000, 1000, true},
-		{"9223372036854775807", 9223372036854775807, true, 9223372036854775807, 9223372036854775807, true},
+		{"9223372036854775807", 9223372036854775807, true, maxCount, 9223372036854775807, true},
 		{"9223372036854775808", 0, false, 0, 9223372036854775808, true},
 		{"1e400", 0, false, 0, 0, false},
 		{`"42"`, 0, false, 0, 0, false},
@@ -220,6 +220,20 @@ func TestCutRunes(t *testing.T) {
 	for _, tc := range cases {
 		if got := cutRunes(tc.input, tc.n); got != tc.want {
 			t.Errorf("cutRunes(%q, %d) = %q, want %q", tc.input, tc.n, got, tc.want)
+		}
+	}
+}
+
+func TestCountIsBounded(t *testing.T) {
+	for raw, want := range map[string]int64{
+		"42":                  42,
+		"-5":                  0,
+		"9223372036854775807": maxCount,
+		"1e300":               0,
+		`"12"`:                0,
+	} {
+		if got := count([]byte(raw)); got != want {
+			t.Errorf("count(%s) = %d; want %d", raw, got, want)
 		}
 	}
 }

@@ -33,6 +33,8 @@ const (
 	driverName    = "sqlite3"
 	dirMode       = 0o700
 	privateMask   = 0o077
+	// sharedWriteMask is the group and other write bits of a directory.
+	sharedWriteMask = 0o022
 	// Every explicit transaction takes the write lock at once (_txlock), so
 	// read queries must run directly on the pool and never inside a
 	// transaction.
@@ -110,6 +112,9 @@ func Open(ctx context.Context, path string, now func() time.Time) (*Store, error
 	if err = os.MkdirAll(filepath.Dir(abs), dirMode); err != nil {
 		return nil, fmt.Errorf("open usage database: %w", err)
 	}
+	if err = requirePrivateDir(filepath.Dir(abs)); err != nil {
+		return nil, fmt.Errorf("open usage database: %w", err)
+	}
 	if err = requirePrivateFile(abs); err != nil {
 		return nil, fmt.Errorf("open usage database: %w", err)
 	}
@@ -125,6 +130,20 @@ func Open(ctx context.Context, path string, now func() time.Time) (*Store, error
 		return nil, err
 	}
 	return s, nil
+}
+
+// requirePrivateDir refuses a directory other users can write to: they could
+// replace the database file or its journal between two opens. A directory
+// that others can only read is accepted; the file itself is owner-only.
+func requirePrivateDir(dir string) error {
+	info, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode().Perm()&sharedWriteMask != 0 {
+		return errors.New("database directory must not be writable by other users")
+	}
+	return nil
 }
 
 // requirePrivateFile creates the database file when missing and refuses a
