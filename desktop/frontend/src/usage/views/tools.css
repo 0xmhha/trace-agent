@@ -1,0 +1,218 @@
+/* Styles of the 도구와 확장 view. Every class starts with u-tools-. */
+
+/* Summary strip: two totals and the share of calls by category. */
+.u-tools-summary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2.6fr);
+}
+@media (max-width: 900px) {
+  .u-tools-summary {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .u-tools-share {
+    grid-column: 1 / -1;
+  }
+}
+.u-tools-share {
+  align-items: stretch;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.u-tools-share-bar {
+  display: block;
+  /* The ends of the whole bar are rounded; the parts inside stay square. */
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--u-soft);
+}
+.u-tools-share-gap {
+  fill: var(--u-surface);
+}
+.u-tools-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: var(--u-ink);
+}
+.u-tools-legend li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.u-tools-legend b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.u-tools-legend-share {
+  color: var(--u-muted);
+  font-variant-numeric: tabular-nums;
+}
+.u-tools-swatch {
+  display: inline-block;
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+  /* Sits on the text baseline in the legend and in a pill. */
+  align-self: center;
+  vertical-align: baseline;
+  margin-right: 0.3rem;
+}
+.u-tools-legend .u-tools-swatch {
+  margin-right: 0;
+}
+
+/* Tabs and the panel under them. */
+.u-tools-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.u-tools-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.u-tools-note {
+  margin: 0;
+  max-width: 62rem;
+  line-height: 1.5;
+}
+.u-tools-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+}
+.u-tools-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.u-tools-filters input {
+  width: 13rem;
+  max-width: 100%;
+}
+.u-tools-shown {
+  margin: 0 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sortable table. */
+.u-tools-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.u-table.u-tools-table th.u-tools-sortable {
+  padding: 0;
+}
+.u-tools-table .u-tools-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  padding: 0.4rem 0.6rem;
+  color: var(--u-muted);
+  font-size: inherit;
+  font-weight: inherit;
+  white-space: nowrap;
+  /* The wrapper scrolls sideways and would clip an outline drawn outside. */
+  outline-offset: -3px;
+}
+.u-tools-table th.num .u-tools-sort {
+  justify-content: flex-end;
+}
+.u-tools-table .u-tools-sort:hover:not(:disabled) {
+  background: var(--u-soft);
+  color: var(--u-ink);
+}
+.u-tools-table .u-tools-sort-active {
+  color: var(--u-ink);
+  font-weight: 600;
+}
+.u-tools-sort-mark {
+  /* Reserved even when empty so the header does not shift when the sort moves. */
+  display: inline-block;
+  width: 0.7em;
+  font-size: 0.62rem;
+  text-align: center;
+}
+/* Two classes so these win over .u-table whatever order the style sheets load in. */
+.u-table.u-tools-table td {
+  vertical-align: middle;
+}
+.u-table.u-tools-table td.num {
+  white-space: nowrap;
+}
+/* The table scrolls sideways when it is wider than the card; the name stays in view. */
+.u-table.u-tools-table th:first-child,
+.u-table.u-tools-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--u-surface);
+}
+.u-tools-name {
+  display: block;
+  min-width: 8rem;
+  overflow-wrap: anywhere;
+}
+.u-tools-name b {
+  font-weight: 500;
+}
+.u-tools-name small {
+  display: block;
+  color: var(--u-muted);
+  font-size: 0.76rem;
+}
+.u-tools-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.u-tools-bar {
+  flex: none;
+  display: block;
+}
+.u-tools-bar path {
+  fill: var(--u-s1);
+}
+.u-tools-toned {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Narrow windows: tighter cells and a shorter bar so more columns fit before the table scrolls. */
+@media (max-width: 900px) {
+  .u-table.u-tools-table td,
+  .u-table.u-tools-table th:not(.u-tools-sortable),
+  .u-tools-table .u-tools-sort {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+  }
+  .u-tools-name {
+    min-width: 5.5rem;
+  }
+  .u-tools-bar {
+    width: 36px;
+  }
+  .u-tools-count {
+    gap: 0.35rem;
+  }
+}
