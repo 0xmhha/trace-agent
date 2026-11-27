@@ -7,7 +7,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.44
 	github.com/vektah/gqlparser/v2 v2.5.30
 	go.opentelemetry.io/proto/otlp v1.9.0
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/protobuf v1.36.12
 )
 
 require github.com/agnivade/levenshtein v1.2.1 // indirect
