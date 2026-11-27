@@ -9,6 +9,7 @@ import {
   slowTone,
 } from './model'
 import { SortTable, type SortColumn } from './SortTable'
+import { t } from '../../../i18n'
 
 // A hook is identified by event and name together; neither can contain NUL.
 const KEY_SEPARATOR = '\u0000'
@@ -17,40 +18,40 @@ function columns(max: number): SortColumn<HookUsage>[] {
   return [
     {
       key: 'event',
-      label: '이벤트',
+      label: t('tools.col.event'),
       render: (h) => <NameCell name={h.event} />,
       sortValue: (h) => h.event,
     },
     {
       key: 'name',
-      label: '이름',
+      label: t('tools.col.name'),
       render: (h) => <NameCell name={h.name} />,
       sortValue: (h) => h.name,
     },
     {
       key: 'runs',
-      label: '실행(회)',
+      label: t('tools.col.runs'),
       align: 'right',
       render: (h) => <CountBar value={h.runs} max={max} />,
       sortValue: (h) => h.runs,
     },
     {
       key: 'failures',
-      label: '실패(회)',
+      label: t('tools.col.errors'),
       align: 'right',
       render: (h) => fmtInt(h.failures),
       sortValue: (h) => h.failures,
     },
     {
       key: 'rate',
-      label: '실패율',
+      label: t('tools.col.rate'),
       align: 'right',
       render: (h) => <RateCell failures={h.failures} total={h.runs} />,
       sortValue: (h) => failureRate(h.failures, h.runs),
     },
     {
       key: 'avg',
-      label: '평균 시간',
+      label: t('tools.col.avg'),
       align: 'right',
       render: (h) => (
         <SlowCell ms={h.avgMs} tone={slowTone(h.avgMs, HOOK_AVG_WARN_MS, HOOK_AVG_BAD_MS)} />
@@ -59,7 +60,7 @@ function columns(max: number): SortColumn<HookUsage>[] {
     },
     {
       key: 'max',
-      label: '최대 시간',
+      label: t('tools.col.max'),
       align: 'right',
       render: (h) => (
         <SlowCell ms={h.maxMs} tone={slowTone(h.maxMs, HOOK_MAX_WARN_MS, HOOK_MAX_BAD_MS)} />
@@ -73,7 +74,7 @@ function columns(max: number): SortColumn<HookUsage>[] {
 export function HooksTab(p: { rows: readonly HookUsage[]; coverage: Coverage }) {
   return (
     <SortTable
-      caption="훅별 실행 횟수와 실패율, 실행 시간"
+      caption={t('tools.caption.hooks')}
       columns={columns(maxOf(p.rows, (h) => h.runs))}
       rows={p.rows}
       rowKey={(h) => h.event + KEY_SEPARATOR + h.name}

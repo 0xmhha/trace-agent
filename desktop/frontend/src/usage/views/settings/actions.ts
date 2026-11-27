@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UsageApi } from '../../api'
 import type { Status } from '../../types'
+import { errorText } from '../../../i18n'
 
 /** Card a mutation belongs to; its outcome is shown inside that card. */
 export type Scope = 'watch' | 'window' | 'projects' | 'manage'
@@ -44,15 +45,6 @@ export interface CardProps {
   apply: (status: Status) => void
 }
 
-const FALLBACK_ERROR = '요청을 처리하지 못했습니다.'
-
-/** The Wails bridge rejects with a plain string, fetch-like code with an Error. */
-export function errorText(reason: unknown): string {
-  if (reason instanceof Error && reason.message) return reason.message
-  if (typeof reason === 'string' && reason) return reason
-  return FALLBACK_ERROR
-}
-
 /**
  * Runs the page's mutations one at a time. Every mutation returns a whole
  * Status, so two overlapping ones could hand the page an older Status last.
@@ -87,6 +79,8 @@ export function useActions(): Actions {
           if (alive.current && text) setNotice({ scope, text })
         },
         (reason: unknown) => {
+          // The Wails bridge rejects with a plain string, fetch-like code with
+          // an Error; errorText reads both and translates the stable codes.
           if (alive.current) setFailure({ scope, text: errorText(reason) })
         },
       )

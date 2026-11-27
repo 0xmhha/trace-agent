@@ -19,15 +19,22 @@ import {
 import { Summary } from './tools/Summary'
 import { ToolsTab } from './tools/ToolsTab'
 import './tools.css'
+import { formatNumber, t } from '../../i18n'
 
 const MS_PER_SECOND = 1000
 
-const failureLegend =
-  `실패율이 ${thresholdPct(FAILURE_WARN_RATIO)} 이상이면 주의 색으로, ` +
-  `${thresholdPct(FAILURE_BAD_RATIO)} 이상이면 경고 색과 '높음' 표시로 나타냅니다.`
-const hookLegend =
-  ` 평균 시간이 ${HOOK_AVG_BAD_MS / MS_PER_SECOND}초 이상이거나 ` +
-  `최대 시간이 ${HOOK_MAX_BAD_MS / MS_PER_SECOND}초 이상이면 '느림'을 붙입니다.`
+function failureLegend(): string {
+  return t('tools.legend.failure', {
+    warn: thresholdPct(FAILURE_WARN_RATIO),
+    bad: thresholdPct(FAILURE_BAD_RATIO),
+  })
+}
+function hookLegend(): string {
+  return t('tools.legend.hook', {
+    avg: formatNumber(HOOK_AVG_BAD_MS / MS_PER_SECOND),
+    max: formatNumber(HOOK_MAX_BAD_MS / MS_PER_SECOND),
+  })
+}
 
 function TabBody(p: {
   meta: TabMeta
@@ -48,7 +55,7 @@ function TabBody(p: {
   if (meta.id === 'hooks') return <HooksTab rows={data.hooks} coverage={data.coverage} />
   return (
     <GroupTab
-      caption={`${meta.label}별 호출 수와 실패율, 평균 시간`}
+      caption={t('tools.caption.group', { group: meta.label })}
       nameLabel={meta.nameLabel}
       tokens={meta.tokens}
       rows={data[meta.id]}
@@ -57,7 +64,7 @@ function TabBody(p: {
   )
 }
 
-/** 도구와 확장: tools, MCP servers, skills, plugins, hooks, sub-agents and Bash programs of the range. */
+/** Tools and extensions: tools, MCP servers, skills, plugins, hooks, sub-agents and Bash programs of the range. */
 export function ToolsView({ api, route, navigate, range, refresh }: ViewProps) {
   const load = useLoad(
     () => api.tools({ range, project: route.project }),
@@ -66,14 +73,15 @@ export function ToolsView({ api, route, navigate, range, refresh }: ViewProps) {
   const state = parseTab(route.tab)
   const setState = (next: TabState) => navigate({ ...route, tab: formatTab(next) })
   const data = load.data
-  const meta = tabs.find((t) => t.id === state.tab) ?? tabs[0]!
+  const tabList = tabs()
+  const meta = tabList.find((tab) => tab.id === state.tab) ?? tabList[0]!
 
   return (
     <>
       <ErrorNote error={load.error} retry={load.reload} />
       {!data && load.loading && (
         <p className="u-hint" role="status">
-          도구 사용 기록을 읽는 중입니다.
+          {t('tools.loading')}
         </p>
       )}
       {data && (
@@ -82,7 +90,11 @@ export function ToolsView({ api, route, navigate, range, refresh }: ViewProps) {
           <Summary tools={data.tools} coverage={data.coverage} />
           <Card className="u-tools-card">
             <Tabs<TabId>
-              tabs={tabs.map((t) => ({ id: t.id, label: t.label, count: data[t.id].length }))}
+              tabs={tabList.map((tab) => ({
+                id: tab.id,
+                label: tab.label,
+                count: data[tab.id].length,
+              }))}
               value={state.tab}
               onChange={(tab) => setState({ tab, category: null })}
             />
@@ -91,8 +103,8 @@ export function ToolsView({ api, route, navigate, range, refresh }: ViewProps) {
               {/* The key remounts the table per tab so one tab's sort does not carry over. */}
               <TabBody key={meta.id} meta={meta} data={data} state={state} onState={setState} />
               <p className="u-hint u-tools-note">
-                {failureLegend}
-                {meta.id === 'hooks' && hookLegend}
+                {failureLegend()}
+                {meta.id === 'hooks' && ' ' + hookLegend()}
               </p>
             </div>
           </Card>

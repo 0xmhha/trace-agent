@@ -1,6 +1,7 @@
 import type { TokenTotals } from '../../types'
 import { Pill, fmtCompact, fmtInt, fmtMs, fmtPct, ratio, sumTokens, type Tone } from '../../ui'
 import { failureTone } from './model'
+import { t } from '../../../i18n'
 
 const BAR_WIDTH = 64
 const BAR_HEIGHT = 6
@@ -63,19 +64,19 @@ export function failureRate(failures: number, total: number): number | null {
 /** Failure rate of a row, toned by the shared thresholds. */
 export function RateCell({ failures, total }: { failures: number; total: number }) {
   const rate = failureRate(failures, total)
-  return <Toned tone={failureTone(rate)} text={fmtPct(rate)} flag="높음" />
+  return <Toned tone={failureTone(rate)} text={fmtPct(rate)} flag={t('tools.flag.high')} />
 }
 
 /** Duration toned as slow. */
 export function SlowCell({ ms, tone }: { ms: number | null; tone: Tone }) {
-  return <Toned tone={tone} text={fmtMs(ms)} flag="느림" />
+  return <Toned tone={tone} text={fmtMs(ms)} flag={t('tools.flag.slow')} />
 }
 
 /** Name of a row. An empty name is a group the collector could not name. */
 export function NameCell({ name, sub }: { name: string; sub?: string }) {
   return (
     <span className="u-tools-name">
-      {name ? <b>{name}</b> : <span className="u-tone-muted">이름 없음</span>}
+      {name ? <b>{name}</b> : <span className="u-tone-muted">{t('tools.unnamed')}</span>}
       {sub && <small>{sub}</small>}
     </span>
   )
@@ -84,8 +85,11 @@ export function NameCell({ name, sub }: { name: string; sub?: string }) {
 /** Token total of a group. The tooltip splits it by token kind. */
 export function TokenCell({ tokens }: { tokens: TokenTotals | undefined }) {
   if (!tokens) return <span className="u-tone-muted">—</span>
-  const detail =
-    `입력 ${fmtInt(tokens.input)} · 출력 ${fmtInt(tokens.output)} · ` +
-    `캐시 읽기 ${fmtInt(tokens.cacheRead)} · 캐시 쓰기 ${fmtInt(tokens.cacheCreate)}`
+  const detail = t('tools.tokenDetail', {
+    input: fmtInt(tokens.input),
+    output: fmtInt(tokens.output),
+    cacheRead: fmtInt(tokens.cacheRead),
+    cacheCreate: fmtInt(tokens.cacheCreate),
+  })
   return <span title={detail}>{fmtCompact(sumTokens(tokens))}</span>
 }

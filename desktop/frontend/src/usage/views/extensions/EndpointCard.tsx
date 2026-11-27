@@ -2,7 +2,9 @@ import { useId, useState } from 'react'
 import type { UsageApi } from '../../api'
 import type { ExtEndpoint, Status } from '../../types'
 import { Card, ErrorNote } from '../../ui'
-import { TOKEN_ENV, URL_ENV, displayUrl, errorText } from './model'
+import { TOKEN_ENV, URL_ENV, displayUrl } from './model'
+import { withCode } from './rich'
+import { errorText, t } from '../../../i18n'
 
 type Notice = { tone: 'good' | 'warn'; text: string }
 type Pending = 'on' | 'off' | 'copy' | null
@@ -40,17 +42,18 @@ export function EndpointCard(p: {
         // Turning on goes through a native confirmation. Declining it is not
         // an error: the call resolves with the endpoint still off.
         if (next.extension.enabled === want)
-          setNotice({ tone: 'good', text: want ? '수신기를 켰습니다.' : '수신기를 껐습니다.' })
+          setNotice({
+            tone: 'good',
+            text: want ? t('extensions.endpoint.turnedOn') : t('extensions.endpoint.turnedOff'),
+          })
         else
           setNotice({
             tone: 'warn',
-            text: want
-              ? '수신기를 켜지 않았습니다. 확인 창에서 허용해야 켜집니다.'
-              : '수신기가 아직 켜져 있습니다. 잠시 뒤 다시 시도해 주세요.',
+            text: want ? t('extensions.endpoint.notOn') : t('extensions.endpoint.stillOn'),
           })
       })
       .catch((reason: unknown) =>
-        setError(errorText(reason, '수신기 상태를 바꾸지 못했습니다.')),
+        setError(errorText(reason, 'extensions.endpoint.toggleFailed')),
       )
       .finally(() => setPending(null))
   }
@@ -64,23 +67,19 @@ export function EndpointCard(p: {
       .then(() =>
         setNotice({
           tone: 'good',
-          text: '설정을 클립보드에 복사했습니다. 토큰 자체는 들어 있지 않고, 키체인에서 읽어 오는 명령이 들어 있습니다.',
+          text: t('extensions.endpoint.copied'),
         }),
       )
-      .catch((reason: unknown) => setError(errorText(reason, '설정을 복사하지 못했습니다.')))
+      .catch((reason: unknown) => setError(errorText(reason, 'extensions.endpoint.copyFailed')))
       .finally(() => setPending(null))
   }
 
   return (
-    <Card title="이벤트 수신기">
-      <p className="u-ext-lead">
-        플러그인, MCP 서버, 셸 스크립트가 도구 안에서 일어난 일을 이 주소로 보내면 세션과 도구
-        호출에 이어서 보여 줍니다. 수신기는 이 Mac 안에서만(127.0.0.1) 듣고, 받은 이벤트를
-        밖으로 보내지 않습니다.
-      </p>
+    <Card title={t('extensions.endpoint.title')}>
+      <p className="u-ext-lead">{t('extensions.endpoint.lead')}</p>
       <div className="u-ext-endpoint">
         <div className="u-ext-toggle">
-          <span id={labelId}>이벤트 받기</span>
+          <span id={labelId}>{t('extensions.endpoint.receive')}</span>
           <button
             type="button"
             role="switch"
@@ -93,31 +92,36 @@ export function EndpointCard(p: {
             <span className="u-ext-switch-thumb" aria-hidden="true" />
           </button>
           <strong className={enabled ? 'u-tone-good' : 'u-tone-muted'}>
-            {endpoint === null ? '확인 중' : enabled ? '켜짐' : '꺼짐'}
+            {endpoint === null
+              ? t('extensions.endpoint.checking')
+              : enabled
+                ? t('extensions.endpoint.on')
+                : t('extensions.endpoint.off')}
           </strong>
         </div>
         <div className="u-ext-url">
-          <span className="u-ext-url-label">주소</span>
+          <span className="u-ext-url-label">{t('extensions.endpoint.address')}</span>
           {enabled && url ? (
             <code>{url}</code>
           ) : (
             <span className="u-tone-muted">
-              {enabled ? '주소를 확인하지 못했습니다.' : '수신기를 켜면 주소가 정해집니다.'}
+              {enabled
+                ? t('extensions.endpoint.urlUnknown')
+                : t('extensions.endpoint.urlWhenOn')}
             </span>
           )}
         </div>
         <button type="button" disabled={!enabled || pending !== null} onClick={copy}>
-          설정 복사
+          {t('extensions.endpoint.copy')}
         </button>
       </div>
       <p className="u-hint u-ext-endpoint-hint">
-        설정 복사는 <code>{URL_ENV}</code> 와 <code>{TOKEN_ENV}</code> 를 정하는 셸 설정을
-        클립보드에 넣습니다. 토큰은 키체인에 두고, 설정에는 키체인에서 읽어 오는 명령만 들어갑니다.
-        {!enabled && endpoint !== null && ' 수신기를 켠 뒤에 복사할 수 있습니다.'}
+        {withCode(t('extensions.endpoint.copyHint'), { url: URL_ENV, token: TOKEN_ENV })}
+        {!enabled && endpoint !== null && ' ' + t('extensions.endpoint.copyAfterOn')}
       </p>
       {pending === 'on' && (
         <p className="u-ext-feedback" role="status">
-          확인 창에서 허용하면 수신기가 켜집니다.
+          {t('extensions.endpoint.confirmPending')}
         </p>
       )}
       {notice && (

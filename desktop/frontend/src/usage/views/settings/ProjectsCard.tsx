@@ -16,6 +16,7 @@ import {
 import { projectAction, type CardProps } from './actions'
 import { Feedback, Switch } from './parts'
 import { happened } from './time'
+import { intlTag, t } from '../../../i18n'
 
 /** The filter box appears only when the list is longer than this. */
 const FILTER_MIN_ROWS = 4
@@ -73,10 +74,10 @@ function toRows(items: ProjectUsage[], excluded: string[]): Row[] {
     rows.push(toRow(unseen, true))
   }
   // Alphabetical, so a row does not jump when its numbers are deleted.
-  return rows.sort((a, b) => a.name.localeCompare(b.name, 'ko') || a.key.localeCompare(b.key))
+  return rows.sort((a, b) => a.name.localeCompare(b.name, intlTag()) || a.key.localeCompare(b.key))
 }
 
-/** 프로젝트: every project with its numbers and an include/exclude switch. */
+/** Projects: every project with its numbers and an include/exclude switch. */
 export function ProjectsCard(
   p: CardProps & { projects: Loaded<Projects>; coverage: Coverage; days: number },
 ) {
@@ -97,17 +98,17 @@ export function ProjectsCard(
       const nowExcluded = next.excluded.includes(row.key)
       if (include)
         return nowExcluded
-          ? `‘${row.name}’ 프로젝트는 제외한 상태 그대로입니다. 확인 창에서 취소하면 바꾸지 않습니다.`
-          : `‘${row.name}’ 프로젝트를 다시 포함했습니다. 수집 기간 안의 기록을 다시 읽습니다.`
+          ? t('settings.projects.stillExcluded', { name: row.name })
+          : t('settings.projects.included', { name: row.name })
       return nowExcluded
-        ? `‘${row.name}’ 프로젝트를 제외하고 저장한 수치를 지웠습니다.`
-        : `‘${row.name}’ 프로젝트를 제외하지 못했습니다.`
+        ? t('settings.projects.excluded', { name: row.name })
+        : t('settings.projects.excludeFailed', { name: row.name })
     })
 
   const columns: Column<Row>[] = [
     {
       key: 'project',
-      label: '프로젝트',
+      label: t('settings.projects.col.project'),
       render: (row) => (
         <>
           <span className="u-set-proj-name">{row.name}</span>
@@ -117,24 +118,27 @@ export function ProjectsCard(
     },
     {
       key: 'sessions',
-      label: '세션',
+      label: t('settings.projects.col.sessions'),
       align: 'right',
-      render: (row) => (row.excluded ? NO_VALUE : `${fmtInt(row.sessions)}개`),
+      render: (row) =>
+        row.excluded ? NO_VALUE : t('settings.projects.sessions', { n: fmtInt(row.sessions) }),
     },
     {
       key: 'tokens',
-      label: '토큰',
+      label: t('settings.projects.col.tokens'),
       align: 'right',
       render: (row) =>
         row.excluded ? (
           NO_VALUE
         ) : (
-          <span title={`${fmtInt(row.tokens)} 토큰`}>{fmtCompact(row.tokens)}</span>
+          <span title={t('settings.projects.tokens', { n: fmtInt(row.tokens) })}>
+            {fmtCompact(row.tokens)}
+          </span>
         ),
     },
     {
       key: 'last',
-      label: '마지막 활동',
+      label: t('settings.projects.col.last'),
       render: (row) =>
         !row.excluded && happened(row.lastAt) ? (
           <span className="u-set-when">{fmtDateTime(row.lastAt)}</span>
@@ -144,13 +148,13 @@ export function ProjectsCard(
     },
     {
       key: 'include',
-      label: '수집',
+      label: t('settings.projects.col.include'),
       render: (row) => (
         <Switch
           checked={!row.excluded}
-          label={`${row.name} 프로젝트 수집`}
-          onText="수집"
-          offText="제외"
+          label={t('settings.projects.switch', { name: row.name })}
+          onText={t('settings.projects.switch.on')}
+          offText={t('settings.projects.switch.off')}
           busy={actions.pending?.id === projectAction(row.key)}
           disabled={actions.pending !== null}
           onChange={(include) => toggle(row, include)}
@@ -166,28 +170,29 @@ export function ProjectsCard(
       // already says so, and an empty list would read as "no projects".
       return projects.loading ? (
         <p className="u-empty" role="status">
-          프로젝트를 읽는 중입니다.
+          {t('settings.projects.loading')}
         </p>
       ) : null
     }
-    if (shown.length === 0) return <Empty>찾는 말과 맞는 프로젝트가 없습니다.</Empty>
+    if (shown.length === 0) return <Empty>{t('settings.projects.noMatch')}</Empty>
     return <DataTable columns={columns} rows={shown} rowKey={(row) => row.key} />
   }
 
   const count = needle
-    ? `${fmtInt(rows.length)}개 중 ${fmtInt(shown.length)}개 표시`
-    : `프로젝트 ${fmtInt(rows.length)}개, 그중 제외 ${fmtInt(excludedCount)}개`
+    ? t('settings.projects.shown', { total: fmtInt(rows.length), shown: fmtInt(shown.length) })
+    : t('settings.projects.count', {
+        count: rows.length,
+        total: fmtInt(rows.length),
+        excluded: fmtInt(excludedCount),
+      })
 
   return (
     <Card
-      title="프로젝트"
-      hint={`세션과 토큰은 최근 ${p.days}일 동안 저장한 수치입니다.`}
+      title={t('settings.projects.title')}
+      hint={t('settings.projects.hint', { days: p.days })}
       className="u-span-12"
     >
-      <p className="u-set-line">
-        프로젝트를 제외하면 그 프로젝트의 저장한 수치를 바로 지우고 더 읽지 않습니다. 다시
-        포함하면 확인 창이 뜨고, 허락하면 수집 기간 안의 기록을 다시 읽습니다.
-      </p>
+      <p className="u-set-line">{t('settings.projects.line')}</p>
       {projects.error && (
         <div className="u-set-feedback">
           <ErrorNote error={projects.error} retry={projects.reload} />
@@ -198,12 +203,12 @@ export function ProjectsCard(
         <div className="u-set-listbar">
           {rows.length > FILTER_MIN_ROWS && (
             <div className="u-set-field">
-              <label htmlFor={FILTER_ID}>프로젝트 찾기</label>
+              <label htmlFor={FILTER_ID}>{t('settings.projects.find')}</label>
               <input
                 id={FILTER_ID}
                 type="search"
                 value={filter}
-                placeholder="이름이나 경로"
+                placeholder={t('settings.projects.placeholder')}
                 autoComplete="off"
                 spellCheck={false}
                 onChange={(e) => setFilter(e.target.value)}
