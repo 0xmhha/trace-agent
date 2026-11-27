@@ -91,7 +91,7 @@ func wantRootBatch(t *testing.T, size int64) usage.Batch {
 			Input: in, Output: out, CacheRead: read, CacheCreate: create, Thinking: thinking, StopReason: stop}
 	}
 	withAttribution := model("msg_04", "09:00:25.000Z", 6, 150, 51500, 80, 0, "tool_use")
-	withAttribution.Skill, withAttribution.Plugin = "deploy-check", "devkit"
+	withAttribution.Skill, withAttribution.Plugin = "devkit:deploy-check", "devkit"
 	result := func(key, hms string, isError bool) usage.ToolResult {
 		return usage.ToolResult{Key: key, SessionID: sid, At: clock(t, hms), IsError: isError}
 	}

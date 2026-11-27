@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -164,12 +165,29 @@ func TestPipelineNumbers(t *testing.T) {
 	if detail.Source != usage.SourceAvailable || len(detail.Agents) != 2 || len(detail.Turns) != 6 {
 		t.Fatalf("detail: source %q, agents %d, turns %d", detail.Source, len(detail.Agents), len(detail.Turns))
 	}
+	// One skill has one name on the tools page and in the session detail: its
+	// full name, as the Skill call and the attribution of the fixture give it.
+	const wantSkills = "devkit:deploy-check"
+	if fromTools, fromSession := groupNames(tools.Skills), groupNames(detail.Skills); fromTools != wantSkills || fromSession != wantSkills {
+		t.Fatalf("skill groups: tools %q, session %q; want %q from both", fromTools, fromSession, wantSkills)
+	}
 
 	var report usage.InsightReport
 	p.call(t, usage.MethodInsights, query, &report)
 	if total := report.RulesFired + report.RulesPassed + report.RulesSkipped; total == 0 || report.Coverage.State != usage.CoveragePartial {
 		t.Fatalf("insights = %+v", report)
 	}
+}
+
+// groupNames lists the names of groups, sorted so that the result compares as
+// a set.
+func groupNames(groups []usage.GroupUsage) string {
+	names := make([]string, 0, len(groups))
+	for _, group := range groups {
+		names = append(names, group.Name)
+	}
+	slices.Sort(names)
+	return strings.Join(names, ",")
 }
 
 func toolNames(tools []usage.ToolUsage) string {

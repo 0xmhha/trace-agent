@@ -12,7 +12,7 @@
 | 시각 | 처음 2026-03-01T09:00:00Z, 마지막 2026-03-01T09:32:00Z |
 | 모델 호출 | 6회 (`msg_01`~`msg_06`). `msg_01` 은 세 줄에 걸쳐 반복된다. 모델 `model-large` |
 | 토큰 합계 | 입력 38, 출력 1,770, 캐시 읽기 305,100, 캐시 생성 2,680, 생각 150 |
-| 귀속 | `msg_04` 는 스킬 `deploy-check`, 플러그인 `devkit` |
+| 귀속 | `msg_04` 는 스킬 `devkit:deploy-check`, 플러그인 `devkit`. 실제 기록처럼 `attributionSkill` 에 플러그인까지 붙은 전체 이름이 들어 있고, `Skill` 호출의 `input.skill` 과 같다. 플러그인에서 오지 않은 스킬은 양쪽 모두 이름만 있고 플러그인이 비어 있다 |
 | 도구 호출 | 5회. `Bash`(builtin, 대상 `tail`), `mcp__issues__search`(mcp, 서버 `issues`, 도구 `search`), `Skill`(skill, 스킬 `devkit:deploy-check`, 플러그인 `devkit`), `mcp__plugin_devkit_chain__status`(mcp, 플러그인 `devkit`, 서버 `chain`, 도구 `status`), `Agent`(agent, 종류 `Explore`) |
 | 도구 결과 | 5회. `toolu_01` 만 오류. 보고된 지연 없음 |
 | 프롬프트 | 2회 (`u-prompt-1`, `u-prompt-2`). `isMeta` 줄과 도구 결과 줄은 세지 않는다 |

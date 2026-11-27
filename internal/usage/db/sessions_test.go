@@ -70,7 +70,9 @@ func sessTestSeedAlpha(t *testing.T, s *Store) {
 	const id = sessTestAlpha
 	msec := time.Millisecond
 	attributed := sessTestModel(id, "", "m2", sessTestAt(2*time.Minute), sessTestSmall, 1, 2, 3, 4)
-	attributed.Skill, attributed.Plugin = "deploy-check", "devkit"
+	// A transcript attributes a plugin skill by its full name and names the
+	// plugin again beside it.
+	attributed.Skill, attributed.Plugin = "devkit:deploy-check", "devkit"
 	unqualified := sessTestModel(id, "", "m1", sessTestAt(time.Minute), sessTestLarge, 10, 20, 300, 40)
 	unqualified.Skill = "notes"
 	seedBatch(t, s, sessTestFile("proj-a/s-alpha.jsonl", sessTestProjA), usage.Batch{
@@ -107,6 +109,7 @@ func sessTestSeedAlpha(t *testing.T, s *Store) {
 			{Key: "h3", SessionID: id, At: sessTestAt(3 * time.Minute), Event: "Stop", Name: "Stop", Status: usage.HookSuccess, DurationMs: 40},
 			{Key: "h4", SessionID: id, At: sessTestAt(4 * time.Minute), Event: "PreToolUse", Name: "PreToolUse:Bash", Status: usage.HookBlocked, ExitCode: 2, DurationMs: 60},
 			{Key: "h5", SessionID: id, At: sessTestAt(4 * time.Minute), Event: "PreToolUse", Name: "PreToolUse:Bash", Status: usage.HookError, ExitCode: 1, DurationMs: 20},
+			{Key: "h6", SessionID: id, At: sessTestAt(5 * time.Minute), Event: "Stop", Name: "Stop", Status: usage.HookUnknown, DurationMs: 40},
 		},
 		Compactions: []usage.Compaction{
 			{Key: "c0", SessionID: id, At: sessTestAt(-time.Minute), Trigger: "auto", PreTokens: 100},
@@ -474,10 +477,10 @@ func sessTestAlphaDetail() usage.SessionDetail {
 			{Name: "devkit", Calls: 2, Sessions: 1, Tokens: &usage.TokenTotals{Input: 1, Output: 2, CacheRead: 3, CacheCreate: 4}, AvgMs: sessTestPtr(250)},
 		},
 		Hooks: []usage.HookUsage{
-			// Two errors and one block: a hook that blocks did its job and is
-			// not a failure.
-			{Event: "PreToolUse", Name: "PreToolUse:Bash", Runs: 4, Failures: 2, AvgMs: sessTestPtr(50), MaxMs: sessTestPtr(90)},
-			{Event: "Stop", Name: "Stop", Runs: 1, AvgMs: sessTestPtr(40), MaxMs: sessTestPtr(40)},
+			// Two errors and one block fail, as on the tools page.
+			{Event: "PreToolUse", Name: "PreToolUse:Bash", Runs: 4, Failures: 3, AvgMs: sessTestPtr(50), MaxMs: sessTestPtr(90)},
+			// An unknown outcome is not a failure.
+			{Event: "Stop", Name: "Stop", Runs: 2, AvgMs: sessTestPtr(40), MaxMs: sessTestPtr(40)},
 		},
 		Agents: []usage.AgentRow{
 			{ModelCalls: 4, ToolCalls: 5, ToolErrors: 3, Tokens: usage.TokenTotals{Input: 6011, Output: 6022, CacheRead: 6303, CacheCreate: 6044}, StartedAt: sessTestAt(-time.Hour), LastAt: sessTestUntil},
