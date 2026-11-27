@@ -9,5 +9,6 @@ export {
   ID,
   Items,
   evidenceRows,
+  interleave,
   type Props,
 } from './trace/views/shared'

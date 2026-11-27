@@ -9,6 +9,7 @@ import {
   Group,
   Items,
   evidenceRows,
+  interleave,
   type Props,
 } from './Screen'
 import {
@@ -24,6 +25,51 @@ import {
   type Row,
 } from './data'
 import type { Go } from './nav'
+import { errorText, hasMessage, t, type MessageKey } from './i18n'
+
+// Source kinds the capability catalog groups together, because the server
+// words some reasons the same way for every kind of the group
+// (internal/collect/registry.go: OTLP and Observer).
+const OTEL_KINDS = ['claude-otel', 'codex-otel']
+const OBSERVER_KINDS = ['claude-hook', 'mcp-observer']
+const CLIENT_VERSION_CODE = 'client_version'
+
+// The source kinds offered when connecting a source, with their labels.
+const SOURCE_CHOICES = [
+  { kind: 'codex-app-server', label: 'trace.source.codexAppServer' },
+  { kind: 'codex-otlp', label: 'trace.source.codexOtlp' },
+  { kind: 'codex-rollout', label: 'trace.source.codexRollout' },
+  { kind: 'claude-project', label: 'trace.source.claudeProject' },
+  { kind: 'claude-transcript', label: 'trace.source.claudeTranscript' },
+  { kind: 'claude-otlp', label: 'trace.source.claudeOtlp' },
+] as const satisfies readonly { kind: string; label: MessageKey }[]
+
+/**
+ * Reason text of one capability in the page's language. The catalog is keyed
+ * by code and state, narrowed by source kind, kind group or client version
+ * where the server words them differently; the most specific key wins. When
+ * no key matches, the server's own reason is shown.
+ */
+function capabilityReason(c: Row, source: Row): string {
+  const code = str(c.code),
+    state = str(c.state),
+    kind = str(source.kind)
+  const group = OTEL_KINDS.includes(kind)
+    ? 'otel'
+    : OBSERVER_KINDS.includes(kind)
+      ? 'observer'
+      : ''
+  const variants =
+    code === CLIENT_VERSION_CODE
+      ? [str(source.clientVersion) ? 'different' : 'missing']
+      : [kind, group]
+  const keys = [
+    ...variants.filter(Boolean).map((v) => `capabilities.${code}.${state}.${v}`),
+    `capabilities.${code}.${state}`,
+  ]
+  const key = keys.find(hasMessage)
+  return key ? t(key as MessageKey) : str(c.reason)
+}
 export function SourcePanel({
   screen: s,
   go,
@@ -59,7 +105,7 @@ export function SourcePanel({
       await fn()
     } catch (e) {
       if (alive.current)
-        setErr(e instanceof Error ? e.message : '요청에 실패했습니다.')
+        setErr(errorText(e, 'trace.source.requestFailed'))
     } finally {
       if (alive.current) setBusy(false)
     }
@@ -94,28 +140,19 @@ export function SourcePanel({
       <fieldset disabled={busy || !connected}>
         {!id ? (
           <>
-            <Group title="출처 연결">
+            <Group title={t('trace.source.connect')}>
               <div className="toolbar">
                 <label>
-                  자료원{' '}
+                  {t('trace.source.type')}{' '}
                   <select
                     value={kind}
                     onChange={(e) => setKind(e.target.value)}
                   >
-                    <option value="codex-app-server">
-                      Codex · 프로젝트 이력
-                    </option>
-                    <option value="codex-otlp">Codex · 로컬 OTel 수신기</option>
-                    <option value="codex-rollout">Codex · rollout JSONL</option>
-                    <option value="claude-project">
-                      Claude Code · 세션 폴더
-                    </option>
-                    <option value="claude-transcript">
-                      Claude Code · 세션 JSONL
-                    </option>
-                    <option value="claude-otlp">
-                      Claude Code · 로컬 OTel 수신기
-                    </option>
+                    {SOURCE_CHOICES.map((c) => (
+                      <option key={c.kind} value={c.kind}>
+                        {t(c.label)}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <button
@@ -135,11 +172,11 @@ export function SourcePanel({
                     })
                   }
                 >
-                  출처 선택
+                  {t('trace.source.pick')}
                 </button>
               </div>
             </Group>
-            <Group title="연결한 출처">
+            <Group title={t('trace.source.connected')}>
               <Items
                 items={rows(s.items)}
                 render={(r) => (
@@ -166,22 +203,22 @@ export function SourcePanel({
             <Group title={code(source.client) + ' · ' + str(source.kind)}>
               <dl>
                 <div>
-                  <dt>클라이언트</dt>
+                  <dt>{t('trace.source.client')}</dt>
                   <dd>
                     {code(source.client)}{' '}
-                    {str(source.clientVersion) || '버전 미확인'}
+                    {str(source.clientVersion) || t('trace.source.versionUnknown')}
                   </dd>
                 </div>
                 <div>
-                  <dt>어댑터</dt>
+                  <dt>{t('trace.source.adapter')}</dt>
                   <dd>{str(source.adapterVersion)}</dd>
                 </div>
                 <div>
-                  <dt>마지막 기록</dt>
+                  <dt>{t('trace.source.lastRecord')}</dt>
                   <dd>{date(source.lastAt)}</dd>
                 </div>
                 <div>
-                  <dt>연결 점검</dt>
+                  <dt>{t('trace.source.health')}</dt>
                   <dd>
                     <Badge value={source.asOfHealth} />{' '}
                     {date(source.asOfCheckedAt)}
@@ -194,13 +231,13 @@ export function SourcePanel({
                   <>
                     <b>{str(c.code)}</b>
                     <Badge value={c.state} />
-                    <small>{str(c.reason)}</small>
+                    <small>{capabilityReason(c, source)}</small>
                   </>
                 )}
               />
               <Items
                 items={rows(s.gaps)}
-                empty="보고된 수집 공백이 없습니다."
+                empty={t('trace.source.noGaps')}
                 render={(g) => (
                   <span>
                     {date(g.from)} – {date(g.until)} {str(g.reason)}
@@ -216,10 +253,10 @@ export function SourcePanel({
                   })
                 }
               >
-                미연계 근거 {num(s.unlinkedCount)}건
+                {t('trace.source.unlinked', { count: num(s.unlinkedCount) })}
               </button>
             </Group>
-            <Group title="모델 요청">
+            <Group title={t('trace.source.modelRequests')}>
               <button
                 onClick={() =>
                   run(async () => {
@@ -233,7 +270,7 @@ export function SourcePanel({
                   })
                 }
               >
-                출처 범위 모델 시도 조회
+                {t('trace.source.queryModelAttempts')}
               </button>
               <Items
                 items={page?.items ?? []}
@@ -259,18 +296,18 @@ export function SourcePanel({
             </Group>
             {detail && (
               <>
-                <Group title="모델 요청 본문">
+                <Group title={t('trace.source.modelRequestBody')}>
                   <Fields value={detail.request} />
                 </Group>
-                <Group title="모델 응답 본문">
+                <Group title={t('trace.source.modelResponseBody')}>
                   <Fields value={detail.response} />
                 </Group>
                 {rows(detail.conversation).length > 0 && (
-                  <Group title="모델 대화">
+                  <Group title={t('trace.source.modelConversation')}>
                     <Fields value={detail.conversation} />
                   </Group>
                 )}
-                <Group title="모델 전달 과정">
+                <Group title={t('trace.source.modelDelivery')}>
                   <Items
                     items={rows(detail.edges)}
                     render={(e) => (
@@ -291,7 +328,7 @@ export function SourcePanel({
                     )}
                   />
                 </Group>
-                <Group title="모델 근거 기록">
+                <Group title={t('trace.source.modelEvidence')}>
                   {evidenceRows(detail.evidence, openModelEvidence)}
                 </Group>
               </>
@@ -304,7 +341,7 @@ export function SourcePanel({
               query={query}
               refresh={refresh}
             />
-            <Group title="수집 설정">
+            <Group title={t('trace.source.collection')}>
               <div className="toolbar">
                 <button
                   onClick={() =>
@@ -317,7 +354,7 @@ export function SourcePanel({
                     })
                   }
                 >
-                  {s.enabled ? '수집 중지' : '수집 재개'}
+                  {s.enabled ? t('trace.source.pause') : t('trace.source.resume')}
                 </button>
                 <button
                   onClick={() =>
@@ -330,18 +367,23 @@ export function SourcePanel({
                     })
                   }
                 >
-                  {s.consent ? '본문 동의 철회' : '본문 수집 동의'}
+                  {s.consent
+                    ? t('trace.source.revokeConsent')
+                    : t('trace.source.grantConsent')}
                 </button>
                 <label>
-                  보존 {num(s.retentionDays)}일 →{' '}
-                  <input
-                    type="number"
-                    min="1"
-                    max="3650"
-                    value={retention}
-                    onChange={(e) => setDays(Number(e.target.value))}
-                  />
-                  일
+                  {interleave(t('trace.source.retention'), {
+                    days: num(s.retentionDays),
+                    input: (
+                      <input
+                        type="number"
+                        min="1"
+                        max="3650"
+                        value={retention}
+                        onChange={(e) => setDays(Number(e.target.value))}
+                      />
+                    ),
+                  })}
                 </label>
                 <button
                   disabled={retention < 1 || retention > 3650}
@@ -355,7 +397,7 @@ export function SourcePanel({
                     })
                   }
                 >
-                  보존 기간 저장
+                  {t('trace.source.saveRetention')}
                 </button>
               </div>
             </Group>
@@ -364,7 +406,7 @@ export function SourcePanel({
               'codex-app-server',
               'codex-rollout',
             ].includes(str(source.kind)) && (
-              <Group title="이력 범위">
+              <Group title={t('trace.source.historyRange')}>
                 <p>
                   {date(s.historyFrom)} – {date(s.historyUntil)}
                 </p>
@@ -383,7 +425,7 @@ export function SourcePanel({
                     })
                   }
                 >
-                  같은 출처를 선택해 현재 기간 적용
+                  {t('trace.source.applyHistory')}
                 </button>
               </Group>
             )}

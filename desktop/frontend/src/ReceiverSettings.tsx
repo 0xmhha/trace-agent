@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { native } from './socket'
 import type { Query } from './nav'
+import { t } from './i18n'
 
 type Props = {
   sourceId: string
@@ -61,14 +62,10 @@ export function ReceiverSettings({
           retentionDays: 7,
         },
       })
-      setNotice(
-        '수신기를 등록했습니다. 출처 목록에서 수신기를 열어 송신 설정을 복사하세요.',
-      )
+      setNotice(t('trace.receiver.registered'))
       refresh()
     } catch {
-      setNotice(
-        '수신기를 연결하지 못했습니다. 출처와 서버 이름을 확인해 주세요.',
-      )
+      setNotice(t('trace.receiver.attachFailed'))
     } finally {
       setBusy(false)
     }
@@ -76,14 +73,14 @@ export function ReceiverSettings({
   if (parent)
     return (
       <section className="panel">
-        <h2>추가 관찰 출처</h2>
+        <h2>{t('trace.receiver.extraSources')}</h2>
         {kind === 'claude-transcript' && (
           <button disabled={busy} onClick={() => attach('hook')}>
-            Claude 도구 훅 연결
+            {t('trace.receiver.connectHook')}
           </button>
         )}
         <label>
-          MCP 서버 이름{' '}
+          {t('trace.receiver.mcpName')}{' '}
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -91,7 +88,7 @@ export function ReceiverSettings({
           />
         </label>
         <button disabled={busy || !name.trim()} onClick={() => attach('mcp')}>
-          MCP 수신기 연결
+          {t('trace.receiver.connectMcp')}
         </button>
         <p role="status">{notice}</p>
       </section>
@@ -100,34 +97,31 @@ export function ReceiverSettings({
   async function copy() {
     try {
       await native().CopyReceiverSettings(sourceId)
-      setNotice('설정을 복사했습니다. 송신기를 시작할 터미널에 붙여 넣으세요.')
+      setNotice(t('trace.receiver.copied'))
     } catch {
-      setNotice('수집 상태와 키체인 권한을 확인해 주세요.')
+      setNotice(t('trace.receiver.copyFailed'))
     }
   }
   return (
     <section className="panel">
-      <h2>로컬 수신 설정</h2>
-      <p>
-        이 Mac에서 새로 시작하는 송신기에 적용합니다. 인증값은 실행할 때
-        키체인에서 읽습니다.
-      </p>
+      <h2>{t('trace.receiver.local')}</h2>
+      <p>{t('trace.receiver.note')}</p>
       {kind === 'codex-otel' && (
         <p>
           {consent
-            ? '복사할 설정에 사용자 입력 수집을 포함합니다.'
-            : '복사할 설정에서 사용자 입력 수집을 끕니다.'}
+            ? t('trace.receiver.codexConsentOn')
+            : t('trace.receiver.codexConsentOff')}
         </p>
       )}
       {kind === 'claude-otel' && (
         <p>
           {consent
-            ? '복사할 설정에 API 본문 수집을 포함합니다.'
-            : '복사할 설정에서 API 본문 수집을 끕니다.'}
+            ? t('trace.receiver.claudeConsentOn')
+            : t('trace.receiver.claudeConsentOff')}
         </p>
       )}
       <button disabled={!enabled} onClick={copy}>
-        터미널 설정 복사
+        {t('trace.receiver.copy')}
       </button>
       <span role="status">{notice}</span>
     </section>

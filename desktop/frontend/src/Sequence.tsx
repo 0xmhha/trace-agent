@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Flow } from './Flow'
 import { Group, Items, Badge, EvidenceLinks, type Props } from './Screen'
 import { obj, str, num, short, code, date, rows, label, type Row } from './data'
+import { t } from './i18n'
 export function Sequence({
   screen,
   stamp,
@@ -61,7 +62,7 @@ export function Sequence({
         }
       })
       .catch(() => {
-        if (valid) setErr('선택한 사건을 읽지 못했습니다.')
+        if (valid) setErr(t('trace.sequence.loadFailed'))
       })
     return () => {
       valid = false
@@ -80,9 +81,9 @@ export function Sequence({
     <>
       <div className="metrics">
         {[
-          ['하위 에이전트', 'childAgents'],
-          ['실행 중', 'runningChildAgents'],
-          ['응답 대기', 'waitingAttempts'],
+          [t('trace.subagents'), 'childAgents'],
+          [t('trace.running'), 'runningChildAgents'],
+          [t('trace.waiting'), 'waitingAttempts'],
         ].map(([name, k]) => (
           <div className="metric" key={k}>
             <span>{name}</span>
@@ -90,7 +91,7 @@ export function Sequence({
           </div>
         ))}
       </div>
-      <Group title="참여자와 사건">
+      <Group title={t('trace.sequence.participants')}>
         <div className="toolbar">
           <button
             disabled={!events.length}
@@ -105,13 +106,13 @@ export function Sequence({
               )
             }
           >
-            처음부터
+            {t('trace.sequence.fromStart')}
           </button>
           <button
             disabled={ix <= 0}
             onClick={() => select(str(events[ix - 1]?.id))}
           >
-            이전 사건
+            {t('trace.sequence.previousEvent')}
           </button>
           <button
             disabled={!id}
@@ -124,13 +125,15 @@ export function Sequence({
                 : select(id)
             }
           >
-            {route.fixed ? '실시간 재개' : '장면 고정'}
+            {route.fixed
+              ? t('trace.sequence.resumeLive')
+              : t('trace.sequence.freeze')}
           </button>
           <button
             disabled={!events.length || ix >= events.length - 1}
             onClick={() => select(str(events[ix + 1]?.id))}
           >
-            다음 사건
+            {t('trace.sequence.nextEvent')}
           </button>
           {screen.previousPage ? (
             <button
@@ -142,7 +145,7 @@ export function Sequence({
                 })
               }
             >
-              앞 페이지
+              {t('trace.page.previous')}
             </button>
           ) : null}
         </div>
@@ -163,7 +166,7 @@ export function Sequence({
         </div>
         <Flow lanes={lanes} events={events} selected={id} onSelect={select} />
         <details>
-          <summary>사건 표</summary>
+          <summary>{t('trace.sequence.eventTable')}</summary>
           <Items
             items={events}
             render={(e) => (
@@ -184,20 +187,28 @@ export function Sequence({
       </Group>
       {err && <p role="alert">{err}</p>}
       {event && (
-        <Group title={'선택한 사건 · ' + code(event.action)}>
+        <Group title={t('trace.sequence.selected', { action: code(event.action) })}>
           <p>
             {date(event.occurred)}　{code(event.grade)}　
             {code(event.observedSide)}
           </p>
-          <p>미션 {label(inspector.mission)}</p>
+          <p>{t('trace.mission', { mission: label(inspector.mission) })}</p>
           <Badge value={obj(inspector.status).activity} />
-          <p>응답 대기 {num(obj(obj(inspector.waits).page).total)}건</p>
+          <p>
+            {t('trace.sequence.waitCount', {
+              count: num(obj(obj(inspector.waits).page).total),
+            })}
+          </p>
           <Items
             items={rows(obj(inspector.waits).items)}
-            empty="대기 대상이 없습니다."
+            empty={t('trace.sequence.noWaits')}
             render={(w) => (
               <>
-                <span>대상 {short(w.laneId ?? w.attemptId)}</span>
+                <span>
+                  {t('trace.sequence.waitTarget', {
+                    id: short(w.laneId ?? w.attemptId),
+                  })}
+                </span>
                 <EvidenceLinks ids={w.evidenceIds} go={go} />
               </>
             )}
@@ -212,14 +223,14 @@ export function Sequence({
                 })
               }
             >
-              호출 열기
+              {t('trace.sequence.openCall')}
             </button>
           ) : null}
           <Items
             items={rows(screen.relations).filter(
               (r) => r.toEventId === id || r.fromEventId === id,
             )}
-            empty="명시된 사건 관계가 없습니다."
+            empty={t('trace.sequence.noRelations')}
             render={(r) => (
               <span>
                 {code(r.kind)} · {short(r.fromEventId)} → {short(r.toEventId)}

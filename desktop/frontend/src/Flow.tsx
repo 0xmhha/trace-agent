@@ -1,4 +1,5 @@
 import { code, date, short, str, type Row } from './data'
+import { t } from './i18n'
 
 /** The horizontal span represents the observed endpoints. A local event occupies one lane. */
 export function Flow({
@@ -17,7 +18,7 @@ export function Flow({
     <div
       className="flowViewport"
       role="region"
-      aria-label="참여자별 사건 흐름"
+      aria-label={t('trace.sequence.flow')}
       tabIndex={0}
     >
       <div
