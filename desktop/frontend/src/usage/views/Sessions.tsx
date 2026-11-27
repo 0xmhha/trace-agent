@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { errorText, t } from '../../i18n'
 import type { ViewProps } from '../index'
 import type { Coverage, SessionSort } from '../types'
 import { Card, CoverageNote, Empty, ErrorNote, fmtInt } from '../ui'
@@ -21,10 +22,14 @@ const SEARCH_DEBOUNCE_MS = 350
 function searchEmptyText(search: string, coverage: Coverage | undefined): string | undefined {
   const state = coverage?.state ?? 'complete'
   if (!search || state === 'disabled') return undefined
-  const base = `“${search}”에 맞는 세션이 없습니다.`
-  if (state === 'scanning') return base + ' 아직 읽는 중이라 잠시 뒤 나타날 수 있습니다.'
-  if (state === 'partial') return base + ' 읽지 못한 부분이 있어 실제로는 있을 수 있습니다.'
-  return base
+  if (state === 'scanning') return t('sessions.searchEmptyScanning', { search })
+  if (state === 'partial') return t('sessions.searchEmptyPartial', { search })
+  return t('sessions.searchEmpty', { search })
+}
+
+/** Error text of the list; codes from the desktop bridge are translated, other messages shown as they are. */
+function listError(message: string): string {
+  return message && errorText(message)
 }
 
 /** Session list of the selected period: search, sort, paging, and a row per session. */
@@ -70,21 +75,21 @@ export function Sessions({ api, route, navigate, range, refresh }: ViewProps) {
       <CoverageNote coverage={list.coverage} />
       <div className="u-sess-controls">
         <span className="u-sess-field">
-          <label htmlFor={searchId}>검색</label>
+          <label htmlFor={searchId}>{t('sessions.searchLabel')}</label>
           <input
             id={searchId}
             className="u-sess-search"
             type="search"
             value={draft}
             maxLength={MAX_SEARCH_LEN}
-            placeholder="제목 또는 프로젝트 경로"
+            placeholder={t('sessions.searchPlaceholder')}
             autoComplete="off"
             spellCheck={false}
             onChange={(e) => setDraft(e.target.value)}
           />
         </span>
         <span className="u-sess-field">
-          <label htmlFor={sortId}>정렬</label>
+          <label htmlFor={sortId}>{t('sessions.sortLabel')}</label>
           <select
             id={sortId}
             value={sort}
@@ -92,7 +97,7 @@ export function Sessions({ api, route, navigate, range, refresh }: ViewProps) {
           >
             {sortOptions.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
@@ -100,14 +105,15 @@ export function Sessions({ api, route, navigate, range, refresh }: ViewProps) {
         <p className="u-sess-count" role="status">
           {list.ready && !list.stale ? (
             <>
-              {search ? '검색에 맞는 세션' : '이 기간의 세션'} <b>{fmtInt(list.total)}개</b>
+              {t(search ? 'sessions.countMatching' : 'sessions.countInPeriod')}{' '}
+              <b>{t('sessions.countValue', { count: list.total, n: fmtInt(list.total) })}</b>
             </>
           ) : (
-            list.loading && '세션 목록을 읽는 중입니다.'
+            list.loading && t('sessions.loading')
           )}
         </p>
       </div>
-      <ErrorNote error={list.error} retry={list.reload} />
+      <ErrorNote error={listError(list.error)} retry={list.reload} />
       {list.ready && (
         <Card className="u-sess-card">
           {list.rows.length === 0 ? (
@@ -115,20 +121,20 @@ export function Sessions({ api, route, navigate, range, refresh }: ViewProps) {
               <Empty coverage={list.coverage}>{searchEmptyText(search, list.coverage)}</Empty>
               {search && (
                 <button type="button" onClick={clearSearch}>
-                  검색 지우기
+                  {t('sessions.clearSearch')}
                 </button>
               )}
             </>
           ) : (
             <>
               <div className="u-sess-legend-row">
-                <span>토큰 막대</span>
+                <span>{t('sessions.tokenBar')}</span>
                 <SplitLegend />
               </div>
               <SessionTable rows={list.rows} sort={sort} busy={list.stale} onOpen={open} />
               <div className="u-sess-pager">
                 <span>
-                  {fmtInt(list.rows.length)} / {fmtInt(list.total)}개 표시
+                  {t('sessions.shown', { shown: fmtInt(list.rows.length), total: fmtInt(list.total) })}
                 </span>
                 {list.hasMore && (
                   <button
@@ -136,11 +142,11 @@ export function Sessions({ api, route, navigate, range, refresh }: ViewProps) {
                     onClick={list.more}
                     disabled={list.loading || list.moreLoading}
                   >
-                    {list.moreLoading ? '읽는 중…' : '더 보기'}
+                    {list.moreLoading ? t('sessions.moreLoading') : t('sessions.more')}
                   </button>
                 )}
               </div>
-              <ErrorNote error={list.moreError} retry={list.more} />
+              <ErrorNote error={listError(list.moreError)} retry={list.more} />
             </>
           )}
         </Card>

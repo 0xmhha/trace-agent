@@ -1,16 +1,17 @@
 // The session page keeps its whole view state in UsageRoute.tab so that a
 // reload or the back button restores the tab, the selected agent and the
 // timeline filters. The value is "<tab>[;a=<agent>][;h=<kind>,<kind>][;e=1]".
+import type { MessageKey } from '../../../i18n'
 import type { TimelineKind } from '../../types'
 import { kindOrder } from './format'
 
 export const sessionTabs = [
-  { id: 'chat', label: '대화' },
-  { id: 'tools', label: '도구' },
-  { id: 'tokens', label: '토큰 흐름' },
-  { id: 'agents', label: '하위 에이전트' },
-  { id: 'ext', label: '확장 이벤트' },
-] as const
+  { id: 'chat', labelKey: 'session.tabChat' },
+  { id: 'tools', labelKey: 'session.tabTools' },
+  { id: 'tokens', labelKey: 'session.tabTokens' },
+  { id: 'agents', labelKey: 'session.tabAgents' },
+  { id: 'ext', labelKey: 'session.tabExt' },
+] as const satisfies readonly { id: string; labelKey: MessageKey }[]
 
 export type SessionTab = (typeof sessionTabs)[number]['id']
 

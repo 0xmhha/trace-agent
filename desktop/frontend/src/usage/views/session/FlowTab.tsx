@@ -8,9 +8,10 @@ import {
   type PointerEvent,
   type RefObject,
 } from 'react'
+import { t } from '../../../i18n'
 import type { TurnPoint } from '../../types'
 import { Card, DataTable, Empty, fmtCompact, fmtInt, type Column } from '../../ui'
-import { fmtFull } from './format'
+import { countVars, fmtFull, fmtTimes } from './format'
 
 // Geometry in CSS pixels. The SVG is drawn at the measured width of its box,
 // so one user unit is one pixel and pointer positions need no conversion.
@@ -218,13 +219,13 @@ function Chart({ turns }: { turns: TurnPoint[] }) {
     () => (
       <>
         <text className="u-sd-panel-title" x={PAD_LEFT} y={CONTEXT_TOP - 10}>
-          맥락 크기 (토큰)
+          {t('session.chartContextTitle')}
         </text>
         <YAxis ticks={layout.contextTicks} y={layout.yContext} width={width} />
         <path className="u-sd-area" d={layout.area} />
         <path className="u-sd-line-mark" d={layout.line} />
         <text className="u-sd-panel-title" x={PAD_LEFT} y={OUTPUT_TOP - 10}>
-          출력 토큰
+          {t('session.chartOutputTitle')}
         </text>
         <YAxis ticks={layout.outputTicks} y={layout.yOutput} width={width} />
         <path className="u-sd-bars" d={layout.bars} />
@@ -234,7 +235,7 @@ function Chart({ turns }: { turns: TurnPoint[] }) {
           </text>
         ))}
         <text className="u-sd-axis-title" x={plotMiddle} y={HEIGHT - 6} textAnchor="middle">
-          모델 호출 순번
+          {t('session.chartAxis')}
         </text>
       </>
     ),
@@ -255,8 +256,11 @@ function Chart({ turns }: { turns: TurnPoint[] }) {
     >
       <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-labelledby={titleId}>
         <title id={titleId}>
-          {`모델 호출 ${fmtInt(count)}회의 맥락 크기 선 그래프와 출력 토큰 막대그래프. ` +
-            `맥락 크기 최대 ${fmtInt(peak?.context ?? 0)}, 출력 토큰 합계 ${fmtInt(totalOutput)}.`}
+          {t('session.chartTitle', {
+            ...countVars(count),
+            peak: fmtInt(peak?.context ?? 0),
+            total: fmtInt(totalOutput),
+          })}
         </title>
         {marks}
         {peak && (
@@ -268,7 +272,7 @@ function Chart({ turns }: { turns: TurnPoint[] }) {
               y={yContext(peak.context) - 10}
               textAnchor={peakOnLeft ? 'start' : 'end'}
             >
-              최대 {fmtCompact(peak.context)}
+              {t('session.chartPeak', { value: fmtCompact(peak.context) })}
             </text>
           </g>
         )}
@@ -303,24 +307,30 @@ function Chart({ turns }: { turns: TurnPoint[] }) {
           role="status"
         >
           <div className="u-sd-tip-head">
-            호출 {fmtInt(active + 1)} / {fmtInt(count)} · {fmtFull(picked.at)}
+            {t('session.chartTipHead', {
+              index: fmtInt(active + 1),
+              n: fmtInt(count),
+              at: fmtFull(picked.at),
+            })}
           </div>
           <div className="u-sd-tip-row">
             <span className="u-sd-key u-sd-key-line" aria-hidden="true" />
-            <strong>{fmtInt(picked.context)}</strong> 맥락 크기
+            <strong>{fmtInt(picked.context)}</strong> {t('session.chartContext')}
           </div>
           <div className="u-sd-tip-row">
             <span className="u-sd-key u-sd-key-bar" aria-hidden="true" />
-            <strong>{fmtInt(picked.output)}</strong> 출력 토큰
+            <strong>{fmtInt(picked.output)}</strong> {t('session.chartOutput')}
           </div>
           <div className="u-sd-tip-foot">
-            {picked.model || '모델 미상'} · 도구 호출 {fmtInt(picked.toolCalls)}회
+            {t('session.chartTipFoot', {
+              ...countVars(picked.toolCalls),
+              model: picked.model || t('session.unknownModel'),
+            })}
           </div>
         </div>
       )}
       <p id={helpId} className="u-hint">
-        차트 위에 포인터를 올리거나, 차트를 선택한 뒤 좌우 화살표 키를 누르면 호출별 값을 볼 수
-        있습니다.
+        {t('session.chartHelp')}
       </p>
     </div>
   )
@@ -330,16 +340,19 @@ interface NumberedTurn extends TurnPoint {
   call: number
 }
 
-const tableColumns: Column<NumberedTurn>[] = [
-  { key: 'call', label: '순번', align: 'right', render: (t) => fmtInt(t.call) },
-  { key: 'at', label: '시각', render: (t) => fmtFull(t.at) },
-  { key: 'model', label: '모델', render: (t) => t.model || '모델 미상' },
-  { key: 'context', label: '맥락 크기', align: 'right', render: (t) => fmtInt(t.context) },
-  { key: 'output', label: '출력 토큰', align: 'right', render: (t) => fmtInt(t.output) },
-  { key: 'tools', label: '도구 호출', align: 'right', render: (t) => fmtInt(t.toolCalls) },
-]
+/** Columns of the table view, built at render so the headers follow the locale. */
+function tableColumns(): Column<NumberedTurn>[] {
+  return [
+    { key: 'call', label: t('session.colCall'), align: 'right', render: (turn) => fmtInt(turn.call) },
+    { key: 'at', label: t('session.colAt'), render: (turn) => fmtFull(turn.at) },
+    { key: 'model', label: t('session.colModel'), render: (turn) => turn.model || t('session.unknownModel') },
+    { key: 'context', label: t('session.colContext'), align: 'right', render: (turn) => fmtInt(turn.context) },
+    { key: 'output', label: t('session.colOutput'), align: 'right', render: (turn) => fmtInt(turn.output) },
+    { key: 'tools', label: t('session.colToolCalls'), align: 'right', render: (turn) => fmtInt(turn.toolCalls) },
+  ]
+}
 
-/** The 토큰 흐름 tab: context size and output of each model call of the root agent. */
+/** The token flow tab: context size and output of each model call of the root agent. */
 export function FlowTab(p: { turns: TurnPoint[]; truncated: boolean; compactions: number }) {
   const { turns } = p
   const [tableOpen, setTableOpen] = useState(false)
@@ -349,49 +362,45 @@ export function FlowTab(p: { turns: TurnPoint[]; truncated: boolean; compactions
   )
   if (!turns.length)
     return (
-      <Card title="토큰 흐름">
-        <Empty>이 세션에는 기본 에이전트의 모델 호출 기록이 없습니다.</Empty>
+      <Card title={t('session.flowTitle')}>
+        <Empty>{t('session.noTurns')}</Empty>
       </Card>
     )
   const last = turns.at(-1)
   const peak = turns.reduce((max, turn) => Math.max(max, turn.context), 0)
   const output = turns.reduce((sum, turn) => sum + turn.output, 0)
   return (
-    <Card
-      title="토큰 흐름"
-      hint="기본 에이전트의 모델 호출을 순서대로 그립니다. 맥락을 압축하면 맥락 크기가 크게 줄어듭니다."
-    >
+    <Card title={t('session.flowTitle')} hint={t('session.flowHint')}>
       {p.truncated && (
         <p className="u-note u-note-warn" role="status">
-          모델 호출이 많아 앞쪽 {fmtInt(turns.length)}회만 그렸습니다. 그 뒤의 호출은 이 차트에
-          없습니다.
+          {t('session.truncatedTurns', countVars(turns.length))}
         </p>
       )}
       <ul className="u-sd-facts">
         <li>
-          모델 호출 <b>{fmtInt(turns.length)}회</b>
+          {t('session.factModelCalls')} <b>{fmtTimes(turns.length)}</b>
         </li>
         <li>
-          최대 맥락 크기 <b>{fmtCompact(peak)}</b>
+          {t('session.factPeak')} <b>{fmtCompact(peak)}</b>
         </li>
         <li>
-          마지막 맥락 크기 <b>{fmtCompact(last?.context ?? 0)}</b>
+          {t('session.factLast')} <b>{fmtCompact(last?.context ?? 0)}</b>
         </li>
         <li>
-          출력 토큰 합계 <b>{fmtCompact(output)}</b>
+          {t('session.factOutput')} <b>{fmtCompact(output)}</b>
         </li>
         <li>
-          세션 전체 맥락 압축 <b>{fmtInt(p.compactions)}회</b>
+          {t('session.factCompactions')} <b>{fmtTimes(p.compactions)}</b>
         </li>
       </ul>
-      <ul className="u-sd-legend" aria-label="범례">
+      <ul className="u-sd-legend" aria-label={t('session.legendLabel')}>
         <li>
           <span className="u-sd-key u-sd-key-line" aria-hidden="true" />
-          맥락 크기: 입력, 캐시 읽기, 캐시 쓰기 토큰의 합 (선)
+          {t('session.legendLine')}
         </li>
         <li>
           <span className="u-sd-key u-sd-key-bar" aria-hidden="true" />
-          출력 토큰 (막대)
+          {t('session.legendBar')}
         </li>
       </ul>
       <Chart turns={turns} />
@@ -399,8 +408,8 @@ export function FlowTab(p: { turns: TurnPoint[]; truncated: boolean; compactions
         className="u-sd-fold"
         onToggle={(event) => setTableOpen(event.currentTarget.open)}
       >
-        <summary>표로 보기</summary>
-        {tableOpen && <DataTable columns={tableColumns} rows={rows} rowKey={(t) => String(t.call)} />}
+        <summary>{t('session.showTable')}</summary>
+        {tableOpen && <DataTable columns={tableColumns()} rows={rows} rowKey={(turn) => String(turn.call)} />}
       </details>
     </Card>
   )

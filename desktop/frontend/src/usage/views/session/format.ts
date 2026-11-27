@@ -1,15 +1,18 @@
-// Labels and formatters shared by the session detail sub-components.
+// Labels and formatters shared by the session detail sub-components. Label
+// tables map API values to message keys, so they follow the locale at render.
+import { formatDate, formatNumber, t, type MessageKey } from '../../../i18n'
 import type {
   AgentRow,
   ExtKind,
   ExtLevel,
   ExtStatus,
   HookStatus,
+  TimelineItem,
   TimelineKind,
   TokenTotals,
   ToolCategory,
 } from '../../types'
-import { fmtCompact, fmtInt, type Tone } from '../../ui'
+import { fmtCompact, type Tone } from '../../ui'
 
 /** Display order of the timeline kinds in the filter. */
 export const kindOrder: readonly TimelineKind[] = [
@@ -23,29 +26,29 @@ export const kindOrder: readonly TimelineKind[] = [
   'ext',
 ]
 
-export const kindLabels: Record<TimelineKind, string> = {
-  prompt: '프롬프트',
-  assistant: '어시스턴트',
-  thinking: '생각',
-  tool_call: '도구 호출',
-  tool_result: '도구 결과',
-  hook: '훅',
-  system: '시스템',
-  ext: '확장 이벤트',
+export const kindLabels: Record<TimelineKind, MessageKey> = {
+  prompt: 'session.kindPrompt',
+  assistant: 'session.kindAssistant',
+  thinking: 'session.kindThinking',
+  tool_call: 'session.kindToolCall',
+  tool_result: 'session.kindToolResult',
+  hook: 'session.kindHook',
+  system: 'session.kindSystem',
+  ext: 'session.kindExt',
 }
 
-export const categoryLabels: Record<ToolCategory, string> = {
-  builtin: '기본 도구',
-  mcp: 'MCP',
-  skill: '스킬',
-  agent: '에이전트',
+export const categoryLabels: Record<ToolCategory, MessageKey> = {
+  builtin: 'session.categoryBuiltin',
+  mcp: 'session.categoryMcp',
+  skill: 'session.categorySkill',
+  agent: 'session.categoryAgent',
 }
 
-export const hookStatusLabels: Record<HookStatus, string> = {
-  success: '성공',
-  error: '오류',
-  blocked: '차단',
-  unknown: '상태 불명',
+export const hookStatusLabels: Record<HookStatus, MessageKey> = {
+  success: 'session.statusSuccess',
+  error: 'session.statusError',
+  blocked: 'session.statusBlocked',
+  unknown: 'session.statusUnknown',
 }
 export const hookStatusTones: Record<HookStatus, Tone> = {
   success: 'good',
@@ -54,10 +57,10 @@ export const hookStatusTones: Record<HookStatus, Tone> = {
   unknown: 'muted',
 }
 
-export const extStatusLabels: Record<ExtStatus, string> = {
-  ok: '성공',
-  error: '오류',
-  unknown: '상태 불명',
+export const extStatusLabels: Record<ExtStatus, MessageKey> = {
+  ok: 'session.statusSuccess',
+  error: 'session.statusError',
+  unknown: 'session.statusUnknown',
 }
 export const extStatusTones: Record<ExtStatus, Tone> = {
   ok: 'good',
@@ -65,25 +68,26 @@ export const extStatusTones: Record<ExtStatus, Tone> = {
   unknown: 'muted',
 }
 
-export const extLevelLabels: Record<ExtLevel, string> = {
-  debug: '디버그',
-  info: '정보',
-  warn: '경고',
-  error: '오류',
+export const extLevelLabels: Record<ExtLevel, MessageKey> = {
+  debug: 'session.levelDebug',
+  info: 'session.levelInfo',
+  warn: 'session.levelWarn',
+  error: 'session.levelError',
 }
 
-export const extKindLabels: Record<ExtKind, string> = {
-  span: '구간',
-  log: '로그',
-  metric: '측정값',
+export const extKindLabels: Record<ExtKind, MessageKey> = {
+  span: 'session.extSpan',
+  log: 'session.extLog',
+  metric: 'session.extMetric',
 }
 
 /**
  * Looks a label up without trusting that the API only sends the values this
  * build knows; an unknown value is shown as it came.
  */
-export function labelOf<K extends string>(labels: Record<K, string>, key: K): string {
-  return (labels as Record<string, string | undefined>)[key] ?? key
+export function labelOf<K extends string>(labels: Record<K, MessageKey>, key: K): string {
+  const message = (labels as Record<string, MessageKey | undefined>)[key]
+  return message ? t(message) : key
 }
 
 /** Same as labelOf for tones; an unknown value gets the neutral tone. */
@@ -91,14 +95,45 @@ export function toneOf<K extends string>(tones: Record<K, Tone>, key: K): Tone {
   return (tones as Record<string, Tone | undefined>)[key] ?? 'muted'
 }
 
-/** "입력 12 · 출력 420 · 캐시 읽기 48.0K · 캐시 쓰기 2.1K" */
-export function tokenParts(t: TokenTotals): string {
-  return [
-    '입력 ' + fmtCompact(t.input),
-    '출력 ' + fmtCompact(t.output),
-    '캐시 읽기 ' + fmtCompact(t.cacheRead),
-    '캐시 쓰기 ' + fmtCompact(t.cacheCreate),
-  ].join(' · ')
+/** Placeholder values of a counted message: count picks the plural form, n is what is shown. */
+export function countVars(count: number): { count: number; n: string } {
+  return { count, n: formatNumber(Math.round(count)) }
+}
+
+/** "Input 12 · Output 420 · Cache read 48.0K · Cache write 2.1K" */
+export function tokenParts(tokens: TokenTotals): string {
+  return t('session.tokensSummary', {
+    input: fmtCompact(tokens.input),
+    output: fmtCompact(tokens.output),
+    cacheRead: fmtCompact(tokens.cacheRead),
+    cacheCreate: fmtCompact(tokens.cacheCreate),
+  })
+}
+
+const MS_PER_SECOND = 1000
+/** One decimal, as the label the backend wrote before the structured form existed. */
+const SECONDS_FORMAT: Intl.NumberFormatOptions = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+
+/**
+ * Text of a system item, worded from its structured form. An item without
+ * one (older backend, or a kind this build does not know) shows its label.
+ */
+export function systemLabel(item: TimelineItem): string | undefined {
+  const system = item.system
+  switch (system?.kind) {
+    case 'turn_end':
+      return system.durationMs == null
+        ? t('session.systemTurnEnd')
+        : t('session.systemTurnEndSeconds', {
+            seconds: formatNumber(system.durationMs / MS_PER_SECOND, SECONDS_FORMAT),
+          })
+    case 'compaction':
+      return system.trigger
+        ? t('session.systemCompactionTrigger', { trigger: system.trigger })
+        : t('session.systemCompaction')
+    default:
+      return item.label
+  }
 }
 
 function parse(at: string): number | null {
@@ -109,8 +144,8 @@ function parse(at: string): number | null {
 /** Wall-clock time with seconds, for rows that sit close together. */
 export function fmtClock(at: string): string {
   const ms = parse(at)
-  if (ms == null) return '시각 미상'
-  return new Date(ms).toLocaleTimeString('ko-KR', {
+  if (ms == null) return t('session.timeUnknown')
+  return formatDate(ms, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -121,8 +156,8 @@ export function fmtClock(at: string): string {
 /** Date and time with seconds, for tooltips and table cells. */
 export function fmtFull(at: string): string {
   const ms = parse(at)
-  if (ms == null) return '시각 미상'
-  return new Date(ms).toLocaleString('ko-KR', {
+  if (ms == null) return t('session.timeUnknown')
+  return formatDate(ms, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -139,16 +174,25 @@ export function elapsedMs(from: string, until: string): number | null {
   return a == null || b == null ? null : Math.max(0, b - a)
 }
 
-export const ROOT_AGENT_LABEL = '기본 에이전트'
+/** Name of the root agent's stream. */
+export function rootAgentLabel(): string {
+  return t('session.rootAgent')
+}
 
 /** Name of a transcript stream; the root agent has an empty ID. */
 export function agentLabel(row: Pick<AgentRow, 'agentId' | 'agentType'>): string {
-  if (!row.agentId) return ROOT_AGENT_LABEL
-  return (row.agentType || '하위 에이전트') + ' · ' + row.agentId
+  if (!row.agentId) return rootAgentLabel()
+  return t('session.agentName', { type: row.agentType || t('session.subagent'), id: row.agentId })
 }
 
-export function fmtCount(n: number, unit: string): string {
-  return fmtInt(n) + unit
+/** A count of repeated events, with the unit the locale puts on it. */
+export function fmtTimes(n: number): string {
+  return t('session.times', countVars(n))
+}
+
+/** A count of things, with the unit the locale puts on it. */
+export function fmtItems(n: number): string {
+  return t('session.items', countVars(n))
 }
 
 /** Zero time of the Go side: an ExtQuery range with both bounds zero selects all time. */

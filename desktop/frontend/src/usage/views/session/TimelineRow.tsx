@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
+import { formatNumber, t } from '../../../i18n'
 import type { ExtEvent, TimelineItem } from '../../types'
-import { Pill, fmtInt, fmtMs } from '../../ui'
+import { Pill, fmtMs } from '../../ui'
 import { ExtAttributes } from './ExtAttributes'
 import {
   categoryLabels,
+  countVars,
   extKindLabels,
   extLevelLabels,
   extStatusLabels,
@@ -14,11 +16,12 @@ import {
   hookStatusTones,
   kindLabels,
   labelOf,
+  systemLabel,
   tokenParts,
   toneOf,
 } from './format'
 
-/** True for the rows the "오류만" toggle keeps. */
+/** True for the rows the "errors only" toggle keeps. */
 export function isErrorItem(item: TimelineItem): boolean {
   if (item.tool?.isError) return true
   if (item.hook && (item.hook.status === 'error' || item.hook.status === 'blocked')) return true
@@ -49,13 +52,13 @@ function Flags({ item }: { item: TimelineItem }) {
   return (
     <p className="u-sd-flags">
       {item.truncated && (
-        <Pill tone="warn" title="원문이 길어 앞부분만 보여 줍니다.">
-          잘림
+        <Pill tone="warn" title={t('session.truncatedTitle')}>
+          {t('session.truncated')}
         </Pill>
       )}
       {!!item.masked && (
-        <Pill tone="muted" title="비밀 값으로 보이는 문자열을 가렸습니다.">
-          가림 {fmtInt(item.masked)}곳
+        <Pill tone="muted" title={t('session.maskedTitle')}>
+          {t('session.masked', countVars(item.masked))}
         </Pill>
       )}
     </p>
@@ -68,7 +71,7 @@ function ExtBody({ ext }: { ext: ExtEvent }) {
       {ext.message && <TextBlock text={ext.message} />}
       {ext.value != null && (
         <p className="u-sd-line">
-          값 <b className="u-sd-num">{ext.value.toLocaleString('ko-KR')}</b>
+          {t('session.extValue')} <b className="u-sd-num">{formatNumber(ext.value)}</b>
           {ext.unit ? ' ' + ext.unit : ''}
         </p>
       )}
@@ -76,10 +79,10 @@ function ExtBody({ ext }: { ext: ExtEvent }) {
       <p className="u-sd-line u-sd-dim">
         {ext.toolUseId ? (
           <>
-            연결된 도구 호출 <code className="u-sd-name">{ext.toolUseId}</code>
+            {t('session.linkedTool')} <code className="u-sd-name">{ext.toolUseId}</code>
           </>
         ) : (
-          '도구 호출에 연결되지 않은 이벤트입니다.'
+          t('session.unlinkedEvent')
         )}
       </p>
     </>
@@ -100,8 +103,8 @@ function partsOf(item: TimelineItem): Parts {
         title: null,
         body: (
           <p className="u-sd-line">
-            생각한 내용은 보여 주지 않습니다. 생각 토큰{' '}
-            <b className="u-sd-num">{fmtInt(item.tokens?.output ?? 0)}개</b>
+            {t('session.thinkingHidden')}{' '}
+            <b className="u-sd-num">{t('session.thinkingTokens', countVars(item.tokens?.output ?? 0))}</b>
           </p>
         ),
       }
@@ -114,11 +117,11 @@ function partsOf(item: TimelineItem): Parts {
           </>
         ),
         body: tool?.input ? (
-          <Fold summary="입력 보기">
+          <Fold summary={t('session.showInput')}>
             <TextBlock text={tool.input} mono />
           </Fold>
         ) : (
-          <p className="u-sd-line u-sd-dim">입력이 없습니다.</p>
+          <p className="u-sd-line u-sd-dim">{t('session.noInput')}</p>
         ),
       }
     case 'tool_result':
@@ -127,16 +130,18 @@ function partsOf(item: TimelineItem): Parts {
           <>
             <code className="u-sd-name">{tool.name}</code>
             <Pill tone="muted">{labelOf(categoryLabels, tool.category)}</Pill>
-            <Pill tone={tool.isError ? 'bad' : 'good'}>{tool.isError ? '오류' : '성공'}</Pill>
+            <Pill tone={tool.isError ? 'bad' : 'good'}>
+              {t(tool.isError ? 'session.statusError' : 'session.statusSuccess')}
+            </Pill>
             {tool.durationMs != null && <span className="u-sd-num">{fmtMs(tool.durationMs)}</span>}
           </>
         ),
         body: item.text ? (
-          <Fold summary={`결과 보기 (${fmtInt(item.text.length)}자)`} open={!!tool?.isError}>
+          <Fold summary={t('session.showResult', countVars(item.text.length))} open={!!tool?.isError}>
             <TextBlock text={item.text} mono />
           </Fold>
         ) : (
-          <p className="u-sd-line u-sd-dim">결과 글이 없습니다.</p>
+          <p className="u-sd-line u-sd-dim">{t('session.noResult')}</p>
         ),
       }
     case 'hook':
@@ -148,7 +153,7 @@ function partsOf(item: TimelineItem): Parts {
             <Pill tone={toneOf(hookStatusTones, hook.status)}>
               {labelOf(hookStatusLabels, hook.status)}
             </Pill>
-            <span className="u-sd-num">종료 코드 {hook.exitCode}</span>
+            <span className="u-sd-num">{t('session.exitCode', { code: hook.exitCode })}</span>
             <span className="u-sd-num">{fmtMs(hook.durationMs)}</span>
           </>
         ),
@@ -164,7 +169,7 @@ function partsOf(item: TimelineItem): Parts {
             <Pill tone={toneOf(extStatusTones, ext.status)}>
               {labelOf(extStatusLabels, ext.status)}
             </Pill>
-            <span>수준 {labelOf(extLevelLabels, ext.level)}</span>
+            <span>{t('session.level', { level: labelOf(extLevelLabels, ext.level) })}</span>
             {ext.durationMs != null && <span className="u-sd-num">{fmtMs(ext.durationMs)}</span>}
           </>
         ),
@@ -195,14 +200,16 @@ export function TimelineRow({
   const failed = isErrorItem(item)
   // A thinking row already states its only number in the body.
   const tokens = item.kind === 'thinking' ? undefined : item.tokens
+  // System items are worded on this side; other kinds keep the label they came with.
+  const label = item.kind === 'system' ? systemLabel(item) : item.label
   return (
     <li className={`u-sd-item u-sd-k-${item.kind}` + (failed ? ' u-sd-failed' : '')}>
       <div className="u-sd-item-head">
         <span className="u-sd-kind">{labelOf(kindLabels, item.kind)}</span>
         {title}
-        {item.label && <span className="u-sd-label">{item.label}</span>}
+        {label && <span className="u-sd-label">{label}</span>}
         {item.agentId && item.agentId !== agentId && (
-          <span className="u-sd-dim">에이전트 {item.agentId}</span>
+          <span className="u-sd-dim">{t('session.itemAgent', { id: item.agentId })}</span>
         )}
         <span className="u-sd-grow" />
         {item.model && <Pill tone="muted">{item.model}</Pill>}
