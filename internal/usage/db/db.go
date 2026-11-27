@@ -27,7 +27,7 @@ import (
 var schema string
 
 const (
-	schemaVersion = 1
+	schemaVersion = 2
 	maxOpenConns  = 4
 	fileMode      = 0o600
 	driverName    = "sqlite3"
@@ -168,6 +168,41 @@ func requirePrivateFile(abs string) error {
 	return nil
 }
 
+// schemaVersionExcludedSessions is the version that added excluded_session.
+const schemaVersionExcludedSessions = 2
+
+// migrateExcludedSessions upgrades a version 1 file. Streams of projects that
+// were excluded before the table existed are already deleted, so the table
+// starts empty for them.
+const migrateExcludedSessions = `CREATE TABLE excluded_session (
+    session_id TEXT PRIMARY KEY,
+    project_key TEXT NOT NULL
+) STRICT;
+CREATE INDEX excluded_session_by_project ON excluded_session(project_key);`
+
+// migrate applies one upgrade step and the new version in one transaction.
+func (s *Store) migrate(ctx context.Context, statements string) (err error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("migrate usage schema: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if _, err = tx.ExecContext(ctx, statements); err != nil {
+		return fmt.Errorf("migrate usage schema: %w", err)
+	}
+	if _, err = tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
+		return fmt.Errorf("migrate usage schema: %w", err)
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("migrate usage schema: %w", err)
+	}
+	return nil
+}
+
 // init applies the schema to an empty file. The tables and the version are
 // written in one transaction, so an interrupted first start leaves an empty
 // file that the next start initializes again.
@@ -178,6 +213,9 @@ func (s *Store) init(ctx context.Context) (err error) {
 	}
 	if version == schemaVersion {
 		return nil
+	}
+	if version == schemaVersionExcludedSessions-1 {
+		return s.migrate(ctx, migrateExcludedSessions)
 	}
 	if version != 0 {
 		return fmt.Errorf("unsupported usage schema version %d", version)

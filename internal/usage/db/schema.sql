@@ -213,3 +213,12 @@ CREATE TABLE ext_reject (
     source TEXT PRIMARY KEY,
     n INTEGER NOT NULL
 ) STRICT;
+
+-- Sessions of excluded projects. Excluding a project deletes its streams, so
+-- this is what still tells an incoming extension event that its session was
+-- excluded. Re-including the project removes its rows.
+CREATE TABLE excluded_session (
+    session_id TEXT PRIMARY KEY,
+    project_key TEXT NOT NULL
+) STRICT;
+CREATE INDEX excluded_session_by_project ON excluded_session(project_key);

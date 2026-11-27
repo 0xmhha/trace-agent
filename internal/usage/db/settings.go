@@ -28,7 +28,12 @@ const (
 	settingIncludeSQL = `UPDATE project SET excluded=0 WHERE project_key = ? AND excluded = 1`
 	// Extension events carry no project, so they are reached through the
 	// sessions of the project. This must run before the streams are deleted.
-	settingProjectExtSQL = `DELETE FROM ext_event WHERE session_id <> '' AND session_id IN (
+	// settingRememberExcludedSQL records the sessions of a project that is
+	// being excluded; settingForgetExcludedSQL drops them on re-inclusion.
+	settingRememberExcludedSQL = `INSERT OR IGNORE INTO excluded_session(session_id, project_key)
+		SELECT DISTINCT session_id, project_key FROM stream WHERE project_key = ?`
+	settingForgetExcludedSQL = `DELETE FROM excluded_session WHERE project_key = ?`
+	settingProjectExtSQL     = `DELETE FROM ext_event WHERE session_id <> '' AND session_id IN (
 		SELECT session_id FROM stream WHERE project_key = ?)`
 )
 
@@ -190,6 +195,9 @@ func (s *Store) SetExcluded(ctx context.Context, project string, excluded bool) 
 			if err != nil || changed == 0 {
 				return err
 			}
+			if _, err = ingestExec(ctx, tx, settingForgetExcludedSQL, project); err != nil {
+				return fmt.Errorf("forget excluded sessions: %w", err)
+			}
 			return bump(ctx, tx)
 		}
 		changed, err := ingestExec(ctx, tx, settingExcludeSQL, project)
@@ -213,6 +221,11 @@ func (s *Store) SetExcluded(ctx context.Context, project string, excluded bool) 
 // settingDeleteProject deletes everything stored for project except its
 // project row, and returns the number of rows deleted.
 func settingDeleteProject(ctx context.Context, tx *sql.Tx, project string) (int64, error) {
+	// The sessions are remembered before their streams go, so that later
+	// extension events for them are still recognised as excluded.
+	if _, err := ingestExec(ctx, tx, settingRememberExcludedSQL, project); err != nil {
+		return 0, fmt.Errorf("remember excluded sessions: %w", err)
+	}
 	deleted, err := ingestExec(ctx, tx, settingProjectExtSQL, project)
 	if err != nil {
 		return 0, fmt.Errorf("delete linked extension events: %w", err)

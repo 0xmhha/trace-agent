@@ -190,3 +190,37 @@ func TestOpenRefusesSharedWritableDir(t *testing.T) {
 	}
 	_ = s.Close()
 }
+
+// A version 1 file gains the excluded_session table on open and keeps its data.
+func TestOpenMigratesVersionOne(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "usage.sqlite")
+	s, err := Open(ctx, path, func() time.Time { return testNow })
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedSetting(t, s, settingConsent, settingOn)
+	for _, stmt := range []string{"DROP TABLE excluded_session", "PRAGMA user_version = 1"} {
+		if _, err = s.db.ExecContext(ctx, stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(ctx, path, func() time.Time { return testNow })
+	if err != nil {
+		t.Fatalf("open version 1: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+	var version, tables int
+	if err = s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != schemaVersion {
+		t.Fatalf("user_version = %d, %v; want %d", version, err, schemaVersion)
+	}
+	if err = s.db.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_master WHERE name = 'excluded_session'").Scan(&tables); err != nil || tables != 1 {
+		t.Fatalf("excluded_session tables = %d, %v; want 1", tables, err)
+	}
+	if value, ok, err := readSetting(ctx, s.db, settingConsent); err != nil || !ok || value != settingOn {
+		t.Fatalf("consent after migration = %q, %v, %v; want kept", value, ok, err)
+	}
+}

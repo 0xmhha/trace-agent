@@ -1029,10 +1029,13 @@ func TestIngestTablesCoverTheSchema(t *testing.T) {
 		listed[table.name] = true
 	}
 	// Every table that carries project_key must be cleaned by Clear, Prune
-	// and exclusion; the project table itself holds the exclusion flag.
+	// and exclusion. The project table holds the exclusion flag and
+	// excluded_session the sessions of excluded projects; both must outlive
+	// the exclusion.
+	exclusionState := map[string]bool{"project": true, "excluded_session": true}
 	for _, table := range ingestTableNames(t, s) {
 		hasProject := ingestCount(t, s, "pragma_table_info('"+table+"')", "name = 'project_key'") == 1
-		if want := hasProject && table != "project"; listed[table] != want {
+		if want := hasProject && !exclusionState[table]; listed[table] != want {
 			t.Errorf("table %s: listed in ingestTables = %v; want %v", table, listed[table], want)
 		}
 	}

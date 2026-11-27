@@ -17,10 +17,12 @@ const (
 	extWriteInsertSQL = `INSERT INTO ext_event(id,source,kind,name,at_ms,received_ms,duration_ms,status,level,session_id,tool_use_id,trace_id,span_id,parent_span_id,message,attributes,value,unit)
 		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`
 	extWriteRejectSQL = `INSERT INTO ext_reject(source,n) VALUES(?,?) ON CONFLICT(source) DO UPDATE SET n = n + excluded.n`
-	// extWriteExcludedSQL tells whether a session belongs to a stream of an
-	// excluded project.
-	extWriteExcludedSQL = `SELECT EXISTS(SELECT 1 FROM stream JOIN project USING(project_key)
-		WHERE stream.session_id = ? AND project.excluded = 1)`
+	// extWriteExcludedSQL tells whether a session belongs to an excluded
+	// project: either remembered when the project was excluded, or still
+	// linked through a stream.
+	extWriteExcludedSQL = `SELECT EXISTS(SELECT 1 FROM excluded_session WHERE session_id = ?1)
+		OR EXISTS(SELECT 1 FROM stream JOIN project USING(project_key)
+		WHERE stream.session_id = ?1 AND project.excluded = 1)`
 	// extWriteNoAttributes is the stored form of an event without attributes.
 	extWriteNoAttributes = "{}"
 )

@@ -239,7 +239,7 @@ func TestSetExcludedDeletesProjectRows(t *testing.T) {
 	}
 	keep := map[string][]string{}
 	for _, table := range ingestTableNames(t, s) {
-		if table == "ext_event" || table == "ext_reject" || table == "project" {
+		if table == "ext_event" || table == "ext_reject" || table == "project" || table == "excluded_session" {
 			continue
 		}
 		if ingestCount(t, s, table, "project_key = ?", ingestProjectA) == 0 {
@@ -337,4 +337,38 @@ func settingProjectRows(t *testing.T, s *Store, table, project string) []string 
 		}
 	}
 	return out
+}
+
+// Excluding a project deletes its streams, so the store has to remember its
+// sessions: an extension event that arrives afterwards for one of them must
+// not be stored, and re-including the project lifts that.
+func TestExcludedSessionStaysExcludedForLaterEvents(t *testing.T) {
+	ctx := context.Background()
+	s := openTest(t)
+	ingestFill(t, s)
+	const session = "sess-1"
+	if ingestCount(t, s, "stream", "session_id = ? AND project_key = ?", session, ingestProjectA) == 0 {
+		t.Fatalf("fixture has no stream of %s in project %s", session, ingestProjectA)
+	}
+	if err := s.SetExcluded(ctx, ingestProjectA, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AppendExt(ctx, []usage.ExtEvent{ingestExtEvent("late-1", session, 1)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ingestCount(t, s, "ext_event", "id = ?", "late-1"); got != 0 {
+		t.Fatal("an event of an excluded session was stored after the exclusion")
+	}
+	if err := s.SetExcluded(ctx, ingestProjectA, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := ingestCount(t, s, "excluded_session", "project_key = ?", ingestProjectA); got != 0 {
+		t.Fatalf("re-including left %d remembered sessions", got)
+	}
+	if err := s.AppendExt(ctx, []usage.ExtEvent{ingestExtEvent("late-2", session, 2)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := ingestCount(t, s, "ext_event", "id = ?", "late-2"); got != 1 {
+		t.Fatal("an event of a re-included session was not stored")
+	}
 }
