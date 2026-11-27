@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -27,7 +28,12 @@ const (
 	childExit  = "exit"  // exit with the status given as the next argument
 	childEcho  = "echo"  // copy stdin to stdout
 	childSleep = "sleep" // stay alive until a signal ends the process
+	childEnvOf = "env"   // print NAME=value, or NAME unset, for each named variable
+	childLines = "lines" // copy as many stdin lines as the next argument says, then exit
 )
+
+// childUnset marks a variable the test child does not see.
+const childUnset = " unset"
 
 const (
 	testEndpoint = endpointPrefix + "8123" + extension.EventsPath
@@ -56,6 +62,31 @@ func childMain(args []string) int {
 	case childEcho:
 		if _, err := io.Copy(os.Stdout, os.Stdin); err != nil {
 			return exitFailure
+		}
+		return exitOK
+	case childEnvOf:
+		for _, name := range args[1:] {
+			line := name + childUnset
+			if value, ok := os.LookupEnv(name); ok {
+				line = name + "=" + value
+			}
+			fmt.Println(line)
+		}
+		return exitOK
+	case childLines:
+		count, err := strconv.Atoi(args[1])
+		if err != nil {
+			return exitUsage
+		}
+		// Reading stops after count lines because the test's stdin never
+		// reaches end of file.
+		lines := bufio.NewReader(os.Stdin)
+		for range count {
+			line, err := lines.ReadString('\n')
+			if err != nil {
+				return exitFailure
+			}
+			fmt.Print(line)
 		}
 		return exitOK
 	case childSleep:
@@ -92,7 +123,10 @@ func newHarness(t *testing.T) *harness {
 		transport: &fakeTransport{},
 	}
 	h.env = environment{
-		getenv:    func(name string) string { return h.vars[name] },
+		getenv: func(name string) string { return h.vars[name] },
+		// The wrapped command of run mode needs childEnv from the real
+		// environment to act as the test child.
+		environ:   os.Environ,
 		stdout:    h.stdout,
 		stderr:    h.stderr,
 		now:       fakeClock(testStart),

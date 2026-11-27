@@ -194,6 +194,7 @@ trace-emit run --name build -- make all
 - 명령이 끝나면 `span` 하나를 보낸다. `timestamp` 는 시작 시각, `duration_ms` 는 걸린 시간이다. `status` 는 종료 코드가 0 이면 `ok`, 아니면 `error` 다. 종료 코드는 속성 `exit_code` 에 들어간다.
 - `trace-emit` 은 명령의 종료 코드로 끝난다. 명령을 시작하지 못하면 127 이다. 명령이 시그널로 끝났으면 128 에 시그널 번호를 더한 값이다.
 - 받은 시그널(`INT`, `TERM`, `HUP`, `QUIT`, `USR1`, `USR2`)을 명령에 넘긴다.
+- 명령은 `trace-emit` 의 환경 변수를 그대로 물려받되 `TRACE_EVENTS_TOKEN` 만 빠진다. 빌드 스크립트나 패키지 설치 훅처럼 명령이 다시 띄우는 프로세스에도 자격이 가지 않는다. `TRACE_EVENTS_URL` 은 남는다. 감싼 명령 안에서 이벤트를 보내야 하면 그 명령이 자격을 따로 받아야 한다.
 - `--name` 을 생략하면 명령의 파일 이름이다. `--kind` 를 생략하면 `span` 이다.
 - `--status`, `--duration-ms`, `--attr exit_code=...` 는 쓸 수 없다. `run` 이 직접 재는 값이다.
 
@@ -294,7 +295,9 @@ trace-emit run --name nightly-build --attr target=release -- make all
 trace-emit run --from-hook --name lint -- ./scripts/lint.sh
 ```
 
-`trace-emit` 이 훅 입력을 먼저 읽고, 읽은 내용을 스크립트의 표준 입력으로 다시 넘긴다. 스크립트는 감싸기 전과 같은 입력을 받는다. 이때 `trace-emit` 은 표준 입력이 끝날 때까지 기다린 뒤에 스크립트를 시작한다.
+`trace-emit` 이 훅 입력을 먼저 읽고, 읽은 내용을 스크립트의 표준 입력으로 다시 넘긴다. 스크립트는 감싸기 전과 같은 입력을 받는다. 이때 `trace-emit` 은 표준 입력이 끝날 때까지 최대 0.5초 기다린 뒤에 스크립트를 시작한다.
+
+표준 입력이 터미널이거나 닫히지 않는 파이프라서 0.5초 안에 끝나지 않으면, `trace-emit` 은 더 기다리지 않고 스크립트를 시작한다. 그때까지 읽은 내용과 그 뒤에 들어오는 입력은 그대로 스크립트에 넘어간다. 다만 이 경우 span 은 세션에 연결되지 않는다.
 
 ### MCP 서버 (의사 코드)
 

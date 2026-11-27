@@ -26,6 +26,10 @@ func forwardedSignals() []os.Signal {
 	}
 }
 
+// sameEnvName reports whether two environment variable names are the same
+// variable. Names are case-sensitive on Unix.
+func sameEnvName(a, b string) bool { return a == b }
+
 // exitStatus converts the state of a finished command into an exit status.
 func exitStatus(state *os.ProcessState) int {
 	if status, ok := state.Sys().(syscall.WaitStatus); ok && status.Signaled() {
