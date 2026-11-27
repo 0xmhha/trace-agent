@@ -114,8 +114,8 @@ func wrapperValueOptions(name string) (string, bool) {
 // program returns the name of the program a shell command starts with:
 // leading VAR=value assignments and the wrappers sudo, env, time and nohup
 // are stepped over, and a path prefix is removed. A statement that only
-// assigns variables runs no program, so the search moves on to the statement
-// after it. It returns the empty string unless the name matches
+// assigns variables or only prepares the shell (cd, export and the like) is
+// not what the call is for, so the search moves on to the statement after it. It returns the empty string unless the name matches
 // [A-Za-z0-9._+-]{1,32}. Only this name leaves the function; arguments are
 // never returned, and a name that looks like a secret is dropped rather than
 // stored.
@@ -150,6 +150,12 @@ func program(command string) string {
 		name := word[strings.LastIndexByte(word, '/')+1:]
 		valued, ok := wrapperValueOptions(name)
 		if !ok {
+			// A setup builtin followed by another statement names nothing of
+			// interest; alone, it is the program.
+			if wrapper == "" && setupBuiltin(name) && words.skipStatement() {
+				assigned = false
+				continue
+			}
 			return programName(name)
 		}
 		wrapper = name
@@ -179,6 +185,17 @@ func programChar(c byte) bool {
 	case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
 		return true
 	case c == '.', c == '_', c == '+', c == '-':
+		return true
+	}
+	return false
+}
+
+// setupBuiltin reports whether name is a shell builtin that only prepares the
+// shell for what follows: "cd /repo && git status" is a git call, not a cd
+// call. This switch is the one place that knows them.
+func setupBuiltin(name string) bool {
+	switch name {
+	case "cd", "pushd", "popd", "export", "set", "unset", "umask", "ulimit":
 		return true
 	}
 	return false
@@ -299,6 +316,17 @@ func (w *shellWords) skipSubstitution(closing byte) {
 			// quoted expects to stand on the opening quote.
 			w.pos--
 			w.quoted(nil, c, c == '"')
+		}
+	}
+}
+
+// skipStatement consumes the rest of the current statement and moves to the
+// one after it. It reports false, leaving the position unspecified, when no
+// statement follows that runs whenever the current one succeeds.
+func (w *shellWords) skipStatement() bool {
+	for {
+		if _, ok := w.next(); !ok {
+			return w.nextStatement()
 		}
 	}
 }

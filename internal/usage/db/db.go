@@ -90,9 +90,6 @@ func skillGroupSQL(skillColumn, pluginColumn string) string {
 // session_id, from any agent, has at_ms in [from, until). Sub-agent rows
 // count toward their root session. Every read uses this definition.
 
-// errNotImplemented marks a method whose owner has not filled it in yet.
-var errNotImplemented = errors.New("usage/db: not implemented")
-
 // Store is the usage database. It is safe for concurrent use.
 type Store struct {
 	db  *sql.DB
