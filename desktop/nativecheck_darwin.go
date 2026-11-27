@@ -14,6 +14,7 @@ import (
 
 	"github.com/0xmhha/trace-agent/internal/collect"
 	"github.com/0xmhha/trace-agent/internal/transport"
+	"github.com/0xmhha/trace-agent/internal/usage"
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -29,6 +30,26 @@ const (
 	probeEmptyRoute   = "#live"
 	probeHistoryRoute = "#overview"
 )
+
+// probeText is what the probe reads on screen, in one interface language.
+type probeText struct {
+	Connected string `json:"connected"`
+	NoSources string `json:"noSources"`
+	OneSource string `json:"oneSource"`
+	Attempts  string `json:"attempts"`
+	Overview  string `json:"overview"`
+}
+
+// probeTexts holds the probe's texts per locale code of the page. A fresh
+// profile opens in English, the default; a profile that once chose another
+// language keeps it, so the probe reads the language from <html lang> and
+// falls back to English.
+func probeTexts() map[usage.Locale]probeText {
+	return map[usage.Locale]probeText{
+		usage.LocaleEnglish: {Connected: "Connected", NoSources: "No sources are connected.", OneSource: "Current sources: 1", Attempts: "Tool attempts", Overview: "Overview"},
+		usage.LocaleKorean:  {Connected: "연결됨", NoSources: "연결한 출처가 없습니다.", OneSource: "현재 출처 1개", Attempts: "도구 시도", Overview: "개요"},
+	}
+}
 
 func (v acceptanceVault) Load() (registry, error) {
 	data, err := os.ReadFile(string(v))
@@ -67,6 +88,10 @@ func run() error {
 	}
 	defer func() { _ = root.Close() }()
 	restart := os.Getenv("TRACE_NATIVE_RESTART") == "1"
+	texts, err := json.Marshal(probeTexts())
+	if err != nil {
+		return fmt.Errorf("encode probe texts: %w", err)
+	}
 	report := make(chan error, 1)
 	probe := func(ctx context.Context, b *Bridge) {
 		check := func(stage string) {
@@ -74,15 +99,16 @@ func run() error {
 			if stage == "empty" {
 				route = probeEmptyRoute
 			}
-			command := `(()=>{const stage=` + fmt.Sprintf("%q", stage) + `,route=` + fmt.Sprintf("%q", route) + `;
+			command := `(()=>{const stage=` + fmt.Sprintf("%q", stage) + `,route=` + fmt.Sprintf("%q", route) + `,texts=` + string(texts) + `;
 				if(!document.querySelector('.connection'))location.hash=route;
 				let ticks=0;const timer=setInterval(()=>{
+				const l=texts[document.documentElement.lang]||texts[` + fmt.Sprintf("%q", usage.LocaleDefault) + `];
 				const text=document.body.innerText, heading=document.querySelector('.eyebrow')?.textContent || '';
-				const connected=document.querySelector('.connection')?.textContent.includes('연결됨');
-				if(connected && heading.includes('#') && (stage==='empty'?text.includes('연결한 출처가 없습니다.'):text.includes('현재 출처 1개') && text.includes('도구 시도') && Array.from(document.querySelectorAll('.metric')).some(m=>m.textContent.includes('도구 시도')&&m.querySelector('strong')?.textContent==='1'))){
+				const connected=document.querySelector('.connection')?.textContent.includes(l.connected);
+				if(connected && heading.includes('#') && (stage==='empty'?text.includes(l.noSources):text.includes(l.oneSource) && text.includes(l.attempts) && Array.from(document.querySelectorAll('.metric')).some(m=>m.textContent.includes(l.attempts)&&m.querySelector('strong')?.textContent==='1'))){
 					clearInterval(timer);window.runtime.EventsEmit('native-checked',stage);
-				}else if(stage==='history'&&!text.includes('도구 시도')){
-					Array.from(document.querySelectorAll('nav button')).find(b=>b.textContent.includes('개요'))?.click();
+				}else if(stage==='history'&&!text.includes(l.attempts)){
+					Array.from(document.querySelectorAll('nav button')).find(b=>b.textContent.includes(l.overview))?.click();
 				}
 				if(++ticks===100){clearInterval(timer);window.runtime.EventsEmit('native-checked','failed '+stage+' '+text.slice(0,500));}
 			},200);})()`

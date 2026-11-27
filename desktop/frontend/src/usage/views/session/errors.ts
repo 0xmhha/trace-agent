@@ -25,12 +25,18 @@ export function rethrowAsError(reason: unknown): never {
   throw reason instanceof Error ? reason : new Error(rejectionMessage(reason) || t('errors.generic'))
 }
 
+// useLoad hands over the error already translated by errorText, so a code
+// is recognised in its translated form of the current locale as well.
+function isCode(message: string, code: string): boolean {
+  return message === code || message === errorText(code)
+}
+
 export function isNotFound(message: string): boolean {
-  return message === CODE_NOT_FOUND || NOT_FOUND.test(message)
+  return isCode(message, CODE_NOT_FOUND) || NOT_FOUND.test(message)
 }
 
 function isNoConsent(message: string): boolean {
-  return message === CODE_NO_CONSENT || NO_CONSENT.test(message)
+  return isCode(message, CODE_NO_CONSENT) || NO_CONSENT.test(message)
 }
 
 /** Message for a failed read of one transcript stream or event list. */
