@@ -77,7 +77,7 @@ func (a *Adapter) ReadFile(ctx context.Context, root *os.Root, name string, save
 			// Even an empty replacement invalidates the old offset. Persist the
 			// gap and the new zero boundary before attempting its first line.
 			gap := a.evidence(Position{Stream: name, Generation: cursor.Generation}, object{"type": "source_gap", "reason": reason}, nil)
-			gap.Observer = "collector"
+			gap.Observer = ReporterCollector
 			gap.PreviousGeneration = saved.Generation
 			gap.Generation = cursor.Generation
 			gap.RecordKey = a.token("file-gap", stream, cursor.Generation)

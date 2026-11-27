@@ -21,16 +21,8 @@ func ObserverAdapter(parent *Adapter, kind Kind, server string) (*Adapter, error
 	if parent == nil {
 		return nil, errInput
 	}
-	switch kind {
-	case ClaudeHook:
-		if parent.kind != Transcript || server != "" {
-			return nil, errInput
-		}
-	case MCPObserver:
-		if (parent.kind != Transcript && parent.kind != Rollout && parent.kind != AppServer) || server == "" || len(server) > 512 {
-			return nil, errInput
-		}
-	default:
+	// A server-bound observer needs a server name; any other observer must not have one.
+	if spec, _ := lookup(kind); !AcceptsParent(kind, parent.kind) || spec.Server != (server != "") || len(server) > maxServerName {
 		return nil, errInput
 	}
 	a := *parent
@@ -142,21 +134,8 @@ func (a *Adapter) ProjectObservation(raw []byte) (Evidence, error) {
 	m["action"] = action
 	e := a.evidence(Position{Stream: stream, Generation: "observer-v1"}, m, occurred)
 	e.RecordKey = id
-	if a.kind == MCPObserver {
-		e.Observer = "tool"
+	if spec, ok := lookup(a.kind); ok {
+		e.Observer = spec.Reporter
 	}
 	return e, nil
-}
-
-// ClientCode returns the public source client.
-func ClientCode(kind Kind) string {
-	switch kind {
-	case Rollout, AppServer, CodexTelemetry:
-		return "CODEX"
-	case Transcript, Telemetry, ClaudeHook:
-		return "CLAUDE"
-	case MCPObserver:
-		return "MCP"
-	}
-	return ""
 }

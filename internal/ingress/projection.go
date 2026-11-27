@@ -144,10 +144,19 @@ func project(raw []byte, media string, consent bool, a *collect.Adapter) ([]coll
 	}
 	return out, rejected, nil
 }
+
+// entry maps one log record with the exporter-specific layout of the source
+// kind. A kind without a mapping rejects its records instead of borrowing one.
 func entry(a *collect.Adapter, l *logs.LogRecord, resource []*common.KeyValue, scope string, consent bool) (collect.Evidence, bool) {
-	if a.Kind() == collect.CodexTelemetry {
+	switch a.Kind() {
+	case collect.Telemetry:
+		return claudeEntry(a, l, resource, scope, consent)
+	case collect.CodexTelemetry:
 		return codexEntry(a, l, resource, scope, consent)
 	}
+	return collect.Evidence{}, false
+}
+func claudeEntry(a *collect.Adapter, l *logs.LogRecord, resource []*common.KeyValue, scope string, consent bool) (collect.Evidence, bool) {
 	kvs := l.GetAttributes()
 	name := attr(kvs, "event.name")
 	if name == "" {

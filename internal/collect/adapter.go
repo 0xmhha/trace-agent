@@ -50,16 +50,13 @@ type Adapter struct {
 // New binds an adapter to a profile and instance. The caller supplies a persistent
 // installation secret and trusted tool names from local configuration.
 func New(kind Kind, profile, instance, clientVersion string, secret []byte, allowedTools []string, now func() time.Time) (*Adapter, error) {
-	if !slices.Contains([]Kind{Rollout, AppServer, Transcript, Telemetry, CodexTelemetry}, kind) ||
+	// Observer kinds exist only bound to a parent; see ObserverAdapter.
+	if spec, ok := lookup(kind); !ok || spec.Observer ||
 		profile == "" || instance == "" || len(secret) < 32 || now == nil {
 		return nil, errors.New("invalid adapter configuration")
 	}
 	a := &Adapter{kind: kind, secret: slices.Clone(secret), now: now, clientVersion: numericVersion(clientVersion), tools: make(map[string]bool)}
-	client := "claude"
-	if kind == Rollout || kind == AppServer || kind == CodexTelemetry {
-		client = "codex"
-	}
-	a.profile = a.token("profile", client, profile)
+	a.profile = a.token("profile", StoredClient(kind), profile)
 	a.source = a.token("source", string(kind), profile, instance)
 	for _, name := range allowedTools {
 		a.tools[name] = true
@@ -103,7 +100,7 @@ func (a *Adapter) evidence(pos Position, meta object, occurred *int64) Evidence 
 	generation := a.token("generation", stream, pos.Generation)
 	return Evidence{projectedHash: sha256.Sum256(encoded), Source: a.source, Profile: a.profile, Stream: stream, Generation: generation, Position: pos.Offset,
 		RecordKey: a.token("position", generation, strconv.FormatInt(pos.Offset, 10)), VersionKey: "1",
-		SemanticTag: a.token("metadata", a.source, string(encoded)), Kind: a.kind, Observer: "client",
+		SemanticTag: a.token("metadata", a.source, string(encoded)), Kind: a.kind, Observer: ReporterClient,
 		AdapterVersion: Version, ClientVersion: a.clientVersion, Redaction: "metadata_only",
 		ObservedMS: a.now().UnixMilli(), OccurredMS: occurred, Metadata: meta}
 }
@@ -124,25 +121,18 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 	if err := json.Unmarshal(raw, &r); err != nil || r == nil {
 		return Evidence{}, errInput
 	}
+	// The registry selects the decoder, so a registered kind cannot be skipped here.
+	spec, _ := lookup(a.kind)
 	var m object
-	switch a.kind {
-	case Rollout:
-		m = a.rollout(r)
-	case Transcript:
-		m = a.transcript(r)
-	case CodexTelemetry:
-		m = a.codexTelemetry(r)
-	case Telemetry:
-		m = a.telemetry(r)
-	case AppServer:
-		m = a.plan(r)
+	if spec.project != nil {
+		m = spec.project(a, r)
 	}
 	if m == nil {
 		m = object{"type": "unsupported"}
 	}
 	var occurred *int64
 	stamp := str(r, "timestamp")
-	if a.kind == Telemetry || a.kind == CodexTelemetry {
+	if spec.OTLP {
 		stamp = str(r, "event.timestamp")
 	}
 	if t, err := time.Parse(time.RFC3339Nano, stamp); err == nil {
@@ -156,15 +146,13 @@ func (a *Adapter) Project(pos Position, raw []byte) (Evidence, error) {
 		e.slots = bodyFields(a.kind, r)
 	}
 	var version string
-	switch a.kind {
-	case Transcript:
-		version = str(r, "version")
-	case Telemetry, CodexTelemetry:
+	switch {
+	case spec.OTLP:
 		version = str(r, "service.version")
-	case Rollout:
-		if str(r, "type") == "session_meta" {
-			version = str(obj(r["payload"]), "cli_version")
-		}
+	case a.kind == Transcript:
+		version = str(r, "version")
+	case a.kind == Rollout && str(r, "type") == "session_meta":
+		version = str(obj(r["payload"]), "cli_version")
 	}
 	if version != "" {
 		e.ClientVersion = numericVersion(version)

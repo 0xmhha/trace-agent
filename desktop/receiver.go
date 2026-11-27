@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/0xmhha/trace-agent/internal/collect"
@@ -27,24 +26,16 @@ type localReceiver interface {
 	Close(context.Context) error
 }
 
-func (s selectedSource) client() string {
-	if s.Kind == collect.MCPObserver {
-		return "MCP"
-	}
-	if strings.HasPrefix(string(s.Kind), "codex-") {
-		return "CODEX"
-	}
-	return "CLAUDE"
-}
+func (s selectedSource) client() string { return collect.ClientCode(s.Kind) }
 func (s selectedSource) observerKind() collect.Kind {
-	if s.Kind == collect.MCPObserver {
-		return observer.MCP
+	if collect.IsObserver(s.Kind) {
+		return s.Kind
 	}
 	return observer.Hook
 }
 func (c *collector) parentSource(id string) (*collect.Adapter, error) {
 	for _, src := range c.config.Sources {
-		if src.Kind != collect.Rollout && src.Kind != collect.AppServer && src.Kind != collect.Transcript {
+		if !collect.CanParent(src.Kind) {
 			continue
 		}
 		a, err := c.adapter(src)
@@ -151,7 +142,7 @@ func (b *Bridge) PickObserver(id, kind, name string) (string, error) {
 	src := selectedSource{Parent: id, Path: "local:observer"}
 	var label string
 	switch {
-	case kind == "hook" && parent.Kind() == collect.Transcript && name == "":
+	case kind == "hook" && collect.AcceptsParent(collect.ClaudeHook, parent.Kind()) && name == "":
 		src.Kind = collect.ClaudeHook
 		label = "Claude Code 도구 훅"
 	case kind == "mcp" && serverName.MatchString(name):

@@ -25,6 +25,18 @@ const (
 	MCP  = collect.MCPObserver
 )
 
+// endpoint returns the POST path of an observer kind. Each kind has its own
+// path, so a credential issued for one contract cannot deliver another.
+func endpoint(kind collect.Kind) string {
+	switch kind {
+	case Hook:
+		return "/v1/hooks"
+	case MCP:
+		return "/v1/mcp"
+	}
+	return ""
+}
+
 // Sink persists observations only for sources that the desktop has registered.
 type Sink interface {
 	Registered(context.Context, string) (bool, error)
@@ -53,16 +65,13 @@ func Listen(db Sink, parent *collect.Adapter, kind collect.Kind, serverName stri
 	if err != nil {
 		return nil, err
 	}
-	if db == nil || port < 0 || port > 65535 || len(bearer) < 32 || len(bearer) > 256 || strings.IndexFunc(bearer, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
+	path := endpoint(kind)
+	if db == nil || path == "" || port < 0 || port > 65535 || len(bearer) < 32 || len(bearer) > 256 || strings.IndexFunc(bearer, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
 		return nil, errors.New("invalid observation endpoint")
 	}
 	ln, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		return nil, err
-	}
-	path := "/v1/hooks"
-	if kind == MCP {
-		path = "/v1/mcp"
 	}
 	r := &Receiver{db: db, a: a, host: ln.Addr().String(), port: ln.Addr().(*net.TCPAddr).Port, path: path, digest: sha256.Sum256([]byte("Bearer " + bearer)), workers: make(chan struct{}, 4)}
 	r.http = &http.Server{Handler: r, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, IdleTimeout: 10 * time.Second, MaxHeaderBytes: 8192}
