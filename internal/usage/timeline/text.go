@@ -108,14 +108,50 @@ func clip(s string, limit int) (string, bool) {
 	return s[:cut], true
 }
 
+// maskGuardBytes is the stretch before the first cut whose text is never
+// shown. A secret split by that cut may be too short for its pattern and stay
+// unmasked; when masking shrinks the text before it, that stretch would
+// otherwise move into the output window.
+const maskGuardBytes = 512
+
 // displayText prepares transcript text for the screen: cut, mask, cut again.
 // The first cut bounds the cost of masking a huge tool result; the second
-// bounds what is sent to the UI.
+// bounds what is sent to the UI. When the first cut happened, nothing from
+// the last maskGuardBytes before it is shown.
 func displayText(s string) (text string, truncated bool, masked int) {
 	s, cutBefore := clip(s, usage.MaxMaskInput)
-	s, masked = usage.Mask(s)
-	s, cutAfter := clip(s, usage.MaxTimelineText)
-	return s, cutBefore || cutAfter, masked
+	whole, masked := usage.Mask(s)
+	if cutBefore {
+		whole = guardCut(s, whole)
+	}
+	whole, cutAfter := clip(whole, usage.MaxTimelineText)
+	return whole, cutBefore || cutAfter, masked
+}
+
+// guardCut drops from the masked text everything that comes from the last
+// maskGuardBytes of cut. Mask does not report where its replacements land,
+// so the text before the guard is masked on its own as well: every byte of
+// that result comes from before the guard, and the part it shares with the
+// masked whole is masked with the full context. The shared prefix is
+// therefore both bounded and as masked as the whole.
+func guardCut(cut, maskedWhole string) string {
+	head, _ := clip(cut, max(len(cut)-maskGuardBytes, 0))
+	maskedHead, _ := usage.Mask(head)
+	return commonPrefix(maskedWhole, maskedHead)
+}
+
+// commonPrefix is the longest common prefix of a and b that ends on a rune
+// boundary.
+func commonPrefix(a, b string) string {
+	n := min(len(a), len(b))
+	i := 0
+	for i < n && a[i] == b[i] {
+		i++
+	}
+	for i > 0 && i < len(a) && !utf8.RuneStart(a[i]) {
+		i--
+	}
+	return a[:i]
 }
 
 // cappedText joins text parts without growing past what displayText would

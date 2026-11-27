@@ -238,8 +238,14 @@ func (s *Service) SetConsent(ctx context.Context, granted bool) error {
 //     with that ID on the same page; an event without one before the first
 //     item that is later in time, only inside the page's time span. Events
 //     that match no page stay visible through extEvents.
-//   - setExtensionEnabled calls Extension.SetEnabled and then stores the
-//     outcome with Store.SetExtension.
+//   - setExtensionEnabled keeps the stored setting and the live endpoint in
+//     agreement. Switching on starts the endpoint, then stores the port, and
+//     stops the endpoint again when storing fails. Switching off fails
+//     closed: it stores the off state first and stops the endpoint even
+//     when storing fails, returning that error.
+//   - clearData withdraws consent, switches the extension endpoint off the
+//     same way when an ExtensionControl is configured, and then deletes all
+//     usage data.
 func (s *Service) Handle(ctx context.Context, method string, params json.RawMessage) (json.RawMessage, error) {
 	h, ok := s.methods[method]
 	if !ok {

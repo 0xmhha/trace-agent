@@ -540,10 +540,20 @@ func (s *Service) handleClearData(ctx context.Context, params json.RawMessage) (
 		return nil, fmt.Errorf("withdraw consent: %w", err)
 	}
 	s.withdraw()
+	// The endpoint goes off before the rows go: an event that arrived
+	// between Clear and the switch would outlive the clearing. A failure to
+	// switch it off does not keep the user's data from being deleted.
+	var switchErr error
+	if s.cfg.Extension != nil {
+		switchErr = s.disableExtension(ctx)
+	}
 	if err := s.cfg.Store.Clear(ctx); err != nil {
-		return nil, fmt.Errorf("clear usage data: %w", err)
+		return nil, errors.Join(fmt.Errorf("clear usage data: %w", err), switchErr)
 	}
 	s.invalidate()
+	if switchErr != nil {
+		return nil, switchErr
+	}
 	return s.status(ctx)
 }
 
@@ -558,12 +568,57 @@ func (s *Service) handleSetExtension(ctx context.Context, params json.RawMessage
 	if s.cfg.Extension == nil {
 		return nil, ErrExtensionUnavailable
 	}
-	port, err := s.cfg.Extension.SetEnabled(ctx, *request.Enabled)
-	if err != nil {
-		return nil, fmt.Errorf("switch extension endpoint: %w", err)
+	if *request.Enabled {
+		err = s.enableExtension(ctx)
+	} else {
+		err = s.disableExtension(ctx)
 	}
-	if err = s.cfg.Store.SetExtension(ctx, *request.Enabled, port); err != nil {
-		return nil, fmt.Errorf("store extension setting: %w", err)
+	if err != nil {
+		return nil, err
 	}
 	return s.status(ctx)
+}
+
+// enableExtension starts the endpoint and then records the port it bound.
+// When the record fails the endpoint is stopped again, so that the stored
+// setting and the live endpoint agree: the user would otherwise see it on
+// now and find it off after the next launch.
+func (s *Service) enableExtension(ctx context.Context) error {
+	port, err := s.cfg.Extension.SetEnabled(ctx, true)
+	if err != nil {
+		return fmt.Errorf("switch extension endpoint on: %w", err)
+	}
+	if err = s.cfg.Store.SetExtension(ctx, true, port); err != nil {
+		storeErr := fmt.Errorf("store extension setting: %w", err)
+		if _, stopErr := s.cfg.Extension.SetEnabled(ctx, false); stopErr != nil {
+			return errors.Join(storeErr, fmt.Errorf("switch extension endpoint back off: %w", stopErr))
+		}
+		return storeErr
+	}
+	return nil
+}
+
+// disableExtension records the endpoint as off and then stops it. It fails
+// closed: the off state is stored first so that a later launch does not
+// bring the endpoint back, and the endpoint is stopped even when storing
+// fails, because the user asked for it to be off.
+func (s *Service) disableExtension(ctx context.Context) error {
+	storeErr := s.storeExtensionOff(ctx)
+	if _, err := s.cfg.Extension.SetEnabled(ctx, false); err != nil {
+		return errors.Join(storeErr, fmt.Errorf("switch extension endpoint off: %w", err))
+	}
+	return storeErr
+}
+
+// storeExtensionOff keeps the last bound port, which the endpoint reuses
+// when it is switched on again.
+func (s *Service) storeExtensionOff(ctx context.Context) error {
+	settings, err := s.settings(ctx)
+	if err != nil {
+		return err
+	}
+	if err = s.cfg.Store.SetExtension(ctx, false, settings.ExtPort); err != nil {
+		return fmt.Errorf("store extension setting: %w", err)
+	}
+	return nil
 }

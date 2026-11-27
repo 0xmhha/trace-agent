@@ -21,13 +21,29 @@ import (
 // text field is cut to usage.MaxMaskInput, masked, then cut to
 // usage.MaxTimelineText. Tool input is masked value by value on the decoded
 // JSON and then re-encoded, so that escaped quotes cannot hide a secret.
+//
+// Once a page is full, Read looks at most maxTailLines further lines for the
+// next item. When none of them adds one, the page ends there with a
+// NextCursor at the following line, so NextCursor is empty only at the end
+// of the transcript.
 func Read(r io.ReadSeeker, req usage.TimelineRequest) (usage.TimelinePage, error) {
 	return read(r, req, usage.MaxLineBytes)
 }
 
+// maxTailLines bounds the itemless lines read after a page is full. Without
+// it a page over a transcript whose rest adds no item would read to the end
+// of the file, however large, before it could answer.
+const maxTailLines = 10_000
+
 // read is Read with the line size limit as a parameter, so that tests can
 // exercise the oversized-line path without building a 16 MiB line each time.
 func read(r io.ReadSeeker, req usage.TimelineRequest, maxLine int) (usage.TimelinePage, error) {
+	return readBounded(r, req, maxLine, maxTailLines)
+}
+
+// readBounded is read with the itemless tail bound as a parameter, so that
+// tests can reach it without writing ten thousand lines.
+func readBounded(r io.ReadSeeker, req usage.TimelineRequest, maxLine, maxTail int) (usage.TimelinePage, error) {
 	if r == nil {
 		return usage.TimelinePage{}, fmt.Errorf("%w: no transcript reader", usage.ErrBadRequest)
 	}
@@ -46,6 +62,8 @@ func read(r io.ReadSeeker, req usage.TimelineRequest, maxLine int) (usage.Timeli
 	page := usage.TimelinePage{Source: usage.SourceAvailable, Items: []usage.TimelineItem{}}
 	conv := converter{sessionID: req.SessionID, agentID: req.AgentID}
 	lines := newLineReader(r, offset, maxLine)
+	// tail counts the itemless lines read since the page became full.
+	tail := 0
 	for {
 		ln, err := lines.next()
 		if errors.Is(err, io.EOF) {
@@ -54,27 +72,12 @@ func read(r io.ReadSeeker, req usage.TimelineRequest, maxLine int) (usage.Timeli
 		if err != nil {
 			return usage.TimelinePage{}, fmt.Errorf("read transcript: %w", err)
 		}
-		if ln.oversized {
-			page.Skipped++
-			continue
-		}
 		// Once the page is full the reader keeps going over lines that add
 		// nothing, so that NextCursor is empty exactly when no item is left.
 		// The first line that would add items is undone and starts the next
 		// page, which keeps all items of one line on one page.
 		full := len(page.Items) >= limit
-		var before state
-		if full {
-			before = st.clone()
-		}
-		items, ok := conv.line(ln.data, ln.start, &st)
-		if !ok {
-			// An unterminated last line is most likely still being written.
-			if ln.terminated {
-				page.Skipped++
-			}
-			continue
-		}
+		items, ok, before := convertLine(&conv, ln, &st, full, &page)
 		if full && len(items) > 0 {
 			page.NextCursor, err = encodeCursor(ln.start, before)
 			if err != nil {
@@ -82,8 +85,45 @@ func read(r io.ReadSeeker, req usage.TimelineRequest, maxLine int) (usage.Timeli
 			}
 			return page, nil
 		}
-		page.Items = append(page.Items, items...)
+		if !full {
+			if ok {
+				page.Items = append(page.Items, items...)
+			}
+			continue
+		}
+		tail++
+		// Only a terminated line ends where the next one starts; a cursor
+		// anywhere else would be refused.
+		if tail >= maxTail && ln.terminated {
+			page.NextCursor, err = encodeCursor(lines.off, st)
+			if err != nil {
+				return usage.TimelinePage{}, err
+			}
+			return page, nil
+		}
 	}
+}
+
+// convertLine turns one line into items and counts it as skipped when it
+// cannot be read. before is the state ahead of the line, kept only when the
+// page is full, so that the line can be undone and start the next page.
+func convertLine(conv *converter, ln line, st *state, full bool, page *usage.TimelinePage) (items []usage.TimelineItem, ok bool, before state) {
+	if ln.oversized {
+		page.Skipped++
+		return nil, false, before
+	}
+	if full {
+		before = st.clone()
+	}
+	items, ok = conv.line(ln.data, ln.start, st)
+	// An unterminated last line is most likely still being written.
+	if !ok {
+		if ln.terminated {
+			page.Skipped++
+		}
+		return nil, false, before
+	}
+	return items, true, before
 }
 
 // pageLimit applies the default and the cap of the page size.
