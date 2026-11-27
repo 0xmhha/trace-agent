@@ -89,9 +89,11 @@ func validBearer(bearer string) bool {
 }
 
 // ServeHTTP checks the request in a fixed order: where it was addressed,
-// who sent it, what it carries, whether there is room for it, and only then
+// who sent it, whether there is room for it, what it carries, and only then
 // its content. Nothing is counted for a request that did not authenticate,
-// so an unauthenticated caller cannot write to the store at all.
+// so an unauthenticated caller cannot write to the store at all. Room is
+// taken before any store write, the rejection counts included, so that no
+// authenticated request reaches the store outside the admission limits.
 func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if !h.addressed(req) {
 		refuse(w, http.StatusForbidden)
@@ -102,10 +104,6 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	received := h.now()
-	if !jsonContent(req) {
-		h.refuseCounted(w, req, http.StatusUnsupportedMediaType)
-		return
-	}
 	select {
 	case h.workers <- struct{}{}:
 		defer func() { <-h.workers }()
@@ -115,6 +113,10 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	if !h.limiter.allow(received) {
 		refuseBusy(w)
+		return
+	}
+	if !jsonContent(req) {
+		h.refuseCounted(w, req, http.StatusUnsupportedMediaType)
 		return
 	}
 	body, status := readBody(w, req)

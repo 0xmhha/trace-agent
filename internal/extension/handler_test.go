@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"sync"
@@ -572,14 +573,11 @@ func TestHandlerKeepsNumberSpellingInAttributes(t *testing.T) {
 func TestHandlerLimitsRate(t *testing.T) {
 	f := newFixture(t)
 	body := encode(t, minimalEvent())
-	// Requests that fail earlier checks must not use up the allowance.
+	// Requests that fail to authenticate must not use up the allowance.
 	for range ratePerWindow {
 		unauthenticated := newRequest(body)
 		unauthenticated.Header.Del(headerAuthorization)
 		f.do(unauthenticated)
-		wrongContent := newRequest(body)
-		wrongContent.Header.Set(headerContentType, "text/plain")
-		f.do(wrongContent)
 	}
 	expect := func(want int) {
 		t.Helper()
@@ -606,6 +604,93 @@ func TestHandlerLimitsRate(t *testing.T) {
 		expect(http.StatusAccepted)
 	}
 	expect(http.StatusTooManyRequests)
+}
+
+func TestHandlerLimitsRateOfRefusedRequests(t *testing.T) {
+	body := encode(t, minimalEvent())
+	tooMany := make([]any, MaxEvents+1)
+	for i := range tooMany {
+		tooMany[i] = minimalEvent()
+	}
+	for _, tc := range []struct {
+		name   string
+		body   []byte
+		mutate func(*http.Request)
+		want   int
+	}{
+		{name: "wrong content type", body: body, mutate: func(r *http.Request) { r.Header.Set(headerContentType, "text/plain") },
+			want: http.StatusUnsupportedMediaType},
+		{name: "body too large", body: body, mutate: func(r *http.Request) { r.ContentLength = MaxBodyBytes + 1 },
+			want: http.StatusRequestEntityTooLarge},
+		{name: "too many events", body: encode(t, batch(tooMany...)), want: http.StatusRequestEntityTooLarge},
+		{name: "not an event", body: []byte("[]"), want: http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			send := func() *httptest.ResponseRecorder {
+				req := newRequest(tc.body)
+				if tc.mutate != nil {
+					tc.mutate(req)
+				}
+				return f.do(req)
+			}
+			for i := range ratePerWindow {
+				if rec := send(); rec.Code != tc.want {
+					t.Fatalf("request %d: status = %d; want %d", i, rec.Code, tc.want)
+				}
+			}
+			for i := range ratePerWindow {
+				rec := send()
+				if rec.Code != http.StatusTooManyRequests || rec.Header().Get(headerRetryAfter) != retryAfterSeconds {
+					t.Fatalf("request %d over the limit: status = %d, %s %q; want 429 with a wait",
+						ratePerWindow+i, rec.Code, headerRetryAfter, rec.Header().Get(headerRetryAfter))
+				}
+			}
+			if got := len(f.sink.rejectCalls()); got != ratePerWindow {
+				t.Fatalf("CountRejected calls = %d; want %d, one per admitted request", got, ratePerWindow)
+			}
+			if f.sink.appendCalls() != 0 {
+				t.Fatal("a refused request appended events")
+			}
+		})
+	}
+}
+
+func TestHandlerLimitsConcurrencyBeforeCounting(t *testing.T) {
+	sink := &fakeSink{blockAppend: true, entered: make(chan struct{}), release: make(chan struct{})}
+	h, err := NewHandler(sink, testHost, testBearer(), newFakeClock().Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &fixture{handler: h, sink: sink}
+	body := encode(t, minimalEvent())
+	codes := make(chan int, maxInFlight)
+	var wg sync.WaitGroup
+	for range maxInFlight {
+		wg.Go(func() { codes <- f.post(body).Code })
+	}
+	for range maxInFlight {
+		<-sink.entered
+	}
+	// With every slot taken, a wrong-content request must not reach the
+	// store's rejection counter.
+	wrongContent := newRequest(body)
+	wrongContent.Header.Set(headerContentType, "text/plain")
+	rec := f.do(wrongContent)
+	close(sink.release)
+	wg.Wait()
+	close(codes)
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d; want %d", rec.Code, http.StatusTooManyRequests)
+	}
+	if got := len(sink.rejectCalls()); got != 0 {
+		t.Fatalf("CountRejected calls = %d while every slot was taken; want 0", got)
+	}
+	for code := range codes {
+		if code != http.StatusAccepted {
+			t.Fatalf("in-flight request ended with %d", code)
+		}
+	}
 }
 
 func TestHandlerLimitsConcurrency(t *testing.T) {
