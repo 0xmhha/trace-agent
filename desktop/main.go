@@ -28,6 +28,7 @@ type Bridge struct {
 	server    *transport.Server
 	collector *collector
 	url       string
+	usage     *usageRuntime
 }
 
 // BootstrapResult carries a single-use connection ticket in process memory.
@@ -156,7 +157,12 @@ func runDesktop(dir string, storage vault, id string, ready func(context.Context
 		defer cancel()
 		_ = server.Close(shutdown)
 	}()
-	b := &Bridge{server: server, collector: c, url: url}
+	// Usage analytics is optional: when it cannot start, the trace features
+	// run as before and only the usage bridge methods report the failure.
+	u := startUsage(ctx, dir, productionUsageDeps(c))
+	defer func() { _ = u.close() }()
+	u.report(os.Stderr)
+	b := &Bridge{server: server, collector: c, url: url, usage: u}
 	assets, err := fs.Sub(files, "frontend/dist")
 	if err != nil {
 		return err
